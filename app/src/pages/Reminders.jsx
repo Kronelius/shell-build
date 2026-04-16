@@ -1,26 +1,53 @@
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import Toggle from '../components/Toggle';
 import StatCard from '../components/StatCard';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { REMINDER_SETTINGS_DEFAULT, REMINDER_STATS } from '../data/sampleData';
+import EmptyState from '../components/EmptyState';
+import Icon from '../components/Icon';
+import Badge from '../components/Badge';
+import { useDispatch, useStore } from '../store';
+import { ACTIONS } from '../store/reducer';
+import { usePermission } from '../hooks/usePermission';
+import { useToast } from '../components/Toast';
+import { selectReminderTemplates, selectReminderEvents, selectReminderStats, selectClientById } from '../store/selectors';
+import { fmtRelative } from '../lib/dates';
 
-const SETTINGS = [
-  { key: 'bookingConfirmation', label: 'Booking Confirmation', desc: 'Send immediately after job is scheduled' },
-  { key: 'reminder24h',         label: '24-Hour Reminder',     desc: 'Email + SMS one day before service' },
-  { key: 'dayOfEta',             label: 'Day-Of ETA Notice',    desc: 'Send crew arrival time on service day' },
-  { key: 'postService',          label: 'Post-Service Follow-Up', desc: 'Quality check email after job completion' },
-];
+const STAGE_META = {
+  booking_confirmation: { icon: 'schedule',  label: 'Job Booked',     hint: 'Sent immediately after booking' },
+  reminder_24h:         { icon: 'bell',      label: '24 Hours Before', hint: 'SMS + email day before' },
+  day_of_eta:           { icon: 'schedule',  label: 'Day-Of ETA',      hint: 'Crew on the way' },
+  post_service:         { icon: 'check',     label: 'Post-Service',    hint: 'Follow-up + feedback' },
+};
 
 export default function Reminders() {
-  const [settings, setSettings] = useLocalStorage('pp.reminderSettings', REMINDER_SETTINGS_DEFAULT);
+  const state = useStore();
+  const dispatch = useDispatch();
+  const toast = useToast();
+  const canEdit = usePermission('reminders.edit');
+  const templates = selectReminderTemplates(state);
+  const events = selectReminderEvents(state);
+  const stats = selectReminderStats(state);
 
-  const toggle = (key) => (val) => setSettings({ ...settings, [key]: val });
+  const history = useMemo(() => [...events].sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1)).slice(0, 50), [events]);
+
+  const toggle = (tpl) => () => {
+    dispatch({ type: ACTIONS.UPDATE_REMINDER_TEMPLATE, id: tpl.id, patch: { enabled: !tpl.enabled } });
+    toast.success(`${STAGE_META[tpl.key]?.label || tpl.key} ${!tpl.enabled ? 'enabled' : 'disabled'}`);
+  };
 
   return (
     <>
-      <div className="page-head"><h1>Automated Reminders</h1></div>
+      <div className="page-head">
+        <h1>Automated Reminders</h1>
+        {canEdit && (
+          <Link to="/settings/notifications" className="btn btn-outline" style={{ marginLeft: 'auto' }}>
+            <Icon name="edit" size={14} /> Edit Templates
+          </Link>
+        )}
+      </div>
 
       <div className="info-banner">
-        🔔
+        <Icon name="bell" size={20} />
         <div>
           <strong>Smart Reminders Active</strong><br />
           Automated confirmations, 24-hour reminders, and day-of notices.
@@ -28,56 +55,78 @@ export default function Reminders() {
       </div>
 
       <div className="stat-grid">
-        <StatCard value={REMINDER_STATS.sentThisMonth} label="Sent This Month" />
-        <StatCard value={`${REMINDER_STATS.deliveryRate}%`} label="Delivery Rate" />
-        <StatCard value={REMINDER_STATS.noShowsPrevented} label="No-Shows Prevented" />
+        <StatCard value={stats.sentThisMonth} label="Sent (last 30d)" />
+        <StatCard value={`${stats.deliveryRate}%`} label="Delivery Rate" />
+        <StatCard value={stats.noShowsPrevented} label="No-Shows Prevented" />
       </div>
 
       <div className="card dash-card">
         <div className="dash-card-title">Reminder Sequence</div>
         <div className="drip-flow">
-          <div className="drip-node">
-            <div className="drip-icon">📅</div>
-            <div>
-              <div className="text-xs font-semi text-muted">Job Booked</div>
-              <div className="text-sm font-semi">Confirmation Email</div>
-            </div>
-          </div>
-          <div className="drip-connector" />
-          <div className="drip-node">
-            <div className="drip-icon">⏲</div>
-            <div>
-              <div className="text-xs font-semi text-muted">24 Hours Before</div>
-              <div className="text-sm font-semi">Reminder SMS + Email</div>
-            </div>
-          </div>
-          <div className="drip-connector" />
-          <div className="drip-node">
-            <div className="drip-icon">🚚</div>
-            <div>
-              <div className="text-xs font-semi text-muted">Day-Of</div>
-              <div className="text-sm font-semi">ETA & Arrival Notice</div>
-            </div>
-          </div>
+          {templates.map((tpl, i) => {
+            const meta = STAGE_META[tpl.key] || { icon: 'bell', label: tpl.key, hint: '' };
+            return (
+              <div key={tpl.id} className="drip-node-wrap">
+                <div className={`drip-node ${tpl.enabled ? '' : 'off'}`}>
+                  <div className="drip-icon"><Icon name={meta.icon} size={18} /></div>
+                  <div>
+                    <div className="text-xs font-semi text-muted">{meta.label}</div>
+                    <div className="text-sm font-semi">{tpl.channel.toUpperCase()}{!tpl.enabled && ' · Off'}</div>
+                  </div>
+                </div>
+                {i < templates.length - 1 && <div className="drip-connector" />}
+              </div>
+            );
+          })}
         </div>
       </div>
 
       <div className="card dash-card">
         <div className="dash-card-title">Reminder Settings</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {SETTINGS.map((s) => (
-            <div
-              key={s.key}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <div>
-                <div className="text-sm font-semi">{s.label}</div>
-                <div className="text-xs text-muted">{s.desc}</div>
+          {templates.map((tpl) => {
+            const meta = STAGE_META[tpl.key] || { label: tpl.key, hint: '' };
+            return (
+              <div key={tpl.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div className="text-sm font-semi">{meta.label}</div>
+                  <div className="text-xs text-muted">{meta.hint}</div>
+                </div>
+                <Toggle on={!!tpl.enabled} onChange={toggle(tpl)} disabled={!canEdit} />
               </div>
-              <Toggle on={!!settings[s.key]} onChange={toggle(s.key)} />
-            </div>
-          ))}
+            );
+          })}
         </div>
+      </div>
+
+      <div className="card dash-card">
+        <div className="dash-card-title">Recent Activity</div>
+        {history.length === 0 ? (
+          <EmptyState icon={<Icon name="bell" size={24} />} title="No reminders sent yet" />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Sent</th><th>Template</th><th>Client</th><th>Channel</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {history.map((e) => {
+                  const meta = STAGE_META[e.templateKey] || { label: e.templateKey };
+                  const client = selectClientById(state, e.clientId);
+                  return (
+                    <tr key={e.id}>
+                      <td>{fmtRelative(e.sentAt)}</td>
+                      <td>{meta.label}</td>
+                      <td>{client?.name || '—'}</td>
+                      <td>{e.channel.toUpperCase()}</td>
+                      <td><Badge variant={e.status === 'sent' ? 'green' : 'red'}>{e.status}</Badge></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   );

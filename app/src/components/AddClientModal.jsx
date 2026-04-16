@@ -1,69 +1,88 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from './Modal';
-import { SERVICES, FREQUENCIES } from '../data/sampleData';
+import FormField from './FormField';
+import { useDispatch, useStore } from '../store';
+import { ACTIONS } from '../store/reducer';
+import { selectServices, selectFrequencies } from '../store/selectors';
+import { useToast } from './Toast';
 
-export default function AddClientModal({ open, onClose, onSubmit }) {
-  const [form, setForm] = useState({
-    name: '', service: '', frequency: '', contact: '', email: '', phone: '',
-  });
+const EMPTY = {
+  name: '', primaryContact: '', email: '', phone: '', serviceId: '', frequencyId: '', status: 'active',
+};
 
-  const handle = (f) => (e) => setForm({ ...form, [f]: e.target.value });
+export default function AddClientModal({ open, onClose, mode = 'create', initialData = null }) {
+  const state = useStore();
+  const dispatch = useDispatch();
+  const toast = useToast();
+  const services = selectServices(state);
+  const frequencies = selectFrequencies(state);
+
+  const [form, setForm] = useState(EMPTY);
+
+  useEffect(() => {
+    if (!open) return;
+    if (mode === 'edit' && initialData) {
+      setForm({
+        name: initialData.name || '',
+        primaryContact: initialData.primaryContact || '',
+        email: initialData.email || '',
+        phone: initialData.phone || '',
+        serviceId: initialData.serviceId || services[0]?.id || '',
+        frequencyId: initialData.frequencyId || frequencies[0]?.id || '',
+        status: initialData.status || 'active',
+      });
+    } else {
+      setForm({ ...EMPTY, serviceId: services[0]?.id || '', frequencyId: frequencies[0]?.id || '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialData, mode]);
 
   const submit = (e) => {
     e.preventDefault();
-    onSubmit({
-      id: `c${Date.now()}`,
-      name: form.name,
-      service: form.service,
-      frequency: form.frequency,
-      lastService: '—',
-      revenue: 0,
-      status: 'Active',
-    });
-    setForm({ name: '', service: '', frequency: '', contact: '', email: '', phone: '' });
+    if (!form.name.trim()) return;
+    const payload = {
+      name: form.name.trim(),
+      primaryContact: form.primaryContact.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      serviceId: form.serviceId,
+      frequencyId: form.frequencyId,
+      status: form.status,
+    };
+    if (mode === 'edit' && initialData) {
+      dispatch({ type: ACTIONS.UPDATE_CLIENT, id: initialData.id, patch: payload });
+      toast.success('Client updated');
+    } else {
+      dispatch({ type: ACTIONS.ADD_CLIENT, client: payload });
+      toast.success('Client added');
+    }
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Client">
+    <Modal open={open} onClose={onClose} title={mode === 'edit' ? 'Edit Client' : 'Add Client'}>
       <form onSubmit={submit}>
-        <div className="form-group">
-          <label className="form-label">Company Name</label>
-          <input className="input" value={form.name} onChange={handle('name')} required />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Primary Contact</label>
-          <input className="input" value={form.contact} onChange={handle('contact')} placeholder="Full name" />
+        <FormField label="Company name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Acme Corp" />
+        <FormField label="Primary contact" value={form.primaryContact} onChange={(e) => setForm({ ...form, primaryContact: e.target.value })} placeholder="Full name" />
+        <div className="form-row">
+          <FormField label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <FormField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
         <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input type="email" className="input" value={form.email} onChange={handle('email')} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Phone</label>
-            <input type="tel" className="input" value={form.phone} onChange={handle('phone')} />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Service</label>
-            <select className="input" value={form.service} onChange={handle('service')} required>
-              <option value="">Select…</option>
-              {SERVICES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Frequency</label>
-            <select className="input" value={form.frequency} onChange={handle('frequency')} required>
-              <option value="">Select…</option>
-              {FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
+          <FormField
+            label="Service" as="select" required value={form.serviceId}
+            onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
+            options={services.map((s) => ({ value: s.id, label: s.name }))}
+          />
+          <FormField
+            label="Frequency" as="select" required value={form.frequencyId}
+            onChange={(e) => setForm({ ...form, frequencyId: e.target.value })}
+            options={frequencies.map((f) => ({ value: f.id, label: f.label }))}
+          />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">Add Client</button>
+          <button type="submit" className="btn btn-primary">{mode === 'edit' ? 'Save Changes' : 'Add Client'}</button>
         </div>
       </form>
     </Modal>
