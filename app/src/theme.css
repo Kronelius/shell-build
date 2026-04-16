@@ -1,0 +1,51 @@
+/* ============================================================
+   SHELL DEFAULTS — Neutral gray tokens (unthemed)
+   Match shell.html :root. Override in a theme file to skin.
+   ============================================================ */
+:root {
+  --font: 'Poppins', sans-serif;
+
+  /* Primary palette (neutral gray) */
+  --primary:       #6b7280;
+  --primary-light: #9ca3af;
+  --primary-hover: #4b5563;
+  --primary-deep:  #374151;
+  --primary-soft:  #f3f4f6;
+  --primary-bg:    #f9fafb;
+
+  /* Text */
+  --text-primary:  #111827;
+  --text-body:     #374151;
+  --text-muted:    #6b7280;
+  --text-faint:    #9ca3af;
+
+  /* Surfaces */
+  --page-bg:       #f9fafb;
+  --card-bg:       #ffffff;
+  --card-border:   #e5e7eb;
+  --border-light:  #f3f4f6;
+  --border-mid:    #e5e7eb;
+  --inset-bg:      #f9fafb;
+
+  /* Radii */
+  --card-radius:   12px;
+  --btn-radius:    8px;
+  --input-radius:  8px;
+  --badge-radius:  9999px;
+
+  /* Status */
+  --success:       #059669;
+  --warning:       #d97706;
+  --danger:        #dc2626;
+
+  /* Sidebar */
+  --sidebar-bg:     #111827;
+  --sidebar-border: #1f2937;
+
+  /* Avatars */
+  --avatar-1: #6b7280;
+  --avatar-2: #059669;
+  --avatar-3: #7c3aed;
+  --avatar-4: #dc2626;
+  --avatar-5: #0d9488;
+}
