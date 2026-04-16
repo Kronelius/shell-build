@@ -104,7 +104,6 @@ export default function Messaging() {
     <>
       <div className="page-head">
         <h1>Messaging</h1>
-        <span className="tier-badge">Add-on</span>
       </div>
       <div className="schedule-toolbar">
         <div className="tab-container tab-container-line">

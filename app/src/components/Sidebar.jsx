@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useStore } from '../store';
 import { selectCompany } from '../store/selectors';
@@ -6,40 +5,20 @@ import { usePermissionChecker } from '../hooks/usePermission';
 import Icon from './Icon';
 import UserSwitcher from './UserSwitcher';
 
-const CORE_NAV = [
+const NAV = [
   { to: '/',          label: 'Dashboard',  icon: 'dashboard', perm: 'dashboard.view', end: true },
+  { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use'  },
   { to: '/schedule',  label: 'Schedule',   icon: 'schedule',  perm: 'schedule.view'  },
   { to: '/clients',   label: 'Clients',    icon: 'clients',   perm: 'clients.view'   },
   { to: '/invoices',  label: 'Invoices',   icon: 'invoices',  perm: 'invoices.view'  },
   { to: '/reminders', label: 'Reminders',  icon: 'reminders', perm: 'reminders.view' },
 ];
 
-const ADDON_NAV = [
-  { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use', addon: true },
-];
-
 export default function Sidebar({ mobileOpen, onCloseMobile, onNewJob, canCreateJob }) {
   const company = selectCompany(useStore());
   const check = usePermissionChecker();
-  const [coreCollapsed, setCoreCollapsed] = useState(false);
-  const [addonCollapsed, setAddonCollapsed] = useState(false);
 
-  const allowedCore  = CORE_NAV.filter((n) => check(n.perm));
-  const allowedAddon = ADDON_NAV.filter((n) => check(n.perm));
-
-  const renderItem = (item) => (
-    <NavLink
-      key={item.to}
-      to={item.to}
-      end={item.end}
-      className={({ isActive }) => `nav-btn ${isActive ? 'active' : ''}`}
-      onClick={onCloseMobile}
-    >
-      <Icon name={item.icon} />
-      <span className="nav-btn-label">{item.label}</span>
-      {item.addon && <span className="nav-badge">Add-on</span>}
-    </NavLink>
-  );
+  const allowed = NAV.filter((n) => check(n.perm));
 
   return (
     <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
@@ -52,41 +31,20 @@ export default function Sidebar({ mobileOpen, onCloseMobile, onNewJob, canCreate
       </div>
 
       <nav className="sidebar-nav">
-        {allowedCore.length > 0 && (
-          <>
-            <div
-              className={`sidebar-section ${coreCollapsed ? 'collapsed' : ''}`}
-              onClick={() => setCoreCollapsed(!coreCollapsed)}
+        <div className="nav-group">
+          {allowed.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => `nav-btn ${isActive ? 'active' : ''}`}
+              onClick={onCloseMobile}
             >
-              Core Platform <span className="tier-badge">Core</span>
-              <span className="chevron">▾</span>
-            </div>
-            <div
-              className={`nav-group ${coreCollapsed ? 'collapsed' : ''}`}
-              style={{ maxHeight: coreCollapsed ? 0 : 300 }}
-            >
-              {allowedCore.map(renderItem)}
-            </div>
-          </>
-        )}
-
-        {allowedAddon.length > 0 && (
-          <>
-            <div
-              className={`sidebar-section ${addonCollapsed ? 'collapsed' : ''}`}
-              onClick={() => setAddonCollapsed(!addonCollapsed)}
-            >
-              Add-Ons <span className="tier-badge">Add-on</span>
-              <span className="chevron">▾</span>
-            </div>
-            <div
-              className={`nav-group ${addonCollapsed ? 'collapsed' : ''}`}
-              style={{ maxHeight: addonCollapsed ? 0 : 100 }}
-            >
-              {allowedAddon.map(renderItem)}
-            </div>
-          </>
-        )}
+              <Icon name={item.icon} />
+              <span className="nav-btn-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
 
         {check('settings.account') && (
           <NavLink
