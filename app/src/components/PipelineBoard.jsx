@@ -28,7 +28,9 @@ export default function PipelineBoard() {
   const contacts = selectPipelineContacts(state);
 
   const [ownerFilter, setOwnerFilter] = useState('all');
-  const [dragOverStage, setDragOverStage] = useState(null);
+  // { stage: string, index: number } — index is the insertion slot (0..cards.length) in that column.
+  const [dropTarget, setDropTarget] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
 
   const byStage = useMemo(() => {
     const map = Object.fromEntries(PIPELINE_STAGES.map((s) => [s.key, []]));
@@ -40,17 +42,67 @@ export default function PipelineBoard() {
     return map;
   }, [contacts, ownerFilter]);
 
+  // Decide whether the drop-slot should render before card at index `i` in stage `stageKey`.
+  const slotActive = (stageKey, i) =>
+    dropTarget && dropTarget.stage === stageKey && dropTarget.index === i;
+
+  const clearDrag = () => {
+    setDropTarget(null);
+    setDraggingId(null);
+  };
+
+  // Card-level drag-over: pick before/after this card based on mouse Y vs card midpoint.
+  const onCardDragOver = (e, stageKey, cardIndex) => {
+    if (!canEdit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    const index = before ? cardIndex : cardIndex + 1;
+    setDropTarget((prev) => (prev && prev.stage === stageKey && prev.index === index ? prev : { stage: stageKey, index }));
+  };
+
+  // Column-level drag-over only fires in empty space (card handlers stop propagation) → drop at end.
+  const onColDragOver = (e, stageKey) => {
+    if (!canEdit) return;
+    e.preventDefault();
+    const endIndex = (byStage[stageKey] || []).length;
+    setDropTarget((prev) => (prev && prev.stage === stageKey && prev.index === endIndex ? prev : { stage: stageKey, index: endIndex }));
+  };
+
+  const onColDragLeave = (e) => {
+    // Only clear when the cursor truly leaves the column (not when it moves into a child card).
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDropTarget((prev) => (prev ? null : prev));
+    }
+  };
+
   const handleDrop = (e, stageKey) => {
     e.preventDefault();
-    setDragOverStage(null);
-    if (!canEdit) return;
     const id = e.dataTransfer.getData('text/plain');
-    if (!id) return;
+    const target = dropTarget;
+    clearDrag();
+    if (!canEdit || !id) return;
     const current = contacts.find((c) => c.id === id);
-    if (!current || current.stage === stageKey) return;
-    dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey });
-    const label = PIPELINE_STAGES.find((s) => s.key === stageKey)?.label || stageKey;
-    toast.success(`${current.firstName} ${current.lastName} → ${label}`);
+    if (!current) return;
+
+    // Resolve the insertion anchor: the contact currently at the target index in the target stage (if any).
+    const stageCards = (byStage[stageKey] || []).filter((c) => c.id !== id);
+    const targetIndex = target && target.stage === stageKey ? target.index : stageCards.length;
+    const insertBeforeId = targetIndex < stageCards.length ? stageCards[targetIndex].id : null;
+
+    // Skip no-op: same stage AND would land in the same visual position.
+    if (current.stage === stageKey) {
+      const beforeOriginal = (byStage[stageKey] || []);
+      const originalIdx = beforeOriginal.findIndex((c) => c.id === id);
+      if (originalIdx === targetIndex || originalIdx === targetIndex - 1) return;
+    }
+
+    dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey, insertBeforeId });
+    if (current.stage !== stageKey) {
+      const label = PIPELINE_STAGES.find((s) => s.key === stageKey)?.label || stageKey;
+      toast.success(`${current.firstName} ${current.lastName} → ${label}`);
+    }
   };
 
   return (
@@ -64,19 +116,20 @@ export default function PipelineBoard() {
           options={[{ value: 'all', label: 'All owners' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
         />
         <div className="pipeline-hint text-xs text-muted">
-          {canEdit ? 'Drag cards between columns to advance stages.' : 'Read-only — pipeline.edit permission required to move cards.'}
+          {canEdit ? 'Drag cards between columns to advance stages. Drop between cards to reorder.' : 'Read-only — pipeline.edit permission required to move cards.'}
         </div>
       </div>
       <div className="pipeline-board">
         {PIPELINE_STAGES.map((stage) => {
           const cards = byStage[stage.key] || [];
           const sumValue = cards.reduce((acc, c) => acc + (c.dealValue || 0), 0);
+          const isDropTargetCol = dropTarget?.stage === stage.key;
           return (
             <div
               key={stage.key}
-              className={`pipeline-col ${dragOverStage === stage.key ? 'drag-over' : ''} stage-${stage.key}`}
-              onDragOver={(e) => { e.preventDefault(); setDragOverStage(stage.key); }}
-              onDragLeave={() => setDragOverStage((s) => (s === stage.key ? null : s))}
+              className={`pipeline-col ${isDropTargetCol ? 'drag-over' : ''} stage-${stage.key}`}
+              onDragOver={(e) => onColDragOver(e, stage.key)}
+              onDragLeave={onColDragLeave}
               onDrop={(e) => handleDrop(e, stage.key)}
             >
               <div className="pipeline-col-head">
@@ -87,17 +140,29 @@ export default function PipelineBoard() {
                 </div>
               </div>
               <div className="pipeline-col-body">
-                {cards.length === 0 && (
+                {cards.length === 0 && !slotActive(stage.key, 0) && (
                   <div className="pipeline-col-empty">
                     <span className="text-xs text-muted">No contacts</span>
                   </div>
                 )}
-                {cards.map((c) => (
-                  <PipelineCard
-                    key={c.id}
-                    contact={c}
-                    onClick={(contact) => navigate(`/clients/contact/${contact.id}`)}
-                  />
+                {cards.length === 0 && slotActive(stage.key, 0) && (
+                  <div className="pipeline-drop-slot" aria-hidden="true" />
+                )}
+                {cards.map((c, i) => (
+                  <div key={c.id} className="pipeline-card-wrap">
+                    {slotActive(stage.key, i) && <div className="pipeline-drop-slot" aria-hidden="true" />}
+                    <PipelineCard
+                      contact={c}
+                      dragging={draggingId === c.id}
+                      onClick={(contact) => navigate(`/clients/contact/${contact.id}`)}
+                      onDragStart={(contact) => setDraggingId(contact.id)}
+                      onDragEnd={clearDrag}
+                      onDragOver={(e) => onCardDragOver(e, stage.key, i)}
+                    />
+                    {i === cards.length - 1 && slotActive(stage.key, cards.length) && (
+                      <div className="pipeline-drop-slot" aria-hidden="true" />
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

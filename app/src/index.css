@@ -25,6 +25,49 @@ body {
   margin-bottom: 14px; padding-bottom: 10px;
   border-bottom: 1px solid var(--border-light);
 }
+.dash-card-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+.dash-card-title-row .dash-card-title {
+  margin: 0; padding: 0; border: none;
+}
+
+/* Follow-ups card rows — mixed-type "needs your attention" list. */
+.followup-list { display: flex; flex-direction: column; gap: 6px; }
+.followup-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--btn-radius);
+  cursor: pointer; text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.followup-row:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+.followup-row:active { transform: translateY(1px); }
+.followup-icon {
+  flex: 0 0 auto;
+  width: 28px; height: 28px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+}
+.followup-icon-lead   { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.followup-icon-thread { background: var(--primary-bg); color: var(--primary); }
+.followup-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.followup-primary {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+}
+.followup-secondary {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.followup-row > svg:last-child { flex: 0 0 auto; color: var(--text-faint); }
 
 /* ── STAT CARDS ── */
 .stat-grid {
@@ -1028,9 +1071,12 @@ tr.clickable:hover { background: var(--inset-bg); }
   background: var(--inset-bg); border: 1px solid var(--border-light);
   border-radius: var(--card-radius); padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
-.pipeline-col.drag-over { background: var(--primary-bg); border-color: var(--primary); }
+.pipeline-col.drag-over {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
 .pipeline-col-head { display: flex; align-items: center; gap: 6px; }
 .pipeline-col-title { font-size: 12px; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.04em; }
 .pipeline-col-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; }
@@ -1046,24 +1092,59 @@ tr.clickable:hover { background: var(--inset-bg); }
   padding: 16px; border: 1px dashed var(--border-mid);
   border-radius: var(--btn-radius); background: transparent;
 }
+/* Wrapper lets us render a drop-slot indicator before/after each card without breaking DnD. */
+.pipeline-card-wrap { display: flex; flex-direction: column; gap: 6px; }
+/* Slot indicator: shows where the dragged card will land. */
+.pipeline-drop-slot {
+  height: 4px; border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-bg);
+  animation: pipeline-slot-pulse 1.1s ease-in-out infinite;
+}
+@keyframes pipeline-slot-pulse {
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1; }
+}
 .pipeline-card {
   background: var(--card-bg); border: 1px solid var(--card-border);
   border-radius: var(--btn-radius); padding: 10px 12px;
-  cursor: grab; display: flex; flex-direction: column; gap: 4px;
+  cursor: grab; display: flex; flex-direction: column;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+  /* Fixed footprint so every card is the same rectangle regardless of content. */
+  height: 124px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .pipeline-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
 .pipeline-card:active { cursor: grabbing; }
-.pipeline-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
-.pipeline-card-name { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
-.pipeline-card-sub { font-size: 11px; color: var(--text-muted); }
-.pipeline-card-meta {
-  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+.pipeline-card.is-dragging { opacity: 0.4; }
+.pipeline-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 6px; min-height: 20px;
+}
+.pipeline-card-name {
+  font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3;
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pipeline-card-tag-slot { flex: 0 0 auto; display: flex; align-items: center; min-height: 18px; }
+.pipeline-card-sub {
+  font-size: 11px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-top: 2px;
 }
+.pipeline-card-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  margin-top: auto;
+  min-height: 18px;
+}
 .pipeline-card-value { font-size: 13px; font-weight: 700; color: var(--primary-deep); font-variant-numeric: tabular-nums; }
-.pipeline-card-owner { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.pipeline-card-value-empty { color: var(--text-muted); font-weight: 500; }
+.pipeline-card-owner {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px; min-height: 22px;
+}
 .stage-won { border-top: 3px solid var(--success); }
 .stage-lost { border-top: 3px solid var(--danger); }
 
@@ -1313,24 +1394,36 @@ tr.clickable:hover { background: var(--inset-bg); }
   background: var(--primary-bg);
   border-left-color: var(--primary);
 }
-.thread-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.thread-row-top {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+.thread-row-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  /* Reserve vertical space so body aligns with the 3-slot right-rail. */
+  min-height: 44px; justify-content: center;
 }
 .thread-row-name {
   font-size: 13px; font-weight: 600; color: var(--text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.thread-row-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
-.thread-row-bottom {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-}
 .thread-row-preview {
   font-size: 12px; color: var(--text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  flex: 1; min-width: 0;
 }
-.thread-row-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* Right-rail: three dedicated vertical slots so nothing overlaps. */
+.thread-row-right {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 4px;
+  min-width: 60px;
+}
+.thread-row-time {
+  font-size: 11px; color: var(--text-muted);
+  line-height: 1;
+}
+.thread-row-meta {
+  display: flex; align-items: center; gap: 4px;
+  min-height: 18px;
+  justify-content: flex-end;
+}
 .thread-row-meta .badge { min-width: 0; padding: 2px 8px; font-size: 10px; }
 .thread-unread {
   background: var(--primary); color: #fff;
@@ -1444,6 +1537,143 @@ tr.clickable:hover { background: var(--inset-bg); }
 .context-head-name:hover { text-decoration: underline; }
 .context-head-badges { display: flex; gap: 4px; }
 .context-head-badges .badge { min-width: 0; padding: 2px 8px; font-size: 10px; }
+/* Conversation-scoped icon buttons in the context-panel head (overflow menu + expand). */
+.context-head-actions {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 4px;
+}
+.context-head-icon-btn {
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  width: 28px; height: 28px; border-radius: var(--btn-radius);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.context-head-icon-btn:hover {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.context-head-icon-btn[aria-expanded="true"] {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.context-head-menu-wrap { position: relative; }
+.context-head-menu {
+  position: absolute; top: calc(100% + 4px); right: 0;
+  min-width: 180px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown, 50);
+  padding: 4px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.context-head-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; width: 100%;
+  background: transparent; border: none; cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 12px; color: var(--text-primary);
+  text-align: left;
+}
+.context-head-menu-item:hover { background: var(--inset-bg); }
+.context-head-menu-item.text-danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ── Callouts (inline hint/warning blocks) ── */
+.callout {
+  border: 1px solid var(--border-light);
+  border-radius: var(--btn-radius);
+  padding: 10px 12px;
+  background: var(--inset-bg);
+}
+.callout-warning {
+  border-color: var(--amber, #f59e0b);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--text-primary);
+}
+.callout-info {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--text-primary);
+}
+
+/* ── Contact focus modal (embedded ContactDetail over the app) ── */
+.focus-modal-overlay {
+  position: fixed; inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  animation: focus-modal-fade-in 0.18s ease-out;
+}
+@keyframes focus-modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.focus-modal-card {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  width: min(66vw, 1200px);
+  max-width: 100%;
+  height: min(90vh, 900px);
+  max-height: 100%;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: focus-modal-slide-in 0.2s ease-out;
+}
+@keyframes focus-modal-slide-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.focus-modal-close {
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+  width: 32px; height: 32px; border-radius: 999px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.focus-modal-close:hover {
+  background: var(--inset-bg);
+  color: var(--text-primary);
+  border-color: var(--border-mid);
+}
+.focus-modal-body {
+  flex: 1; overflow-y: auto;
+  padding: 24px 28px;
+}
+
+/* Embedded ContactDetail — drops the page-pad and adds its own compact header. */
+.contact-detail-embedded { display: flex; flex-direction: column; gap: 16px; }
+.contact-focus-head {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+.contact-focus-head-text { flex: 1; min-width: 0; }
+.contact-focus-head-title {
+  font-size: 22px; font-weight: 700; color: var(--text-primary);
+  line-height: 1.2;
+}
+.contact-focus-head-actions { flex: 0 0 auto; padding-right: 40px; /* clear close button */ }
+
+@media (max-width: 900px) {
+  .focus-modal-card { width: 100%; height: 100%; }
+  .focus-modal-overlay { padding: 0; }
+  .focus-modal-card { border-radius: 0; }
+}
 .context-tabs { padding: 0 12px; }
 .context-tabs .tab-btn { padding: 8px 8px; font-size: 12px; }
 .context-body {
@@ -1545,8 +1775,34 @@ tr.clickable:hover { background: var(--inset-bg); }
    Messaging Phase 2b — assignment / status / star / follow / folders / bulk
    ───────────────────────────────────────────────────────────────────────── */
 
+/* Thread list section headers (Pinned / All conversations) */
+.thread-section-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px 4px;
+  font-size: 10px; font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--inset-bg);
+  border-bottom: 1px solid var(--border-light);
+}
+.thread-section-header svg { color: var(--warning); }
+.thread-section-header-muted {
+  color: var(--text-muted);
+  background: transparent;
+  border-top: 1px solid var(--border-light);
+  margin-top: 2px;
+}
+.thread-section-header-muted svg { color: var(--text-muted); }
+.thread-section-count {
+  margin-left: auto;
+  font-weight: 600; color: var(--text-muted);
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  padding: 1px 6px; border-radius: var(--badge-radius);
+  font-size: 9px;
+}
+
 /* Thread-row additions */
-.thread-row { position: relative; }
 .thread-row-check {
   display: flex; align-items: center;
   padding: 2px;
@@ -1571,7 +1827,6 @@ tr.clickable:hover { background: var(--inset-bg); }
 .thread-row.status-closed.active { opacity: 1; }
 
 .thread-star-btn {
-  position: absolute; right: 8px; top: 8px;
   width: 22px; height: 22px;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent;
@@ -1589,6 +1844,8 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 .thread-assignee { display: inline-flex; }
 
+/* Legacy folder-dot selectors kept below for backward compatibility with dev-server
+   DOM that hasn't reloaded. Safe to remove after a hard reload. */
 .thread-folder-dots { display: inline-flex; gap: 2px; }
 .thread-folder-dot {
   width: 6px; height: 6px;
@@ -1737,127 +1994,86 @@ tr.clickable:hover { background: var(--inset-bg); }
 .status-dot-amber { background: var(--warning); }
 .status-dot-slate { background: var(--text-faint); }
 
-/* Folder color dots — shared palette (reuses accent tokens). */
-.folder-color-red    { background: var(--danger); color: #fff; }
-.folder-color-amber  { background: var(--warning); color: #fff; }
-.folder-color-green  { background: var(--success); color: #fff; }
-.folder-color-blue   { background: var(--primary); color: #fff; }
-.folder-color-purple { background: var(--color-accent-purple-500); color: #fff; }
-.folder-color-slate  { background: var(--text-faint); color: #fff; }
-/* When applied to a tiny dot element, only the bg matters. */
-.thread-folder-dot.folder-color-red    { background: var(--danger); }
-.thread-folder-dot.folder-color-amber  { background: var(--warning); }
-.thread-folder-dot.folder-color-green  { background: var(--success); }
-.thread-folder-dot.folder-color-blue   { background: var(--primary); }
-.thread-folder-dot.folder-color-purple { background: var(--color-accent-purple-500); }
-.thread-folder-dot.folder-color-slate  { background: var(--text-faint); }
-
-/* Folder chip (context panel + filter popover) */
-.folder-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  font-size: 11px; font-weight: 600;
-  border: 1px solid transparent;
-}
-.folder-chip .folder-chip-dot {
-  width: 8px; height: 8px; border-radius: var(--radius-full);
-  /* dot inherits color via folder-color-* on parent */
-}
-.folder-chip.folder-color-red    .folder-chip-dot { background: var(--danger); }
-.folder-chip.folder-color-amber  .folder-chip-dot { background: var(--warning); }
-.folder-chip.folder-color-green  .folder-chip-dot { background: var(--success); }
-.folder-chip.folder-color-blue   .folder-chip-dot { background: var(--primary); }
-.folder-chip.folder-color-purple .folder-chip-dot { background: var(--color-accent-purple-500); }
-.folder-chip.folder-color-slate  .folder-chip-dot { background: var(--text-faint); }
-/* Neutral chip background so the dot does the coloring */
-.folder-chip { background: var(--inset-bg); color: var(--text-primary); }
-.folder-chip-remove {
-  background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: 12px; line-height: 1; padding: 0 2px;
-}
-.folder-chip-remove:hover { color: var(--danger); }
-
-.folder-filter-chip {
-  background: var(--card-bg) !important;
-  color: var(--text-body) !important;
-}
-.folder-filter-chip.on {
-  background: var(--primary) !important;
-  color: #fff !important;
-}
-.folder-filter-chip.on .folder-chip-dot { background: #fff !important; opacity: 0.9; }
-.folder-filter-chip .folder-chip-dot {
-  width: 6px; height: 6px; border-radius: var(--radius-full);
-}
-
-/* Folder picker (inline popover) */
-.folder-picker-popover {
-  position: absolute;
-  top: calc(100% + 4px); left: 0;
-  min-width: 200px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: var(--z-dropdown);
-  padding: 4px;
-  display: flex; flex-direction: column; gap: 1px;
-}
-.folder-option {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 10px; width: 100%;
-  background: transparent; border: none; cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-size: 12px; color: var(--text-primary);
-  text-align: left;
-}
-.folder-option:hover { background: var(--primary-bg); }
-.folder-option.on { background: var(--primary-bg); font-weight: 600; }
-.folder-option svg { margin-left: auto; color: var(--primary); }
-.folder-option .folder-chip-dot {
-  width: 10px; height: 10px; border-radius: var(--radius-full);
-}
-
-/* Folders card in the context panel */
+/* Shared card-title row (title + inline actions) */
 .context-card-title-row {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 6px;
 }
 .context-card-title-row .context-card-title { margin: 0; }
-.folder-card-actions { display: flex; gap: 8px; }
-.folder-chips-row {
-  position: relative;
-  display: flex; flex-wrap: wrap; gap: 4px;
+
+/* Inline-editable inputs for the contact details card.
+   Transparent-until-focused so the card still reads as a summary,
+   not a form — but every field is directly clickable. */
+.context-dl-editable dt { padding-top: 5px; }
+.context-dl-editable dd { display: flex; align-items: center; min-width: 0; }
+.inline-input,
+.inline-select {
+  width: 100%; max-width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  font: inherit; color: inherit;
+  transition: border-color 0.12s, background 0.12s;
+}
+.inline-input:hover:not(:disabled),
+.inline-select:hover:not(:disabled) {
+  border-color: var(--border-light);
+  background: var(--card-bg);
+}
+.inline-input:focus,
+.inline-select:focus {
+  border-color: var(--primary);
+  background: var(--card-bg);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-bg);
+}
+.inline-input:disabled,
+.inline-select:disabled {
+  cursor: default; opacity: 0.85;
+}
+.inline-input::placeholder { color: var(--text-faint); }
+.inline-select {
+  appearance: auto;
+  cursor: pointer;
+}
+.assigned-user-cell {
+  display: flex; align-items: center; gap: 6px;
+}
+.assigned-user-cell .inline-select { flex: 1; min-width: 0; }
+
+/* Dirty-state save row — only rendered when a field differs from the stored contact. */
+.context-card-save-row {
+  display: flex; justify-content: flex-end; gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
 }
 
-/* FolderManager modal */
-.folder-add-row {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-light);
-  margin-bottom: 12px;
+/* Notes tab */
+.context-notes-card { display: flex; flex-direction: column; gap: 8px; }
+.notes-compose {
+  width: 100%;
+  resize: vertical;
+  min-height: 56px;
+  font-family: inherit;
+  font-size: 12px;
 }
-.folder-color-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.folder-color-dot {
-  width: 20px; height: 20px;
-  border-radius: var(--radius-full);
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
+.notes-compose-actions { display: flex; justify-content: flex-end; }
+.notes-history {
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 4px 0 0;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px; overflow-y: auto;
 }
-.folder-color-dot.selected {
-  border-color: var(--text-primary);
-  box-shadow: 0 0 0 2px var(--card-bg);
-}
-.folder-list { display: flex; flex-direction: column; gap: 8px; }
-.folder-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px;
-  background: var(--inset-bg);
-  border-radius: var(--radius-md);
-}
-.folder-rename-input { flex: 1; min-width: 120px; }
 
 /* Filter popover extensions */
 .filter-label-row {

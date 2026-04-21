@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import FormField from './FormField';
+import ContactPicker from './ContactPicker';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectActiveClients, selectSitesForClient } from '../store/selectors';
+import { selectActiveClients, selectClientById, selectSitesForClient } from '../store/selectors';
 import { useToast } from './Toast';
 import { newId } from '../lib/ids';
 import { todayIso, composeIso } from '../lib/dates';
@@ -22,9 +23,12 @@ export default function CreateInvoiceModal({ open, onClose, presetClientId = nul
   const toast = useToast();
   const clients = selectActiveClients(state);
 
+  const presetClient = presetClientId ? selectClientById(state, presetClientId) : null;
+
   const [form, setForm] = useState({
     clientId: presetClientId || '',
     siteId: presetSiteId || '',
+    billingContactId: presetClient?.primaryContactId || null,
     issueDate: todayIso(),
     dueDate: addDays(todayIso(), 30),
     taxRate: state.company.taxRate || 0,
@@ -33,9 +37,11 @@ export default function CreateInvoiceModal({ open, onClose, presetClientId = nul
 
   useEffect(() => {
     if (!open) return;
+    const seededClient = presetClientId ? selectClientById(state, presetClientId) : null;
     setForm({
       clientId: presetClientId || '',
       siteId: presetSiteId || '',
+      billingContactId: seededClient?.primaryContactId || null,
       issueDate: todayIso(),
       dueDate: addDays(todayIso(), 30),
       taxRate: state.company.taxRate || 0,
@@ -45,6 +51,17 @@ export default function CreateInvoiceModal({ open, onClose, presetClientId = nul
   }, [open, presetClientId, presetSiteId]);
 
   const clientSites = form.clientId ? selectSitesForClient(state, form.clientId) : [];
+
+  const onClientChange = (clientId) => {
+    const picked = clientId ? selectClientById(state, clientId) : null;
+    setForm({
+      ...form,
+      clientId,
+      siteId: '',
+      // Auto-fill billing contact from the client's primary contact (user can change).
+      billingContactId: picked?.primaryContactId || null,
+    });
+  };
 
   const updateLine = (id, patch) => setForm({
     ...form,
@@ -69,6 +86,7 @@ export default function CreateInvoiceModal({ open, onClose, presetClientId = nul
       invoice: {
         clientId: form.clientId,
         siteId: form.siteId || null,
+        billingContactId: form.billingContactId || null,
         jobIds: presetJobId ? [presetJobId] : [],
         issueDate: composeIso(form.issueDate, '12:00'),
         dueDate: composeIso(form.dueDate, '12:00'),
@@ -88,7 +106,7 @@ export default function CreateInvoiceModal({ open, onClose, presetClientId = nul
         <div className="form-row">
           <FormField
             label="Client" as="select" required value={form.clientId}
-            onChange={(e) => setForm({ ...form, clientId: e.target.value, siteId: '' })}
+            onChange={(e) => onClientChange(e.target.value)}
             options={[{ value: '', label: 'Select a client' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
           />
           {clientSites.length > 0 && (
@@ -98,6 +116,18 @@ export default function CreateInvoiceModal({ open, onClose, presetClientId = nul
               options={[{ value: '', label: '— No specific site —' }, ...clientSites.map((s) => ({ value: s.id, label: s.name }))]}
             />
           )}
+        </div>
+        <div className="form-group">
+          <label className="form-label">Billing contact</label>
+          <ContactPicker
+            value={form.billingContactId}
+            onChange={(id) => setForm({ ...form, billingContactId: id })}
+            companyId={form.clientId || null}
+            placeholder="Select a billing contact…"
+          />
+          <div className="text-xs text-muted" style={{ marginTop: 4 }}>
+            Optional — who receives the invoice. Defaults to the account's primary contact.
+          </div>
         </div>
         <div className="form-row">
           <FormField label="Issue date" type="date" value={form.issueDate} onChange={(e) => setForm({ ...form, issueDate: e.target.value })} />

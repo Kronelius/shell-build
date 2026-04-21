@@ -269,21 +269,35 @@ export default function ClientDetail() {
             />
           ) : (
             <div className="site-grid">
-              {sites.map((s) => (
-                <div key={s.id} className="card site-card">
-                  <div className="site-card-head">
-                    <h4>{s.name}</h4>
-                    {canEditSites && (
-                      <div className="site-card-actions">
-                        <button className="btn-icon" aria-label="Edit" onClick={() => setEditSite(s)}><Icon name="edit" size={16} /></button>
-                        <button className="btn-icon btn-icon-danger" aria-label="Delete" onClick={() => setConfirmDeleteSite(s)}><Icon name="trash" size={16} /></button>
-                      </div>
-                    )}
+              {sites.map((s) => {
+                const siteContact = s.siteContactId ? selectContactById(state, s.siteContactId) : null;
+                return (
+                  <div key={s.id} className="card site-card">
+                    <div className="site-card-head">
+                      <h4>{s.name}</h4>
+                      {canEditSites && (
+                        <div className="site-card-actions">
+                          <button className="btn-icon" aria-label="Edit" onClick={() => setEditSite(s)}><Icon name="edit" size={16} /></button>
+                          <button className="btn-icon btn-icon-danger" aria-label="Delete" onClick={() => setConfirmDeleteSite(s)}><Icon name="trash" size={16} /></button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-body">{s.address}</p>
+                    <div className="text-sm" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Icon name="user" size={14} />
+                      <span className="text-muted">Contact:</span>
+                      {siteContact ? (
+                        <Link className="link" to={`/contacts/${siteContact.id}`}>
+                          {siteContact.firstName} {siteContact.lastName}
+                        </Link>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </div>
+                    {s.accessNotes && <p className="text-muted text-sm" style={{ marginTop: 6 }}>Access: {s.accessNotes}</p>}
                   </div>
-                  <p className="text-sm text-body">{s.address}</p>
-                  {s.accessNotes && <p className="text-muted text-sm" style={{ marginTop: 6 }}>Access: {s.accessNotes}</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

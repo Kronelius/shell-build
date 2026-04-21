@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import TagPicker from './TagPicker';
 import { useStore } from '../store';
-import { selectActiveUsers, selectMessageFolders } from '../store/selectors';
+import { selectActiveUsers } from '../store/selectors';
 
 export const EMPTY_FILTERS = {
   channels: [],        // [] = all
@@ -12,7 +12,6 @@ export const EMPTY_FILTERS = {
   logic: 'and',        // 'and' | 'or'
   statuses: [],        // [] = all statuses (subset of 'open' | 'snoozed' | 'closed')
   starredOnly: false,  // true → only starred threads
-  folderIds: [],       // [] = any folder membership
 };
 
 const INBOXES = [
@@ -40,10 +39,9 @@ const STATUS_CHIPS = [
   { key: 'closed',  label: 'Closed' },
 ];
 
-function FiltersPopover({ filters, onFiltersChange, onClose, onManageFolders, canManageFolders }) {
+function FiltersPopover({ filters, onFiltersChange, onClose }) {
   const state = useStore();
   const activeUsers = selectActiveUsers(state);
-  const folders = selectMessageFolders(state);
   const wrapRef = useRef(null);
 
   useEffect(() => {
@@ -67,11 +65,6 @@ function FiltersPopover({ filters, onFiltersChange, onClose, onManageFolders, ca
     if (set.has(st)) set.delete(st); else set.add(st);
     onFiltersChange({ ...filters, statuses: Array.from(set) });
   };
-  const toggleFolder = (fid) => {
-    const set = new Set(filters.folderIds);
-    if (set.has(fid)) set.delete(fid); else set.add(fid);
-    onFiltersChange({ ...filters, folderIds: Array.from(set) });
-  };
 
   const anyFilter =
     filters.channels.length > 0 ||
@@ -79,8 +72,7 @@ function FiltersPopover({ filters, onFiltersChange, onClose, onManageFolders, ca
     filters.ownerId ||
     filters.dateRange !== 'all' ||
     filters.statuses.length > 0 ||
-    filters.starredOnly ||
-    filters.folderIds.length > 0;
+    filters.starredOnly;
 
   return (
     <div className="filters-popover" ref={wrapRef} role="dialog" aria-label="Filters">
@@ -133,36 +125,8 @@ function FiltersPopover({ filters, onFiltersChange, onClose, onManageFolders, ca
               checked={filters.starredOnly}
               onChange={(e) => onFiltersChange({ ...filters, starredOnly: e.target.checked })}
             />
-            <span>Starred only</span>
+            <span>Pinned only</span>
           </label>
-        </div>
-
-        <div className="filter-block">
-          <div className="filter-label-row">
-            <div className="filter-label">Folders</div>
-            {canManageFolders && (
-              <button type="button" className="linklike text-xs" onClick={onManageFolders}>
-                Manage
-              </button>
-            )}
-          </div>
-          {folders.length === 0 ? (
-            <span className="text-xs text-muted">No folders yet</span>
-          ) : (
-            <div className="filter-chips">
-              {folders.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`filter-chip folder-filter-chip folder-color-${f.color} ${filters.folderIds.includes(f.id) ? 'on' : ''}`}
-                  onClick={() => toggleFolder(f.id)}
-                >
-                  <span className="folder-chip-dot" />
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="filter-block">
@@ -230,9 +194,7 @@ export default function MessagingHeader({
   filters,
   onFiltersChange,
   canStart,
-  canManageFolders,
   onNewConversation,
-  onManageFolders,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -242,8 +204,7 @@ export default function MessagingHeader({
     filters.ownerId ||
     filters.dateRange !== 'all' ||
     filters.statuses.length > 0 ||
-    filters.starredOnly ||
-    filters.folderIds.length > 0;
+    filters.starredOnly;
 
   return (
     <header className="messaging-header">
@@ -284,8 +245,6 @@ export default function MessagingHeader({
               filters={filters}
               onFiltersChange={onFiltersChange}
               onClose={() => setFiltersOpen(false)}
-              onManageFolders={() => { setFiltersOpen(false); onManageFolders(); }}
-              canManageFolders={canManageFolders}
             />
           )}
         </div>

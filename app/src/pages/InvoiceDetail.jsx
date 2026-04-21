@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
-  selectInvoiceById, selectClientById, selectSiteById, invoiceTotal, invoicePaid,
-  invoiceBalance, deriveInvoiceStatus,
+  selectInvoiceById, selectClientById, selectSiteById, selectContactById,
+  invoiceTotal, invoicePaid, invoiceBalance, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useToast } from '../components/Toast';
 import DetailHeader from '../components/DetailHeader';
 import Badge, { statusBadgeVariant } from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ContactPicker from '../components/ContactPicker';
 import FormField from '../components/FormField';
 import Icon from '../components/Icon';
 import { newId } from '../lib/ids';
@@ -28,6 +29,7 @@ export default function InvoiceDetail() {
   const invoice = selectInvoiceById(state, invoiceId);
   const client = invoice ? selectClientById(state, invoice.clientId) : null;
   const site = invoice?.siteId ? selectSiteById(state, invoice.siteId) : null;
+  const billingContact = invoice?.billingContactId ? selectContactById(state, invoice.billingContactId) : null;
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(invoice);
@@ -78,6 +80,7 @@ export default function InvoiceDetail() {
         lineItems: currentForm.lineItems.map((li) => ({ ...li, qty: Number(li.qty) || 0, unitPrice: Number(li.unitPrice) || 0 })),
         taxRate: Number(currentForm.taxRate) || 0,
         siteId: currentForm.siteId || null,
+        billingContactId: currentForm.billingContactId || null,
       },
     });
     setEditing(false);
@@ -175,6 +178,19 @@ export default function InvoiceDetail() {
           <dl className="detail-dl">
             <div><dt>Client</dt><dd>{client ? <a className="link" href={`/clients/${client.id}`}>{client.name}</a> : '—'}</dd></div>
             <div><dt>Site</dt><dd>{site?.name || '—'}{site?.address ? <div className="text-muted text-sm">{site.address}</div> : null}</dd></div>
+            <div>
+              <dt>Billing contact</dt>
+              <dd>
+                {billingContact ? (
+                  <>
+                    <Link className="link" to={`/contacts/${billingContact.id}`}>
+                      {billingContact.firstName} {billingContact.lastName}
+                    </Link>
+                    {billingContact.email ? <div className="text-muted text-sm">{billingContact.email}</div> : null}
+                  </>
+                ) : '—'}
+              </dd>
+            </div>
             <div><dt>Issued</dt><dd>{fmtDateLong(invoice.issueDate)}</dd></div>
             <div><dt>Due</dt><dd>{fmtDateLong(invoice.dueDate)}</dd></div>
             <div><dt>Total</dt><dd className="money">{money(total)}</dd></div>
@@ -249,6 +265,18 @@ export default function InvoiceDetail() {
               <FormField label="Issue date" type="date" value={splitIso(currentForm.issueDate).date} onChange={(e) => setForm({ ...currentForm, issueDate: new Date(e.target.value + 'T12:00:00').toISOString() })} />
               <FormField label="Due date" type="date" value={splitIso(currentForm.dueDate).date} onChange={(e) => setForm({ ...currentForm, dueDate: new Date(e.target.value + 'T12:00:00').toISOString() })} />
               <FormField label="Tax rate (%)" type="number" value={currentForm.taxRate || 0} onChange={(e) => setForm({ ...currentForm, taxRate: e.target.value })} />
+            </div>
+          )}
+
+          {editing && (
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label">Billing contact</label>
+              <ContactPicker
+                value={currentForm.billingContactId || null}
+                onChange={(id) => setForm({ ...currentForm, billingContactId: id })}
+                companyId={currentForm.clientId || null}
+                placeholder="Select a billing contact…"
+              />
             </div>
           )}
 

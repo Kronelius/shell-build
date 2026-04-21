@@ -1,7 +1,6 @@
-// Bumped to v4 when Messaging Phase 2b shipped (assignment, status lifecycle,
-// starring, following, folders, bulk actions, crew visibility gate). v3 caches
-// lack the new conversation fields so they must be reseeded.
-const STORAGE_KEY = 'pp.store.v4';
+// v5: message-folders feature removed (messageFolders collection + folderIds on
+// conversations are gone). v4 caches still have those fields, so we force a reseed.
+const STORAGE_KEY = 'pp.store.v5';
 
 export function loadState() {
   try {

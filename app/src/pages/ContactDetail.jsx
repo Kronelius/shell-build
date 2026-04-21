@@ -45,8 +45,9 @@ const PIPELINE_STAGE_LABELS = {
   proposal: 'Proposal', won: 'Won', lost: 'Lost',
 };
 
-export default function ContactDetail() {
-  const { contactId } = useParams();
+export default function ContactDetail({ contactId: propContactId, embedded = false } = {}) {
+  const params = useParams();
+  const contactId = propContactId || params.contactId;
   const state = useStore();
   const dispatch = useDispatch();
   const toast = useToast();
@@ -71,7 +72,7 @@ export default function ContactDetail() {
   if (!contact) {
     return (
       <div style={{ padding: 32 }}>
-        <DetailHeader backTo="/clients" title="Contact not found" />
+        {embedded ? <h3>Contact not found</h3> : <DetailHeader backTo="/clients" title="Contact not found" />}
       </div>
     );
   }
@@ -116,34 +117,69 @@ export default function ContactDetail() {
     navigate('/clients');
   };
 
+  const headerBadges = (
+    <div className="flex-row" style={{ gap: 6 }}>
+      <Badge variant={LIFECYCLE_VARIANTS[contact.lifecycle] || 'slate'}>
+        {contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}
+      </Badge>
+      {contact.stage && <Badge variant="blue">{PIPELINE_STAGE_LABELS[contact.stage] || contact.stage}</Badge>}
+    </div>
+  );
+  // Prefer opening an existing thread over creating a new one — enforces "one thread per contact" UX.
+  // If any non-archived conversation exists, navigate to the most recently-active one;
+  // only fall through to NewConversationModal when the contact is truly thread-less.
+  const handleMessage = () => {
+    const existing = conversations
+      .filter((c) => !c.archived)
+      .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
+    if (existing.length > 0) {
+      navigate(`/messaging/${existing[0].id}`);
+    } else {
+      setNewConvOpen(true);
+    }
+  };
+
+  const headerActions = (
+    <div className="flex-row" style={{ gap: 8 }}>
+      {canStartConversation && (
+        <button className="btn btn-outline btn-sm" onClick={handleMessage}>
+          <Icon name="messaging" size={14} />
+          Message
+        </button>
+      )}
+      {canEditThis && <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
+      {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
+    </div>
+  );
+
   return (
-    <div className="page-pad">
-      <DetailHeader
-        backTo="/clients"
-        backLabel="Clients"
-        title={`${contact.firstName} ${contact.lastName}`}
-        subtitle={`${contact.title || '—'} · ${companyLabel}`}
-        badge={
-          <div className="flex-row" style={{ gap: 6 }}>
-            <Badge variant={LIFECYCLE_VARIANTS[contact.lifecycle] || 'slate'}>
-              {contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}
-            </Badge>
-            {contact.stage && <Badge variant="blue">{PIPELINE_STAGE_LABELS[contact.stage] || contact.stage}</Badge>}
+    <div className={embedded ? 'contact-detail-embedded' : 'page-pad'}>
+      {embedded ? (
+        <div className="contact-focus-head">
+          <Avatar
+            initials={`${(contact.firstName[0] || '').toUpperCase()}${(contact.lastName[0] || '').toUpperCase()}`}
+            variant={(contact.id.length % 5) + 1}
+            size="lg"
+          />
+          <div className="contact-focus-head-text">
+            <div className="contact-focus-head-title">
+              {contact.firstName} {contact.lastName}
+            </div>
+            <div className="text-muted text-sm">{contact.title || '—'} · {companyLabel}</div>
+            <div style={{ marginTop: 6 }}>{headerBadges}</div>
           </div>
-        }
-        actions={
-          <div className="flex-row" style={{ gap: 8 }}>
-            {canStartConversation && (
-              <button className="btn btn-outline btn-sm" onClick={() => setNewConvOpen(true)}>
-                <Icon name="messaging" size={14} />
-                Message
-              </button>
-            )}
-            {canEditThis && <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
-            {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
-          </div>
-        }
-      />
+          <div className="contact-focus-head-actions">{headerActions}</div>
+        </div>
+      ) : (
+        <DetailHeader
+          backTo="/clients"
+          backLabel="Clients"
+          title={`${contact.firstName} ${contact.lastName}`}
+          subtitle={`${contact.title || '—'} · ${companyLabel}`}
+          badge={headerBadges}
+          actions={headerActions}
+        />
+      )}
 
       <div className="tab-container tab-container-line">
         {TABS.map((t) => (

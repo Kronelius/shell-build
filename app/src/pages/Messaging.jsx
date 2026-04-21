@@ -16,7 +16,6 @@ import ConversationThreadList from '../components/ConversationThreadList';
 import ConversationMessagePanel from '../components/ConversationMessagePanel';
 import ConversationContextPanel from '../components/ConversationContextPanel';
 import NewConversationModal from '../components/NewConversationModal';
-import FolderManager from '../components/FolderManager';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
@@ -72,10 +71,6 @@ function passesFilters(conv, filters, state) {
   if (filters.starredOnly) {
     active.push(Boolean(conv.starred));
   }
-  if (filters.folderIds && filters.folderIds.length > 0) {
-    const set = new Set(conv.folderIds || []);
-    active.push(filters.folderIds.some((id) => set.has(id)));
-  }
   if (active.length === 0) return true;
   return filters.logic === 'or' ? active.some(Boolean) : active.every(Boolean);
 }
@@ -101,7 +96,6 @@ export default function Messaging() {
   const canStart = usePermission('messaging.startConversation');
   const canInternal = usePermission('messaging.internalComment');
   const canAssign = usePermission('messaging.assign');
-  const canManageFolders = usePermission('messaging.manageFolders');
   const canBulk = usePermission('messaging.bulkActions');
 
   const [selectedInbox, setSelectedInbox] = useState('my');
@@ -109,7 +103,6 @@ export default function Messaging() {
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState(paramId || null);
   const [newConvOpen, setNewConvOpen] = useState(false);
-  const [folderManagerOpen, setFolderManagerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   // Base inbox list (no filters/search applied yet) — also used for totals in rail counts.
@@ -219,9 +212,13 @@ export default function Messaging() {
     if (!activeConversation || !currentUser) return;
     dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_FOLLOW, id: activeConversation.id, userId: currentUser.id });
   };
-  const handleSetFolders = (folderIds) => {
+  const handleLinkContact = (contactId) => {
     if (!activeConversation) return;
-    dispatch({ type: ACTIONS.SET_CONVERSATION_FOLDERS, id: activeConversation.id, folderIds });
+    dispatch({
+      type: ACTIONS.UPDATE_CONVERSATION,
+      id: activeConversation.id,
+      patch: { contactId: contactId || null },
+    });
   };
 
   // --- Bulk selection ----------------------------------------------------
@@ -263,9 +260,7 @@ export default function Messaging() {
           filters={filters}
           onFiltersChange={setFilters}
           canStart={canStart}
-          canManageFolders={canManageFolders}
           onNewConversation={() => setNewConvOpen(true)}
-          onManageFolders={() => setFolderManagerOpen(true)}
         />
         <div className="msg-3pane">
           <ConversationThreadList
@@ -305,9 +300,7 @@ export default function Messaging() {
           <ConversationContextPanel
             conversation={activeConversation}
             contact={activeContact}
-            onSetFolders={handleSetFolders}
-            onManageFolders={() => setFolderManagerOpen(true)}
-            canManageFolders={canManageFolders}
+            onLinkContact={handleLinkContact}
           />
         </div>
       </div>
@@ -315,10 +308,6 @@ export default function Messaging() {
       <NewConversationModal
         open={newConvOpen}
         onClose={() => setNewConvOpen(false)}
-      />
-      <FolderManager
-        open={folderManagerOpen}
-        onClose={() => setFolderManagerOpen(false)}
       />
     </>
   );

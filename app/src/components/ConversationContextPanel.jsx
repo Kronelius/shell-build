@@ -2,15 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Avatar from './Avatar';
 import Badge, { statusBadgeVariant } from './Badge';
+import ContactPicker from './ContactPicker';
+import ContactFocusModal from './ContactFocusModal';
 import EmptyState from './EmptyState';
 import Icon from './Icon';
 import TagChip from './TagChip';
-import { useStore } from '../store';
+import { useToast } from './Toast';
+import { useDispatch, useStore } from '../store';
+import { ACTIONS } from '../store/reducer';
+import { usePermission } from '../hooks/usePermission';
+import { useAuth } from '../hooks/useAuth';
 import {
   selectClientById, selectInvoicesForContact, selectJobsForClient,
   selectSynthesizedActivityForContact, selectTagById, selectUserById,
-  selectMessageFolders, selectMessageFolderById,
-  invoiceTotal, deriveInvoiceStatus,
+  selectUsers, invoiceTotal, deriveInvoiceStatus,
 } from '../store/selectors';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
 
@@ -22,91 +27,268 @@ const LIFECYCLE_VARIANTS = {
   archived: 'slate',
 };
 
+const PIPELINE_STAGE_LABELS = {
+  new: 'New', contacted: 'Contacted', qualified: 'Qualified',
+  proposal: 'Proposal', won: 'Won', lost: 'Lost',
+};
+
+const VISIBILITY_LABELS = {
+  org: 'Organization',
+  team: 'Team',
+  private: 'Private',
+};
+
+// Tab keys are internal — labels are what the user sees.
+// "history" = synthesized timeline of events (was "Activities" before).
+// "activities" = related records (invoices, jobs) (was "Related" before).
 const TABS = [
   { key: 'contact',    label: 'Contact' },
+  { key: 'history',    label: 'History' },
   { key: 'activities', label: 'Activities' },
-  { key: 'related',    label: 'Related' },
+  { key: 'notes',      label: 'Notes' },
 ];
 
-// Shared folder card — lists current folders and lets the user toggle membership
-// via a dropdown. Also surfaces "Manage folders" for users with the manage perm.
-function FoldersCard({ conversation, onSetFolders, onManage, canManage }) {
-  const state = useStore();
-  const allFolders = selectMessageFolders(state);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onClick = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setPickerOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setPickerOpen(false); };
-    window.addEventListener('mousedown', onClick);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', onClick);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [pickerOpen]);
-
-  const current = (conversation.folderIds || []);
-  const toggle = (folderId) => {
-    const next = current.includes(folderId)
-      ? current.filter((id) => id !== folderId)
-      : [...current, folderId];
-    onSetFolders(next);
+// Build the inline-edit form shape from a contact. Kept outside the component so the
+// same snapshot logic drives both initial state and dirty-diff comparison.
+function buildForm(contact) {
+  if (!contact) return null;
+  return {
+    email: contact.email || '',
+    phone: contact.phone || '',
+    title: contact.title || '',
+    department: contact.customFields?.department || '',
+    address: contact.address || contact.customFields?.address || '',
+    ownerUserId: contact.ownerUserId || '',
+    visibility: contact.visibility || 'org',
+    stage: contact.stage || '',
+    dealValue: contact.dealValue ? String(contact.dealValue) : '',
+    expectedCloseDate: contact.expectedCloseDate ? contact.expectedCloseDate.slice(0, 10) : '',
   };
+}
+
+// Details card with inline-editable fields. Every field edits in place — no breakout.
+// A Save bar only appears when a field has actually changed from the stored contact.
+// Conversation-scoped actions (Change contact / Unlink) live in an overflow menu in the
+// context-panel HEAD — not here — so this card stays focused on the contact record itself.
+function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPicking }) {
+  const state = useStore();
+  const dispatch = useDispatch();
+  const toast = useToast();
+  const { currentUser } = useAuth();
+  const users = selectUsers(state);
+
+  const canEditAll = usePermission('contacts.edit');
+  const canAssignOwner = usePermission('contacts.assignOwner');
+  const canEdit = contact && (canEditAll || contact.ownerUserId === currentUser?.id);
+
+  const [form, setForm] = useState(() => buildForm(contact));
+  // Note: we don't reset `form` inside an effect — callers mount this component
+  // with key={contact.id} so switching threads remounts it with a fresh form.
+
+  if (!contact) {
+    return (
+      <div className="context-card">
+        <div className="context-card-title-row">
+          <div className="context-card-title">Contact</div>
+        </div>
+        <div className="text-xs text-muted" style={{ marginBottom: 8 }}>
+          This conversation isn't linked to a contact yet.
+        </div>
+        <ContactPicker
+          value={null}
+          onChange={(id) => onLinkContact?.(id || null)}
+          placeholder="Link a contact…"
+          allowClear={false}
+        />
+      </div>
+    );
+  }
+
+  if (picking) {
+    // Swap-linked-contact mode. Triggered from the overflow menu in the context head.
+    return (
+      <div className="context-card">
+        <div className="context-card-title-row">
+          <div className="context-card-title">Change linked contact</div>
+          <button type="button" className="linklike text-xs" onClick={() => onCancelPicking?.()}>
+            Cancel
+          </button>
+        </div>
+        <ContactPicker
+          value={contact.id}
+          onChange={(id) => { onLinkContact?.(id || null); onCancelPicking?.(); }}
+          companyId={company?.id || null}
+          placeholder="Pick a different contact…"
+        />
+      </div>
+    );
+  }
+
+  const original = buildForm(contact);
+  const isDirty = Object.keys(form).some((k) => form[k] !== original[k]);
+
+  const up = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const handleSave = () => {
+    const patch = {};
+    if (form.email !== original.email) patch.email = form.email.trim();
+    if (form.phone !== original.phone) patch.phone = form.phone.trim();
+    if (form.title !== original.title) patch.title = form.title.trim();
+    if (form.address !== original.address) patch.address = form.address.trim();
+    if (form.visibility !== original.visibility) patch.visibility = form.visibility;
+    if (form.dealValue !== original.dealValue) {
+      patch.dealValue = form.dealValue === '' ? null : Number(form.dealValue) || null;
+    }
+    if (form.expectedCloseDate !== original.expectedCloseDate) {
+      patch.expectedCloseDate = form.expectedCloseDate
+        ? new Date(form.expectedCloseDate + 'T12:00:00').toISOString()
+        : null;
+    }
+    if (form.department !== original.department) {
+      patch.customFields = { ...(contact.customFields || {}), department: form.department.trim() };
+    }
+
+    // Client-side email uniqueness check — the reducer silently drops duplicates, so
+    // we surface a clear error instead of letting the save appear to succeed.
+    if (patch.email) {
+      const lower = patch.email.toLowerCase();
+      const dup = (state.contacts || []).find(
+        (c) => c.id !== contact.id && (c.email || '').toLowerCase() === lower
+      );
+      if (dup) {
+        toast.error(`${dup.firstName} ${dup.lastName} already uses ${patch.email}`);
+        return;
+      }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      dispatch({ type: ACTIONS.UPDATE_CONTACT, id: contact.id, patch });
+    }
+    if (form.ownerUserId !== original.ownerUserId) {
+      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id: contact.id, userId: form.ownerUserId || null });
+    }
+    if (form.stage !== original.stage) {
+      // SET_CONTACT_STAGE also logs activity — only dispatch when stage actually changed.
+      dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id: contact.id, stage: form.stage });
+    }
+    toast.success('Contact updated');
+  };
+
+  const handleDiscard = () => setForm(buildForm(contact));
+
+  const showPipelineFields = contact.lifecycle === 'lead' || contact.lifecycle === 'prospect' || Boolean(contact.stage);
+  const selectedOwner = form.ownerUserId ? users.find((u) => u.id === form.ownerUserId) : null;
 
   return (
     <div className="context-card">
       <div className="context-card-title-row">
-        <div className="context-card-title">Folders</div>
-        <div className="folder-card-actions">
-          <button type="button" className="linklike text-xs" onClick={() => setPickerOpen((v) => !v)}>
-            {current.length === 0 ? 'Add to folder' : 'Change'}
-          </button>
-          {canManage && (
-            <button type="button" className="linklike text-xs" onClick={onManage}>
-              Manage
-            </button>
-          )}
+        <div className="context-card-title">Details</div>
+      </div>
+
+      <dl className="context-dl context-dl-editable">
+        <div>
+          <dt>Email</dt>
+          <dd>
+            <input className="inline-input" type="email" value={form.email} onChange={up('email')} disabled={!canEdit} />
+          </dd>
         </div>
-      </div>
-      <div className="folder-chips-row" ref={wrapRef}>
-        {current.length === 0 ? (
-          <span className="text-xs text-muted">Not filed</span>
-        ) : current.map((fid) => {
-          const f = selectMessageFolderById(state, fid);
-          if (!f) return null;
-          return (
-            <span key={f.id} className={`folder-chip folder-color-${f.color}`}>
-              <span className="folder-chip-dot" />
-              {f.label}
-              <button type="button" className="folder-chip-remove" aria-label={`Remove from ${f.label}`} onClick={() => toggle(f.id)}>×</button>
-            </span>
-          );
-        })}
-        {pickerOpen && (
-          <div className="folder-picker-popover">
-            {allFolders.length === 0 ? (
-              <div className="text-xs text-muted" style={{ padding: 10 }}>No folders yet.</div>
-            ) : allFolders.map((f) => {
-              const on = current.includes(f.id);
-              return (
-                <button key={f.id} type="button" className={`folder-option ${on ? 'on' : ''}`} onClick={() => toggle(f.id)}>
-                  <span className={`folder-chip-dot folder-color-${f.color}`} />
-                  <span>{f.label}</span>
-                  {on && <Icon name="check" size={12} />}
-                </button>
-              );
-            })}
-          </div>
+        <div>
+          <dt>Phone</dt>
+          <dd>
+            <input className="inline-input" type="tel" value={form.phone} onChange={up('phone')} disabled={!canEdit} placeholder="—" />
+          </dd>
+        </div>
+        <div>
+          <dt>Title</dt>
+          <dd>
+            <input className="inline-input" value={form.title} onChange={up('title')} disabled={!canEdit} placeholder="—" />
+          </dd>
+        </div>
+        <div>
+          <dt>Dept.</dt>
+          <dd>
+            <input className="inline-input" value={form.department} onChange={up('department')} disabled={!canEdit} placeholder="—" />
+          </dd>
+        </div>
+        <div>
+          <dt>Company</dt>
+          <dd>{company ? <Link to={`/clients/${company.id}`}>{company.name}</Link> : <span className="text-muted">—</span>}</dd>
+        </div>
+        <div>
+          <dt>Address</dt>
+          <dd>
+            <input className="inline-input" value={form.address} onChange={up('address')} disabled={!canEdit} placeholder="—" />
+          </dd>
+        </div>
+        <div>
+          <dt>Assigned user</dt>
+          <dd className="assigned-user-cell">
+            {selectedOwner && <Avatar initials={selectedOwner.initials} variant={selectedOwner.avatar} size="sm" />}
+            <select className="inline-select" value={form.ownerUserId} onChange={up('ownerUserId')} disabled={!canAssignOwner}>
+              <option value="">Unassigned</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </dd>
+        </div>
+        <div>
+          <dt>Visibility</dt>
+          <dd>
+            <select className="inline-select" value={form.visibility} onChange={up('visibility')} disabled={!canEdit}>
+              {Object.entries(VISIBILITY_LABELS).map(([v, label]) => (
+                <option key={v} value={v}>{label}</option>
+              ))}
+            </select>
+          </dd>
+        </div>
+        {showPipelineFields && (
+          <>
+            <div>
+              <dt>Stage</dt>
+              <dd>
+                <select className="inline-select" value={form.stage} onChange={up('stage')} disabled={!canEdit}>
+                  <option value="">—</option>
+                  {Object.entries(PIPELINE_STAGE_LABELS).map(([v, label]) => (
+                    <option key={v} value={v}>{label}</option>
+                  ))}
+                </select>
+              </dd>
+            </div>
+            <div>
+              <dt>Deal value</dt>
+              <dd>
+                <input
+                  className="inline-input" type="number" min="0" step="0.01"
+                  value={form.dealValue} onChange={up('dealValue')} disabled={!canEdit}
+                  placeholder="—"
+                />
+              </dd>
+            </div>
+            <div>
+              <dt>Close date</dt>
+              <dd>
+                <input
+                  className="inline-input" type="date"
+                  value={form.expectedCloseDate} onChange={up('expectedCloseDate')} disabled={!canEdit}
+                />
+              </dd>
+            </div>
+          </>
         )}
-      </div>
+        <div><dt>Last activity</dt><dd className="text-muted">{fmtRelative(contact.updatedAt || contact.createdAt)}</dd></div>
+        <div><dt>Created</dt><dd className="text-muted">{fmtDate(contact.createdAt)}</dd></div>
+      </dl>
+
+      {isDirty && (
+        <div className="context-card-save-row">
+          <button type="button" className="btn btn-outline btn-sm" onClick={handleDiscard}>Discard</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={handleSave}>Save</button>
+        </div>
+      )}
     </div>
   );
 }
 
-function InternalContextPanel({ conversation, onSetFolders, onManageFolders, canManageFolders }) {
+function InternalContextPanel({ conversation }) {
   const state = useStore();
   const participantIds = Array.from(new Set(
     (state.messages || [])
@@ -137,20 +319,31 @@ function InternalContextPanel({ conversation, onSetFolders, onManageFolders, can
             </ul>
           )}
         </div>
-        <FoldersCard
-          conversation={conversation}
-          onSetFolders={onSetFolders}
-          onManage={onManageFolders}
-          canManage={canManageFolders}
-        />
       </div>
     </aside>
   );
 }
 
-export default function ConversationContextPanel({ conversation, contact, onSetFolders, onManageFolders, canManageFolders }) {
+export default function ConversationContextPanel({ conversation, contact, onLinkContact }) {
   const state = useStore();
   const [tab, setTab] = useState('contact');
+  const [focusOpen, setFocusOpen] = useState(false);
+  // Conversation-scoped actions live on the panel HEAD, not inside the details card.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pickingContact, setPickingContact] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('mousedown', onClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   // Hooks must run on every render — compute activity/invoices/jobs up front,
   // even when we'll fall through to an early return below.
@@ -177,38 +370,106 @@ export default function ConversationContextPanel({ conversation, contact, onSetF
     );
   }
 
-  if (conversation.channel === 'internal' || !contact) {
-    return (
-      <InternalContextPanel
-        conversation={conversation}
-        onSetFolders={onSetFolders}
-        onManageFolders={onManageFolders}
-        canManageFolders={canManageFolders}
-      />
-    );
+  // Internal threads use a different panel entirely (participants list, no contact surface).
+  if (conversation.channel === 'internal') {
+    return <InternalContextPanel conversation={conversation} />;
   }
 
-  const company = contact.companyId ? selectClientById(state, contact.companyId) : null;
-  const owner = contact.ownerUserId ? selectUserById(state, contact.ownerUserId) : null;
+  const company = contact?.companyId ? selectClientById(state, contact.companyId) : null;
 
-  const initials = `${(contact.firstName || '')[0] || ''}${(contact.lastName || '')[0] || ''}`.toUpperCase() || 'C';
-  const avatarVariant = ((contact.id?.length || 0) % 5) + 1;
+  const initials = contact
+    ? (`${(contact.firstName || '')[0] || ''}${(contact.lastName || '')[0] || ''}`.toUpperCase() || 'C')
+    : '?';
+  const avatarVariant = ((contact?.id?.length || 0) % 5) + 1;
+
+  // When no contact is linked, synthesize a neutral header from the conversation itself.
+  const channelLabel = (conversation.channel || '').toUpperCase();
+  const unlinkedTitle = conversation.title
+    || conversation.handle
+    || (channelLabel ? `${channelLabel} conversation` : 'Unlinked conversation');
 
   return (
     <aside className="context-pane">
       <div className="context-head">
         <Avatar initials={initials} variant={avatarVariant} size="md" />
         <div className="context-head-text">
-          <Link to={`/contacts/${contact.id}`} className="context-head-name">
-            {contact.firstName} {contact.lastName}
-          </Link>
-          <div className="text-xs text-muted">{contact.title || '—'}</div>
-          <div className="context-head-badges">
-            <Badge variant={LIFECYCLE_VARIANTS[contact.lifecycle] || 'slate'}>
-              {contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}
-            </Badge>
-          </div>
+          {contact ? (
+            <>
+              <Link to={`/contacts/${contact.id}`} className="context-head-name">
+                {contact.firstName} {contact.lastName}
+              </Link>
+              <div className="text-xs text-muted">{contact.title || '—'}</div>
+              <div className="context-head-badges">
+                <Badge variant={LIFECYCLE_VARIANTS[contact.lifecycle] || 'slate'}>
+                  {contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}
+                </Badge>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="context-head-name">{unlinkedTitle}</div>
+              <div className="text-xs text-muted">No contact linked</div>
+              <div className="context-head-badges">
+                <Badge variant="slate">Unlinked</Badge>
+              </div>
+            </>
+          )}
         </div>
+        {contact && (
+          <div className="context-head-actions">
+            <div className="context-head-menu-wrap" ref={menuRef}>
+              <button
+                type="button"
+                className="context-head-icon-btn"
+                aria-label="Conversation link options"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                title="Conversation link options"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <Icon name="dots" size={16} />
+              </button>
+              {menuOpen && (
+                <div className="context-head-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="context-head-menu-item"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setTab('contact');
+                      setPickingContact(true);
+                    }}
+                  >
+                    <Icon name="user" size={14} />
+                    <span>Change contact</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="context-head-menu-item text-danger"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onLinkContact?.(null);
+                    }}
+                  >
+                    <Icon name="x" size={14} />
+                    <span>Unlink conversation</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="context-head-icon-btn"
+              aria-label="Open contact in focus view"
+              title="Open contact in focus view"
+              onClick={() => setFocusOpen(true)}
+            >
+              <Icon name="expand" size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="tab-container tab-container-line context-tabs">
@@ -222,45 +483,34 @@ export default function ConversationContextPanel({ conversation, contact, onSetF
       <div className="context-body">
         {tab === 'contact' && (
           <>
-            <div className="context-card">
-              <div className="context-card-title">Details</div>
-              <dl className="context-dl">
-                <div><dt>Email</dt><dd>{contact.email}</dd></div>
-                <div><dt>Phone</dt><dd>{contact.phone || '—'}</dd></div>
-                <div><dt>Company</dt><dd>{company ? <Link to={`/clients/${company.id}`}>{company.name}</Link> : '—'}</dd></div>
-                <div><dt>Owner</dt><dd>{owner ? owner.name : 'Unassigned'}</dd></div>
-              </dl>
-            </div>
-            <div className="context-card">
-              <div className="context-card-title">Tags</div>
-              <div className="flex-row" style={{ gap: 4 }}>
-                {(contact.tagIds || []).length === 0 ? (
-                  <span className="text-xs text-muted">No tags</span>
-                ) : (contact.tagIds || []).map((tid) => {
-                  const t = selectTagById(state, tid);
-                  return t ? <TagChip key={tid} tag={t} /> : null;
-                })}
-              </div>
-            </div>
-            <FoldersCard
-              conversation={conversation}
-              onSetFolders={onSetFolders}
-              onManage={onManageFolders}
-              canManage={canManageFolders}
+            <ContactLinkCard
+              key={contact?.id || 'unlinked'}
+              contact={contact}
+              company={company}
+              onLinkContact={onLinkContact}
+              picking={pickingContact}
+              onCancelPicking={() => setPickingContact(false)}
             />
-            <div className="context-card">
-              <Link to={`/contacts/${contact.id}`} className="btn btn-outline btn-sm context-full-link">
-                Open full profile
-                <Icon name="chevronRight" size={12} />
-              </Link>
-            </div>
+            {contact && (
+              <div className="context-card">
+                <div className="context-card-title">Tags</div>
+                <div className="flex-row" style={{ gap: 4 }}>
+                  {(contact.tagIds || []).length === 0 ? (
+                    <span className="text-xs text-muted">No tags</span>
+                  ) : (contact.tagIds || []).map((tid) => {
+                    const t = selectTagById(state, tid);
+                    return t ? <TagChip key={tid} tag={t} /> : null;
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
 
-        {tab === 'activities' && (
+        {tab === 'history' && (
           <div className="context-card">
             {activity.length === 0 ? (
-              <EmptyState message="No activity yet." />
+              <EmptyState message={contact ? 'No activity yet.' : 'Link a contact to see their activity.'} />
             ) : (
               <ul className="context-activity">
                 {activity.map((a) => (
@@ -277,12 +527,12 @@ export default function ConversationContextPanel({ conversation, contact, onSetF
           </div>
         )}
 
-        {tab === 'related' && (
+        {tab === 'activities' && (
           <>
             <div className="context-card">
               <div className="context-card-title">Invoices ({invoices.length})</div>
               {invoices.length === 0 ? (
-                <div className="text-xs text-muted">No invoices linked.</div>
+                <div className="text-xs text-muted">{contact ? 'No invoices linked.' : 'Link a contact to see related invoices.'}</div>
               ) : (
                 <ul className="context-related">
                   {invoices.slice(0, 5).map((inv) => {
@@ -306,7 +556,7 @@ export default function ConversationContextPanel({ conversation, contact, onSetF
             <div className="context-card">
               <div className="context-card-title">Jobs ({jobs.length})</div>
               {jobs.length === 0 ? (
-                <div className="text-xs text-muted">No jobs linked via this contact's account.</div>
+                <div className="text-xs text-muted">{contact ? "No jobs linked via this contact's account." : 'Link a contact to see related jobs.'}</div>
               ) : (
                 <ul className="context-related">
                   {jobs.slice(0, 5).map((j) => (
@@ -325,7 +575,100 @@ export default function ConversationContextPanel({ conversation, contact, onSetF
             </div>
           </>
         )}
+
+        {tab === 'notes' && (
+          <NotesCard key={contact?.id || 'unlinked-notes'} contact={contact} />
+        )}
       </div>
+
+      <ContactFocusModal
+        open={focusOpen}
+        onClose={() => setFocusOpen(false)}
+        contactId={contact?.id || null}
+      />
     </aside>
+  );
+}
+
+// Notes tab — compact append-then-scroll layout. Uses the same APPEND_CONTACT_NOTE
+// action the full Contact page uses, so notes stay consistent across surfaces.
+function NotesCard({ contact }) {
+  const dispatch = useDispatch();
+  const toast = useToast();
+  const { currentUser } = useAuth();
+  const canEditAll = usePermission('contacts.edit');
+  const canEditThis = contact && (canEditAll || contact.ownerUserId === currentUser?.id);
+  const [draft, setDraft] = useState('');
+
+  if (!contact) {
+    return (
+      <div className="context-card">
+        <div className="context-card-title">Notes</div>
+        <div className="text-xs text-muted">Link a contact to add notes.</div>
+      </div>
+    );
+  }
+
+  const append = () => {
+    const text = draft.trim();
+    if (!text) return;
+    dispatch({
+      type: ACTIONS.APPEND_CONTACT_NOTE,
+      id: contact.id,
+      text,
+      authorUserId: currentUser?.id,
+    });
+    setDraft('');
+    toast.success('Note added');
+  };
+
+  const onKeyDown = (e) => {
+    // Ctrl/Cmd+Enter to append — keeps Enter free for newlines.
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      append();
+    }
+  };
+
+  return (
+    <div className="context-card context-notes-card">
+      <div className="context-card-title-row">
+        <div className="context-card-title">Notes</div>
+        {draft.trim() && (
+          <span className="text-xs text-muted">⌘↵ to save</span>
+        )}
+      </div>
+
+      {canEditThis && (
+        <>
+          <textarea
+            className="input notes-compose"
+            rows={3}
+            placeholder="Call recap, follow-up, decision…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          <div className="notes-compose-actions">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={!draft.trim()}
+              onClick={append}
+            >
+              Append note
+            </button>
+          </div>
+        </>
+      )}
+
+      {contact.notes ? (
+        <pre className="notes-history">{contact.notes}</pre>
+      ) : (
+        <div className="text-xs text-muted" style={{ padding: '8px 0' }}>
+          No notes yet. Notes are timestamped and appended in order.
+        </div>
+      )}
+    </div>
   );
 }

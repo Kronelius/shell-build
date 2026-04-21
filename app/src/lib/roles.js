@@ -48,7 +48,6 @@ export const PERMISSIONS = {
   'messaging.internalComment':   { label: 'Post internal comments',      defaultRoles: ['owner', 'admin'] },
   'messaging.manageSnippets':    { label: 'Manage message snippets',     defaultRoles: ['owner', 'admin'] },
   'messaging.assign':            { label: 'Assign conversations',        defaultRoles: ['owner', 'admin'] },
-  'messaging.manageFolders':     { label: 'Manage message folders',      defaultRoles: ['owner', 'admin'] },
   'messaging.bulkActions':       { label: 'Run bulk conversation actions', defaultRoles: ['owner', 'admin'] },
   // ---------- Settings ----------
   'settings.company':        { label: 'Edit company settings',    defaultRoles: ['owner', 'admin'] },

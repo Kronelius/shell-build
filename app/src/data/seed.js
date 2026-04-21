@@ -329,12 +329,6 @@ const snippets = [
   { id: seedId('sn', 'thanks-prompt'), folderId: snippetFolders[2].id, label: 'Thanks for prompt pay', channel: 'all',   body: 'Thanks for taking care of that so quickly — we really appreciate it!' },
 ];
 
-// ---------- Message folders (Phase 2b) ----------
-const messageFolders = [
-  { id: seedId('mf', 'urgent'),   label: 'Urgent',      color: 'red',   createdAt: daysAgo(30) },
-  { id: seedId('mf', 'needsrep'), label: 'Needs Reply', color: 'amber', createdAt: daysAgo(30) },
-];
-
 // Helper for snooze timers so the seed stays relative to "now" at hydrate time.
 const inHours = (n) => {
   const d = new Date();
@@ -344,32 +338,32 @@ const inHours = (n) => {
 
 // Conversations — external threads are linked to a contact; internal-channel
 // threads are team-to-team (no contactId, use `title` for labeling).
-// Phase 2b fields: assignedUserId, status, snoozedUntil, starred, followedUserIds, folderIds.
+// Phase 2b fields: assignedUserId, status, snoozedUntil, starred, followedUserIds.
 const conversations = [
   // ----- External -----
   { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),
-    assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [], folderIds: [] },
+    assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [] },
   { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', archived: false, title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18),
-    assignedUserId: users[1].id, status: 'snoozed', snoozedUntil: inHours(20), starred: false, followedUserIds: [], folderIds: [] },
+    assignedUserId: users[1].id, status: 'snoozed', snoozedUntil: inHours(20), starred: false, followedUserIds: [] },
   { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),
-    assignedUserId: null,        status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [], folderIds: [seedId('mf', 'urgent')] },
+    assignedUserId: null,        status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [] },
   { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),
-    assignedUserId: users[0].id, status: 'open',    snoozedUntil: null,       starred: true,  followedUserIds: [], folderIds: [] },
+    assignedUserId: users[0].id, status: 'open',    snoozedUntil: null,       starred: true,  followedUserIds: [] },
   { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),
-    assignedUserId: users[3].id, status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [], folderIds: [] },
+    assignedUserId: users[3].id, status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [] },
   { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', archived: false, title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),
-    assignedUserId: users[0].id, status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [users[3].id], folderIds: [seedId('mf', 'needsrep')] },
+    assignedUserId: users[0].id, status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [users[3].id] },
   { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),
-    assignedUserId: users[1].id, status: 'closed',  snoozedUntil: null,       starred: false, followedUserIds: [], folderIds: [] }, // Jamie (lead, closed-won hypothetical)
+    assignedUserId: users[1].id, status: 'closed',  snoozedUntil: null,       starred: false, followedUserIds: [] }, // Jamie (lead, closed-won hypothetical)
   { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', archived: false, title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),
-    assignedUserId: null,        status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [], folderIds: [seedId('mf', 'needsrep')] }, // Robin (lead)
+    assignedUserId: null,        status: 'open',    snoozedUntil: null,       starred: false, followedUserIds: [] }, // Robin (lead)
   { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  archived: false, title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(20),
-    assignedUserId: users[0].id, status: 'open',    snoozedUntil: null,       starred: true,  followedUserIds: [], folderIds: [seedId('mf', 'urgent')] }, // Morgan Hayes (lead)
+    assignedUserId: users[0].id, status: 'open',    snoozedUntil: null,       starred: true,  followedUserIds: [] }, // Morgan Hayes (lead)
   // ----- Internal -----
   { id: seedId('cv', 'c10'), clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Metro access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22),
-    assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[2].id], folderIds: [] },
+    assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[2].id] },
   { id: seedId('cv', 'c11'), clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Pacific badge handoff',     createdAt: daysAgo(4), lastMessageAt: daysAgo(3),
-    assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[4].id], folderIds: [] },
+    assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[4].id] },
 ];
 
 const messages = [
@@ -466,7 +460,7 @@ const userPermissionOverrides = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 4,
+  version: 5,
   company,
   currentUserId,
   users,
@@ -489,7 +483,6 @@ export const INITIAL_STATE = {
   // v3 additions — messaging snippets (Phase 2a)
   snippets,
   snippetFolders,
-  // v4 additions — messaging folders + per-conversation Phase 2b fields
-  // (Phase 2b fields live on each conversation; only the folder catalog is a new collection.)
-  messageFolders,
+  // v5: message-folders removed (Phase 2b feature rolled back — Phase 2b per-conversation
+  // fields like assignedUserId/status/snoozedUntil/starred/followedUserIds remain on each conversation).
 };

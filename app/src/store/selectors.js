@@ -37,12 +37,6 @@ export const selectSnippetsForFolder = (s, folderId) =>
 export const selectSnippetsForChannel = (s, channel) =>
   (s.snippets || []).filter((x) => x.channel === 'all' || x.channel === channel);
 
-// v4 additions — messaging folders
-export const selectMessageFolders = (s) => s.messageFolders || [];
-export const selectMessageFolderById = (s, id) => (s.messageFolders || []).find((f) => f.id === id) || null;
-export const selectConversationsForFolder = (s, folderId) =>
-  (s.conversations || []).filter((c) => (c.folderIds || []).includes(folderId));
-
 // ---------- Lookups ----------
 export const selectClientById = (s, id) => s.clients.find((c) => c.id === id) || null;
 export const selectSiteById   = (s, id) => s.sites.find((x) => x.id === id) || null;
@@ -86,6 +80,58 @@ export const selectInvoicesForContact = (s, contactId) =>
 
 export const selectConversationsForContact = (s, contactId) =>
   (s.conversations || []).filter((c) => c.contactId === contactId);
+
+// ---------- Dashboard follow-ups ----------
+// Stale leads — contacts in lead/prospect lifecycle with no recent update. `updatedAt` is
+// our proxy for activity: gets bumped whenever the contact is edited, tagged, assigned,
+// staged, or a note is appended. When ownerUserId is provided, restrict to that owner
+// (crew members only see their own follow-ups).
+export function selectStaleLeads(s, { daysStale = 7, ownerUserId = null } = {}) {
+  const cutoff = Date.now() - daysStale * 24 * 60 * 60 * 1000;
+  return (s.contacts || [])
+    .filter((c) => c.lifecycle === 'lead' || c.lifecycle === 'prospect')
+    .filter((c) => !ownerUserId || c.ownerUserId === ownerUserId)
+    .filter((c) => {
+      const ref = c.updatedAt || c.createdAt;
+      return !ref || new Date(ref).getTime() < cutoff;
+    })
+    .sort((a, b) => {
+      const aT = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const bT = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return aT - bT; // oldest (most stale) first
+    });
+}
+
+// Unanswered threads — external conversations with status=open where the most recent
+// message is inbound and older than `hoursStale`. When assigneeUserId is provided,
+// restrict to threads assigned to that user (plus their unassigned ones when asked).
+export function selectUnansweredThreads(s, { hoursStale = 24, assigneeUserId = null, includeUnassigned = false } = {}) {
+  const cutoff = Date.now() - hoursStale * 60 * 60 * 1000;
+  const msgsByConv = new Map();
+  (s.messages || []).forEach((m) => {
+    const arr = msgsByConv.get(m.conversationId);
+    if (!arr) msgsByConv.set(m.conversationId, [m]);
+    else arr.push(m);
+  });
+  return (s.conversations || [])
+    .filter((c) => c.channel !== 'internal' && !c.archived && c.status === 'open')
+    .filter((c) => {
+      if (!assigneeUserId) return true;
+      if (c.assignedUserId === assigneeUserId) return true;
+      return includeUnassigned && !c.assignedUserId;
+    })
+    .map((c) => {
+      const msgs = msgsByConv.get(c.id) || [];
+      const last = msgs.reduce(
+        (acc, m) => (!acc || new Date(m.sentAt) > new Date(acc.sentAt) ? m : acc),
+        null
+      );
+      return { conv: c, last };
+    })
+    .filter(({ last }) => last && last.direction === 'in' && new Date(last.sentAt).getTime() < cutoff)
+    .sort((a, b) => new Date(a.last.sentAt) - new Date(b.last.sentAt))
+    .map(({ conv, last }) => ({ ...conv, lastInboundAt: last.sentAt, lastPreview: last.text }));
+}
 
 export const selectActivitiesForContact = (s, contactId) =>
   (s.contactActivities || [])

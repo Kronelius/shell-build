@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from './Modal';
 import FormField from './FormField';
@@ -6,7 +6,7 @@ import ContactPicker from './ContactPicker';
 import SnippetPicker from './SnippetPicker';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectContactById } from '../store/selectors';
+import { selectContactById, selectConversationsForContact } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
@@ -43,7 +43,18 @@ export default function NewConversationModal({ open, onClose, defaultContactId =
   }, [open, defaultContactId, defaultChannel]);
 
   const contact = contactId ? selectContactById(state, contactId) : null;
-  const canSend = canStart && contact && body.trim().length > 0;
+
+  // Dedupe: if the picked contact already has an active (non-archived) conversation, offer to jump
+  // to it instead of letting the user spawn a duplicate thread.
+  const existingThread = useMemo(() => {
+    if (!contactId) return null;
+    const threads = selectConversationsForContact(state, contactId)
+      .filter((c) => !c.archived)
+      .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
+    return threads[0] || null;
+  }, [state, contactId]);
+
+  const canSend = canStart && contact && body.trim().length > 0 && !existingThread;
 
   const handleInsertSnippet = ({ id, body: snippetBody }) => {
     setSnippetId(id);
@@ -90,6 +101,23 @@ export default function NewConversationModal({ open, onClose, defaultContactId =
         <FormField label="Contact" required>
           <ContactPicker value={contactId} onChange={setContactId} placeholder="Pick a contact…" />
         </FormField>
+
+        {existingThread && (
+          <div className="callout callout-warning" style={{ margin: '4px 0 12px' }}>
+            <div className="text-sm">
+              {contact ? `${contact.firstName} ${contact.lastName}` : 'This contact'} already has an active thread.
+              Reuse it instead of starting a new one.
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              style={{ marginTop: 8 }}
+              onClick={() => { onClose(); navigate(`/messaging/${existingThread.id}`); }}
+            >
+              Open existing thread
+            </button>
+          </div>
+        )}
 
         <FormField label="Channel" required>
           <div className="segmented">

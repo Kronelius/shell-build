@@ -10,10 +10,11 @@ import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import {
   selectCompany, selectActiveUsers, selectActiveClients, selectInvoices, selectJobs,
-  selectClientById, selectServiceById, selectSiteById, selectDashboardStats, selectJobsForUser,
-  invoicePaid, invoiceBalance, deriveInvoiceStatus,
+  selectClientById, selectServiceById, selectSiteById, selectContactById,
+  selectDashboardStats, selectJobsForUser, selectStaleLeads, selectUnansweredThreads,
+  invoiceBalance, deriveInvoiceStatus,
 } from '../store/selectors';
-import { fmtTime, fmtTimeRange, money, sameDay, startOfWeek } from '../lib/dates';
+import { fmtRelative, fmtTime, fmtTimeRange, money, sameDay, startOfWeek } from '../lib/dates';
 
 function greeting() {
   const h = new Date().getHours();
@@ -76,6 +77,46 @@ export default function Dashboard() {
   }, [jobs]);
 
   const topClients = useMemo(() => [...clients].sort((a, b) => (b.revenue || 0) - (a.revenue || 0)).slice(0, 4), [clients]);
+
+  // Follow-ups — "what needs your attention" rollup. Crew sees only their own; admin sees all.
+  const ownerFilter = isCrew && currentUser ? currentUser.id : null;
+  const staleLeads = useMemo(
+    () => selectStaleLeads(state, { daysStale: 7, ownerUserId: ownerFilter }),
+    [state, ownerFilter]
+  );
+  const unansweredThreads = useMemo(
+    () => selectUnansweredThreads(state, {
+      hoursStale: 24,
+      assigneeUserId: ownerFilter,
+      includeUnassigned: !isCrew, // admins also see the unassigned queue
+    }),
+    [state, ownerFilter, isCrew]
+  );
+  // Merge + interleave, cap at 5 items by oldest-first (most urgent).
+  const followUps = useMemo(() => {
+    const items = [
+      ...staleLeads.map((c) => ({
+        kind: 'lead',
+        id: `lead-${c.id}`,
+        title: `${c.firstName} ${c.lastName}`,
+        subtitle: `${c.lifecycle === 'lead' ? 'Lead' : 'Prospect'}${c.stage ? ` · ${c.stage}` : ''}`,
+        at: c.updatedAt || c.createdAt,
+        href: `/contacts/${c.id}`,
+      })),
+      ...unansweredThreads.map((c) => ({
+        kind: 'thread',
+        id: `thread-${c.id}`,
+        title: 'New message awaiting reply',
+        subtitle: c.channel?.toUpperCase() || 'SMS',
+        preview: c.lastPreview,
+        contactId: c.contactId,
+        at: c.lastInboundAt,
+        href: `/messaging/${c.id}`,
+      })),
+    ];
+    items.sort((a, b) => new Date(a.at) - new Date(b.at));
+    return items.slice(0, 5);
+  }, [staleLeads, unansweredThreads]);
 
   return (
     <>
@@ -184,6 +225,59 @@ export default function Dashboard() {
               </div>
             </div>
             <div>
+              <div className="card dash-card">
+                <div className="dash-card-title-row">
+                  <div className="dash-card-title">Follow-ups</div>
+                  {(staleLeads.length + unansweredThreads.length) > followUps.length && (
+                    <span className="text-xs text-muted">
+                      {followUps.length} of {staleLeads.length + unansweredThreads.length}
+                    </span>
+                  )}
+                </div>
+                {followUps.length === 0 ? (
+                  <EmptyState message="You're all caught up. Nothing waiting on you." />
+                ) : (
+                  <div className="followup-list">
+                    {followUps.map((item) => {
+                      const contactForThread = item.kind === 'thread' && item.contactId
+                        ? selectContactById(state, item.contactId) : null;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="followup-row"
+                          onClick={() => navigate(item.href)}
+                        >
+                          <span className={`followup-icon followup-icon-${item.kind}`}>
+                            <Icon name={item.kind === 'lead' ? 'user' : 'messaging'} size={14} />
+                          </span>
+                          <span className="followup-body">
+                            <span className="followup-primary">
+                              {item.kind === 'thread' && contactForThread
+                                ? `${contactForThread.firstName} ${contactForThread.lastName}`
+                                : item.title}
+                              <Badge
+                                variant={item.kind === 'lead' ? 'amber' : 'blue'}
+                                style={{ marginLeft: 6 }}
+                              >
+                                {item.kind === 'lead' ? item.subtitle : item.subtitle}
+                              </Badge>
+                            </span>
+                            <span className="followup-secondary text-xs text-muted">
+                              {item.kind === 'thread' && item.preview
+                                ? `"${item.preview.slice(0, 60)}${item.preview.length > 60 ? '…' : ''}"`
+                                : item.subtitle}
+                              {' · '}
+                              <span>{fmtRelative(item.at)}</span>
+                            </span>
+                          </span>
+                          <Icon name="chevronRight" size={12} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               {!isCrew && (
                 <div className="card dash-card">
                   <div className="dash-card-title">Weekly Revenue (Paid)</div>

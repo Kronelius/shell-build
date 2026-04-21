@@ -100,10 +100,6 @@ export const ACTIONS = {
   UNSNOOZE_CONVERSATION: 'UNSNOOZE_CONVERSATION',
   TOGGLE_CONVERSATION_STAR: 'TOGGLE_CONVERSATION_STAR',
   TOGGLE_CONVERSATION_FOLLOW: 'TOGGLE_CONVERSATION_FOLLOW',
-  SET_CONVERSATION_FOLDERS: 'SET_CONVERSATION_FOLDERS',
-  ADD_MESSAGE_FOLDER: 'ADD_MESSAGE_FOLDER',
-  UPDATE_MESSAGE_FOLDER: 'UPDATE_MESSAGE_FOLDER',
-  DELETE_MESSAGE_FOLDER: 'DELETE_MESSAGE_FOLDER',
   BULK_MARK_CONVERSATIONS_READ: 'BULK_MARK_CONVERSATIONS_READ',
   BULK_MARK_CONVERSATIONS_UNREAD: 'BULK_MARK_CONVERSATIONS_UNREAD',
   BULK_ARCHIVE_CONVERSATIONS: 'BULK_ARCHIVE_CONVERSATIONS',
@@ -266,26 +262,50 @@ export function reducer(state, action) {
       return { ...state, contacts: replaceById(state.contacts || [], action.id, { visibility: action.visibility, updatedAt: nowIso() }) };
     case ACTIONS.SET_CONTACT_STAGE: {
       const now = nowIso();
-      const prev = (state.contacts || []).find((c) => c.id === action.id);
+      const all = state.contacts || [];
+      const prev = all.find((c) => c.id === action.id);
       if (!prev) return state;
-      const activity = {
+      const stageChanged = prev.stage !== action.stage;
+      const patched = {
+        ...prev,
+        stage: action.stage,
+        stageChangedAt: stageChanged ? now : prev.stageChangedAt,
+        updatedAt: now,
+        // Move to 'customer' lifecycle automatically on 'won'; 'lost' leaves lifecycle alone so callers can decide.
+        lifecycle: action.stage === 'won' ? 'customer' : prev.lifecycle,
+      };
+      // Optional reorder: `insertBeforeId` places the moved contact immediately before that contact in the
+      // global contacts array. If null/absent, append after the last contact currently in the target stage.
+      const without = all.filter((c) => c.id !== action.id);
+      let nextContacts;
+      if (action.insertBeforeId) {
+        const i = without.findIndex((c) => c.id === action.insertBeforeId);
+        nextContacts = i >= 0
+          ? [...without.slice(0, i), patched, ...without.slice(i)]
+          : [...without, patched];
+      } else {
+        // Append after the last contact in the target stage to keep intra-stage order natural.
+        let lastIdx = -1;
+        for (let i = 0; i < without.length; i++) {
+          if (without[i].stage === action.stage) lastIdx = i;
+        }
+        nextContacts = lastIdx >= 0
+          ? [...without.slice(0, lastIdx + 1), patched, ...without.slice(lastIdx + 1)]
+          : [...without, patched];
+      }
+      // Only log activity when the stage actually changed (pure reorders are silent).
+      const activity = stageChanged ? [{
         id: newId('act'),
         contactId: action.id,
         kind: 'stage_change',
         authorUserId: action.authorUserId || state.currentUserId,
         body: `Stage: ${prev.stage || '—'} → ${action.stage}`,
         occurredAt: now,
-      };
+      }] : [];
       return {
         ...state,
-        contacts: replaceById(state.contacts || [], action.id, {
-          stage: action.stage,
-          stageChangedAt: now,
-          updatedAt: now,
-          // Move to 'customer' lifecycle automatically on 'won'; 'archived' on 'lost' stays lead unless caller sets lifecycle.
-          lifecycle: action.stage === 'won' ? 'customer' : prev.lifecycle,
-        }),
-        contactActivities: [...(state.contactActivities || []), activity],
+        contacts: nextContacts,
+        contactActivities: [...(state.contactActivities || []), ...activity],
       };
     }
     case ACTIONS.SET_CONTACT_LIFECYCLE:
@@ -411,7 +431,6 @@ export function reducer(state, action) {
         snoozedUntil: null,
         starred: false,
         followedUserIds: [],
-        folderIds: [],
       };
       return { ...state, conversations: [...state.conversations, { ...base, ...action.conversation }] };
     }
@@ -504,27 +523,6 @@ export function reducer(state, action) {
         : [...current, action.userId];
       return { ...state, conversations: replaceById(state.conversations, action.id, { followedUserIds: next }) };
     }
-
-    case ACTIONS.SET_CONVERSATION_FOLDERS:
-      return { ...state, conversations: replaceById(state.conversations, action.id, { folderIds: action.folderIds || [] }) };
-
-    case ACTIONS.ADD_MESSAGE_FOLDER: {
-      const base = { id: newId('mf'), label: '', color: 'slate', createdAt: nowIso() };
-      return { ...state, messageFolders: [...(state.messageFolders || []), { ...base, ...action.folder }] };
-    }
-    case ACTIONS.UPDATE_MESSAGE_FOLDER:
-      return { ...state, messageFolders: replaceById(state.messageFolders || [], action.id, action.patch) };
-    case ACTIONS.DELETE_MESSAGE_FOLDER:
-      return {
-        ...state,
-        messageFolders: (state.messageFolders || []).filter((f) => f.id !== action.id),
-        // Drop the deleted folder from every conversation so references stay clean.
-        conversations: state.conversations.map((c) =>
-          (c.folderIds || []).includes(action.id)
-            ? { ...c, folderIds: c.folderIds.filter((fid) => fid !== action.id) }
-            : c
-        ),
-      };
 
     case ACTIONS.BULK_MARK_CONVERSATIONS_READ: {
       const set = new Set(action.ids || []);

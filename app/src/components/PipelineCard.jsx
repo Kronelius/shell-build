@@ -5,9 +5,9 @@ import Avatar from './Avatar';
 import TagChip from './TagChip';
 
 // Single card in the Kanban board. Draggable via native HTML5 DnD.
-// Parent passes onClick for navigation + onDragStart to track which card is moving.
+// Every row is always rendered (placeholder when empty) so every card has the same footprint.
 
-export default function PipelineCard({ contact, onClick, onDragStart, onDragEnd }) {
+export default function PipelineCard({ contact, onClick, onDragStart, onDragEnd, onDragOver, dragging = false }) {
   const state = useStore();
   const owner = contact.ownerUserId ? selectUserById(state, contact.ownerUserId) : null;
   const company = contact.companyId ? selectClientById(state, contact.companyId) : null;
@@ -16,7 +16,7 @@ export default function PipelineCard({ contact, onClick, onDragStart, onDragEnd 
 
   return (
     <div
-      className="pipeline-card"
+      className={`pipeline-card${dragging ? ' is-dragging' : ''}`}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move';
@@ -24,25 +24,40 @@ export default function PipelineCard({ contact, onClick, onDragStart, onDragEnd 
         onDragStart?.(contact);
       }}
       onDragEnd={() => onDragEnd?.()}
+      onDragOver={onDragOver}
       onClick={() => onClick?.(contact)}
       role="button"
       tabIndex={0}
     >
       <div className="pipeline-card-head">
-        <span className="pipeline-card-name">{contact.firstName} {contact.lastName}</span>
-        {firstTag && <TagChip tag={firstTag} size="xs" />}
+        <span className="pipeline-card-name" title={`${contact.firstName} ${contact.lastName}`}>
+          {contact.firstName} {contact.lastName}
+        </span>
+        <span className="pipeline-card-tag-slot">
+          {firstTag ? <TagChip tag={firstTag} size="xs" /> : null}
+        </span>
       </div>
-      <div className="pipeline-card-sub">{companyName}</div>
+      <div className="pipeline-card-sub" title={companyName}>{companyName}</div>
       <div className="pipeline-card-meta">
-        {contact.dealValue ? <span className="pipeline-card-value">{money(contact.dealValue)}</span> : <span className="text-xs text-muted">—</span>}
-        {contact.expectedCloseDate && <span className="text-xs text-muted">Close {fmtDate(contact.expectedCloseDate)}</span>}
+        {contact.dealValue ? (
+          <span className="pipeline-card-value">{money(contact.dealValue)}</span>
+        ) : (
+          <span className="pipeline-card-value pipeline-card-value-empty">—</span>
+        )}
+        <span className="text-xs text-muted">
+          {contact.expectedCloseDate ? `Close ${fmtDate(contact.expectedCloseDate)}` : '\u00A0'}
+        </span>
       </div>
-      {owner && (
-        <div className="pipeline-card-owner">
-          <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
-          <span className="text-xs text-muted">{owner.name}</span>
-        </div>
-      )}
+      <div className="pipeline-card-owner">
+        {owner ? (
+          <>
+            <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
+            <span className="text-xs text-muted">{owner.name}</span>
+          </>
+        ) : (
+          <span className="text-xs text-muted">Unassigned</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,12 +1,11 @@
 import Avatar from './Avatar';
-import ChannelBadge from './ChannelBadge';
 import EmptyState from './EmptyState';
 import Icon from './Icon';
 import BulkActionBar from './BulkActionBar';
 import { useStore } from '../store';
 import {
   selectContactById, selectMessagesForConversation, selectUnreadForConversation,
-  selectUserById, selectMessageFolderById, selectEffectiveStatus,
+  selectEffectiveStatus,
 } from '../store/selectors';
 import { fmtRelative } from '../lib/dates';
 
@@ -45,29 +44,12 @@ function StatusChip({ status, snoozedUntil }) {
   return null;
 }
 
-function FolderDots({ folderIds }) {
-  const state = useStore();
-  if (!folderIds || folderIds.length === 0) return null;
-  const resolved = folderIds
-    .map((id) => selectMessageFolderById(state, id))
-    .filter(Boolean);
-  if (resolved.length === 0) return null;
-  return (
-    <span className="thread-folder-dots" aria-label={`In folders: ${resolved.map((f) => f.label).join(', ')}`}>
-      {resolved.map((f) => (
-        <span key={f.id} className={`thread-folder-dot folder-color-${f.color}`} title={f.label} />
-      ))}
-    </span>
-  );
-}
-
 function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, onToggleStar }) {
   const state = useStore();
   const contact = conversation.contactId ? selectContactById(state, conversation.contactId) : null;
   const msgs = selectMessagesForConversation(state, conversation.id);
   const last = msgs[msgs.length - 1];
   const unread = selectUnreadForConversation(state, conversation.id);
-  const assignee = conversation.assignedUserId ? selectUserById(state, conversation.assignedUserId) : null;
   const effectiveStatus = selectEffectiveStatus(conversation);
 
   const isInternal = conversation.channel === 'internal';
@@ -94,34 +76,25 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
       </label>
       <Avatar initials={initials} variant={avatarVariant} size="sm" />
       <div className="thread-row-body">
-        <div className="thread-row-top">
-          <span className="thread-row-name">{displayName}</span>
-          <span className="thread-row-time">{last ? fmtRelative(last.sentAt) : fmtRelative(conversation.createdAt)}</span>
-        </div>
-        <div className="thread-row-bottom">
-          <span className="thread-row-preview">{previewText(last) || 'No messages yet'}</span>
-          <span className="thread-row-meta">
-            {assignee && (
-              <span className="thread-assignee" title={`Assigned to ${assignee.name}`}>
-                <Avatar initials={assignee.initials} variant={assignee.avatar} size="xs" />
-              </span>
-            )}
-            <FolderDots folderIds={conversation.folderIds} />
-            <StatusChip status={effectiveStatus} snoozedUntil={conversation.snoozedUntil} />
-            <ChannelBadge channel={conversation.channel} />
-            {unread > 0 && <span className="thread-unread" aria-label={`${unread} unread`}>{unread}</span>}
-          </span>
+        <div className="thread-row-name">{displayName}</div>
+        <div className="thread-row-preview">{previewText(last) || 'No messages yet'}</div>
+      </div>
+      <div className="thread-row-right">
+        <button
+          type="button"
+          className={`thread-star-btn ${conversation.starred ? 'starred' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleStar(conversation.id); }}
+          aria-label={conversation.starred ? 'Unpin' : 'Pin'}
+          title={conversation.starred ? 'Unpin' : 'Pin'}
+        >
+          <Icon name="star" size={14} />
+        </button>
+        <span className="thread-row-time">{last ? fmtRelative(last.sentAt) : fmtRelative(conversation.createdAt)}</span>
+        <div className="thread-row-meta">
+          <StatusChip status={effectiveStatus} snoozedUntil={conversation.snoozedUntil} />
+          {unread > 0 && <span className="thread-unread" aria-label={`${unread} unread`}>{unread}</span>}
         </div>
       </div>
-      <button
-        type="button"
-        className={`thread-star-btn ${conversation.starred ? 'starred' : ''}`}
-        onClick={(e) => { e.stopPropagation(); onToggleStar(conversation.id); }}
-        aria-label={conversation.starred ? 'Unstar' : 'Star'}
-        title={conversation.starred ? 'Unstar' : 'Star'}
-      >
-        <Icon name="star" size={14} />
-      </button>
     </div>
   );
 }
@@ -195,17 +168,43 @@ export default function ConversationThreadList({
             title="No conversations"
             message="Try a different inbox or clear your filters."
           />
-        ) : conversations.map((c) => (
-          <ThreadRow
-            key={c.id}
-            conversation={c}
-            active={c.id === activeId}
-            selected={selectedIds?.has(c.id) || false}
-            onSelect={onSelect}
-            onToggleSelect={onToggleSelect}
-            onToggleStar={onToggleStar}
-          />
-        ))}
+        ) : (() => {
+          // Partition into pinned vs. the rest. Visible sections (with headers) only appear
+          // when there's at least one pinned thread — otherwise we render a flat list.
+          const pinned = conversations.filter((c) => c.starred);
+          const others = conversations.filter((c) => !c.starred);
+          const renderRow = (c) => (
+            <ThreadRow
+              key={c.id}
+              conversation={c}
+              active={c.id === activeId}
+              selected={selectedIds?.has(c.id) || false}
+              onSelect={onSelect}
+              onToggleSelect={onToggleSelect}
+              onToggleStar={onToggleStar}
+            />
+          );
+          if (pinned.length === 0) return conversations.map(renderRow);
+          return (
+            <>
+              <div className="thread-section-header">
+                <Icon name="star" size={12} />
+                <span>Pinned</span>
+                <span className="thread-section-count">{pinned.length}</span>
+              </div>
+              {pinned.map(renderRow)}
+              {others.length > 0 && (
+                <>
+                  <div className="thread-section-header thread-section-header-muted">
+                    <span>All conversations</span>
+                    <span className="thread-section-count">{others.length}</span>
+                  </div>
+                  {others.map(renderRow)}
+                </>
+              )}
+            </>
+          );
+        })()}
       </div>
     </section>
   );

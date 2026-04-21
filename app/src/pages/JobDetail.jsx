@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
-  selectJobById, selectClientById, selectSiteById, selectServiceById, selectUsers,
+  selectJobById, selectClientById, selectSiteById, selectServiceById, selectUsers, selectContactById,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useToast } from '../components/Toast';
@@ -29,6 +29,7 @@ export default function JobDetail() {
   const client = job ? selectClientById(state, job.clientId) : null;
   const site = job ? selectSiteById(state, job.siteId) : null;
   const service = job ? selectServiceById(state, job.serviceId) : null;
+  const siteContact = site?.siteContactId ? selectContactById(state, site.siteContactId) : null;
   const users = selectUsers(state);
 
   const [editing, setEditing] = useState(false);
@@ -119,6 +120,22 @@ export default function JobDetail() {
             <dl className="detail-dl">
               <div><dt>Client</dt><dd>{client ? <a className="link" href={`/clients/${client.id}`}>{client.name}</a> : '—'}</dd></div>
               <div><dt>Site</dt><dd>{site?.name || '—'}{site?.address ? <div className="text-muted text-sm">{site.address}</div> : null}</dd></div>
+              <div>
+                <dt>Site contact</dt>
+                <dd>
+                  {siteContact ? (
+                    <>
+                      <Link className="link" to={`/contacts/${siteContact.id}`}>
+                        {siteContact.firstName} {siteContact.lastName}
+                      </Link>
+                      {siteContact.phone ? <div className="text-muted text-sm">{siteContact.phone}</div> : null}
+                      {siteContact.email ? <div className="text-muted text-sm">{siteContact.email}</div> : null}
+                    </>
+                  ) : site ? (
+                    <span className="text-muted">— <span className="text-xs">(set on the site record)</span></span>
+                  ) : '—'}
+                </dd>
+              </div>
               <div><dt>Service</dt><dd>{service?.name || '—'}</dd></div>
               <div><dt>Starts</dt><dd>{fmtDateLong(job.startAt)} · {fmtTimeRange(job.startAt, job.endAt)}</dd></div>
               <div><dt>Crew</dt><dd>
