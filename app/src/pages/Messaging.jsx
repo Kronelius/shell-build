@@ -9,7 +9,7 @@
 // bulk actions (mark read/unread, archive, assign), crew visibility gate.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MessagingHeader, { EMPTY_FILTERS } from '../components/MessagingHeader';
 import ConversationThreadList from '../components/ConversationThreadList';
@@ -31,6 +31,77 @@ const DATE_WINDOW_MS = {
   '7d':  7 * 24 * 60 * 60 * 1000,
   '30d': 30 * 24 * 60 * 60 * 1000,
 };
+
+// Pane-resize constraints. Kept conservative so neither panel can starve the
+// message pane (which has a CSS-level minmax(320px, 1fr) minimum too).
+const PANE_MIN = 260;
+const PANE_LEFT_MAX = 520;
+const PANE_RIGHT_MAX = 520;
+const PANE_STORAGE_KEY = 'pp.messaging.panes.v1';
+
+function usePaneSizes() {
+  const [sizes, setSizes] = useState(() => {
+    try {
+      const raw = localStorage.getItem(PANE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.left === 'number' && typeof parsed.right === 'number') {
+          return {
+            left: Math.min(PANE_LEFT_MAX, Math.max(PANE_MIN, parsed.left)),
+            right: Math.min(PANE_RIGHT_MAX, Math.max(PANE_MIN, parsed.right)),
+          };
+        }
+      }
+    } catch { /* ignore */ }
+    return { left: 340, right: 320 };
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(PANE_STORAGE_KEY, JSON.stringify(sizes)); } catch { /* ignore */ }
+  }, [sizes]);
+
+  const dragState = useRef(null);
+  const [dragging, setDragging] = useState(null); // 'left' | 'right' | null
+
+  const onDragStart = useCallback((side) => (e) => {
+    e.preventDefault();
+    dragState.current = {
+      side,
+      startX: e.clientX,
+      startLeft: sizes.left,
+      startRight: sizes.right,
+    };
+    setDragging(side);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const onMove = (me) => {
+      const ds = dragState.current;
+      if (!ds) return;
+      const dx = me.clientX - ds.startX;
+      if (ds.side === 'left') {
+        const next = Math.min(PANE_LEFT_MAX, Math.max(PANE_MIN, ds.startLeft + dx));
+        setSizes((s) => (s.left === next ? s : { ...s, left: next }));
+      } else {
+        // Right handle: dragging right shrinks the right pane.
+        const next = Math.min(PANE_RIGHT_MAX, Math.max(PANE_MIN, ds.startRight - dx));
+        setSizes((s) => (s.right === next ? s : { ...s, right: next }));
+      }
+    };
+    const onUp = () => {
+      dragState.current = null;
+      setDragging(null);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [sizes.left, sizes.right]);
+
+  return { sizes, dragging, onDragStart };
+}
 
 function withinDateRange(conv, range) {
   if (range === 'all' || !range) return true;
@@ -104,6 +175,7 @@ export default function Messaging() {
   const [activeId, setActiveId] = useState(paramId || null);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const panes = usePaneSizes();
 
   // Base inbox list (no filters/search applied yet) — also used for totals in rail counts.
   const inboxConversations = useMemo(
@@ -262,7 +334,10 @@ export default function Messaging() {
           canStart={canStart}
           onNewConversation={() => setNewConvOpen(true)}
         />
-        <div className="msg-3pane">
+        <div
+          className="msg-3pane"
+          style={{ '--pane-left': `${panes.sizes.left}px`, '--pane-right': `${panes.sizes.right}px` }}
+        >
           <ConversationThreadList
             conversations={visibleConversations}
             activeId={activeId}
@@ -282,6 +357,14 @@ export default function Messaging() {
             canAssign={canAssign}
             canBulk={canBulk}
           />
+          <div
+            className={`msg-pane-handle msg-pane-handle-left ${panes.dragging === 'left' ? 'is-dragging' : ''}`}
+            onPointerDown={panes.onDragStart('left')}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize thread list"
+            title="Drag to resize"
+          />
           <ConversationMessagePanel
             conversation={activeConversation}
             contact={activeContact}
@@ -296,6 +379,14 @@ export default function Messaging() {
             onSnooze={handleSnooze}
             onToggleStar={handleToggleStarActive}
             onToggleFollow={handleToggleFollow}
+          />
+          <div
+            className={`msg-pane-handle msg-pane-handle-right ${panes.dragging === 'right' ? 'is-dragging' : ''}`}
+            onPointerDown={panes.onDragStart('right')}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize context panel"
+            title="Drag to resize"
           />
           <ConversationContextPanel
             conversation={activeConversation}

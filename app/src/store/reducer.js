@@ -321,11 +321,14 @@ export function reducer(state, action) {
       return { ...state, contacts: replaceById(state.contacts || [], action.id, { lifecycle: action.lifecycle, updatedAt: nowIso() }) };
     case ACTIONS.APPEND_CONTACT_NOTE: {
       const now = nowIso();
+      const authorUserId = action.authorUserId || state.currentUserId;
+      const author = state.users.find((u) => u.id === authorUserId);
+      const authorName = author?.name || 'Someone';
       const activity = {
         id: newId('act'),
         contactId: action.id,
         kind: 'note',
-        authorUserId: action.authorUserId || state.currentUserId,
+        authorUserId,
         body: action.text,
         occurredAt: now,
       };
@@ -334,7 +337,7 @@ export function reducer(state, action) {
         contacts: (state.contacts || []).map((c) => {
           if (c.id !== action.id) return c;
           const stamp = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-          const entry = `[${stamp}] ${action.text}`;
+          const entry = `[${stamp}] ${authorName}: ${action.text}`;
           const next = c.notes ? `${entry}\n\n${c.notes}` : entry;
           return { ...c, notes: next, updatedAt: now };
         }),

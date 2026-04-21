@@ -219,11 +219,11 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
         <div>
           <dt>Assigned user</dt>
           <dd className="assigned-user-cell">
-            {selectedOwner && <Avatar initials={selectedOwner.initials} variant={selectedOwner.avatar} size="sm" />}
             <select className="inline-select" value={form.ownerUserId} onChange={up('ownerUserId')} disabled={!canAssignOwner}>
               <option value="">Unassigned</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
+            {selectedOwner && <Avatar initials={selectedOwner.initials} variant={selectedOwner.avatar} size="sm" />}
           </dd>
         </div>
         <div>

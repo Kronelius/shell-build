@@ -705,7 +705,8 @@ select.input {
   cursor: pointer; color: var(--text-primary); text-align: left;
 }
 .user-chip:hover { background: var(--inset-bg); }
-.user-chip .user-chip-name { font-size: 12px; font-weight: 600; flex: 1; color: var(--text-primary); }
+.user-chip .user-chip-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.25; }
+.user-chip .user-chip-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 .user-chip .user-chip-role { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .user-menu {
   position: absolute; bottom: 100%; left: 10px; right: 10px; margin-bottom: 6px;
@@ -1261,12 +1262,38 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 .msg-3pane {
   display: grid;
-  grid-template-columns: 340px 1fr 320px;
+  /* Columns: [thread-list][handle][message-pane][handle][context-pane]
+     Widths are driven by CSS vars set inline by the resize hook.
+     Media queries below still override grid-template-columns directly
+     so narrow viewports collapse correctly regardless of the vars. */
+  grid-template-columns: var(--pane-left, 340px) 6px minmax(320px, 1fr) 6px var(--pane-right, 320px);
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 .msg-3pane > * { min-width: 0; overflow: hidden; }
+.msg-pane-handle {
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  overflow: visible;
+  transition: background 0.12s;
+  z-index: 1;
+}
+.msg-pane-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px; height: 36px;
+  background: var(--border-light);
+  border-radius: 2px;
+  transition: background 0.12s, height 0.12s;
+}
+.msg-pane-handle:hover { background: var(--primary-bg); }
+.msg-pane-handle:hover::after,
+.msg-pane-handle.is-dragging::after { background: var(--primary); height: 52px; }
+.msg-pane-handle.is-dragging { background: var(--primary-bg); }
 
 /* Generic segmented control (used for channel pickers, AND/OR filter logic, etc.) */
 .segmented {
@@ -1740,10 +1767,17 @@ tr.clickable:hover { background: var(--inset-bg); }
   text-transform: uppercase; letter-spacing: 0.04em;
   margin-bottom: 6px;
 }
-.context-dl { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-.context-dl div { display: flex; gap: 8px; }
-.context-dl dt { color: var(--text-muted); min-width: 64px; }
-.context-dl dd { color: var(--text-primary); flex: 1; word-break: break-word; }
+.context-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 8px; row-gap: 4px;
+  font-size: 12px;
+  align-items: baseline;
+}
+/* Each <div> row collapses into the parent grid so dt/dd line up across rows. */
+.context-dl > div { display: contents; }
+.context-dl dt { color: var(--text-muted); }
+.context-dl dd { color: var(--text-primary); margin: 0; word-break: break-word; min-width: 0; }
 .context-full-link {
   width: 100%; justify-content: space-between;
 }
@@ -2053,28 +2087,42 @@ tr.clickable:hover { background: var(--inset-bg); }
    Transparent-until-focused so the card still reads as a summary,
    not a form — but every field is directly clickable. */
 .context-dl-editable dt { padding-top: 5px; }
-.context-dl-editable dd { display: flex; align-items: center; min-width: 0; }
+/* Indent plain-text/link values 6px so they line up with input text
+   (inputs carry their own 6px internal padding). */
+.context-dl-editable dd { display: flex; align-items: center; min-width: 0; padding-left: 6px; }
+/* Sole-value inputs/selects sit flush with dd.left so their visible box
+   is unchanged; internal 6px padding then lands text at dd.left + 6px. */
+.context-dl-editable dd > .inline-input,
+.context-dl-editable dd > .inline-select {
+  margin-left: -6px;
+}
+/* assigned-user-cell is a flex row [select → avatar]. Undo both
+   indents so the select's text still sits at dd.left + 6px. */
+.context-dl-editable dd.assigned-user-cell { padding-left: 0; }
+.context-dl-editable dd.assigned-user-cell > .inline-select { margin-left: 0; }
 .inline-input,
 .inline-select {
   width: 100%; max-width: 100%;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   padding: 3px 6px;
   border-radius: var(--radius-sm);
   font: inherit; color: inherit;
-  transition: border-color 0.12s, background 0.12s;
+  transition: box-shadow 0.12s, background 0.12s;
 }
+/* Use inset box-shadow instead of a border so the visual "border"
+   doesn't shift the text by the border width — keeps input text aligned
+   with plain-text values in the adjacent rows. */
 .inline-input:hover:not(:disabled),
 .inline-select:hover:not(:disabled) {
-  border-color: var(--border-light);
+  box-shadow: inset 0 0 0 1px var(--border-light);
   background: var(--card-bg);
 }
 .inline-input:focus,
 .inline-select:focus {
-  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary), 0 0 0 2px var(--primary-bg);
   background: var(--card-bg);
   outline: none;
-  box-shadow: 0 0 0 2px var(--primary-bg);
 }
 .inline-input:disabled,
 .inline-select:disabled {
@@ -2135,14 +2183,17 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 /* ── Responsive ── */
 @media (max-width: 1280px) {
-  .msg-3pane { grid-template-columns: 300px 1fr 280px; }
+  .msg-3pane { grid-template-columns: 300px 6px minmax(320px, 1fr) 6px 280px; }
 }
 @media (max-width: 1024px) {
-  .msg-3pane { grid-template-columns: 300px 1fr; }
-  .context-pane { display: none; }
+  /* Drop the right-hand context pane and its handle. */
+  .msg-3pane { grid-template-columns: 300px 6px minmax(320px, 1fr); }
+  .context-pane,
+  .msg-pane-handle-right { display: none; }
 }
 @media (max-width: 768px) {
   .messaging-wrap { min-height: auto; }
   .msg-3pane { grid-template-columns: 1fr; }
-  .thread-list-pane { display: none; }
+  .thread-list-pane,
+  .msg-pane-handle { display: none; }
 }
