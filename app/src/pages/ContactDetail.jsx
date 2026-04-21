@@ -22,6 +22,7 @@ import TagChip from '../components/TagChip';
 import TagPicker from '../components/TagPicker';
 import VisibilitySelect from '../components/VisibilitySelect';
 import AddContactModal from '../components/AddContactModal';
+import NewConversationModal from '../components/NewConversationModal';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
 
 const TABS = [
@@ -55,6 +56,7 @@ export default function ContactDetail() {
   const canEditAll = usePermission('contacts.edit');
   const canDelete = usePermission('contacts.delete');
   const canAssignOwner = usePermission('contacts.assignOwner');
+  const canStartConversation = usePermission('messaging.startConversation');
 
   const contact = selectContactById(state, contactId);
   const users = selectUsers(state);
@@ -63,6 +65,7 @@ export default function ContactDetail() {
   const [tab, setTab] = useState('overview');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [newConvOpen, setNewConvOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
 
   if (!contact) {
@@ -130,6 +133,12 @@ export default function ContactDetail() {
         }
         actions={
           <div className="flex-row" style={{ gap: 8 }}>
+            {canStartConversation && (
+              <button className="btn btn-outline btn-sm" onClick={() => setNewConvOpen(true)}>
+                <Icon name="messaging" size={14} />
+                Message
+              </button>
+            )}
             {canEditThis && <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
             {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
           </div>
@@ -363,6 +372,11 @@ export default function ContactDetail() {
         mode="edit"
         initialData={contact}
         onClose={() => setEditOpen(false)}
+      />
+      <NewConversationModal
+        open={newConvOpen}
+        defaultContactId={contact.id}
+        onClose={() => setNewConvOpen(false)}
       />
       <ConfirmDialog
         open={confirmDelete}

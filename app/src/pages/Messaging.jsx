@@ -1,17 +1,95 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+// ─────────────────────────────────────────────────────────────────────────────
+// Messaging — GHL-shaped inbox (Phase 2a + 2b).
+//   Shell: MessagingHeader (inbox toggle + filters + new button)
+//          ┌─ Thread List ─┬─ Message Panel ─┬─ Context Panel ─┐
+//   Channels: SMS, Email, Internal Comment ONLY. No FB/IG/WhatsApp.
+//
+// Phase 2b shipped: assignment, status lifecycle (open/snoozed/closed),
+// auto-unsnooze (read-side), starring, following, folder membership,
+// bulk actions (mark read/unread, archive, assign), crew visibility gate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Avatar from '../components/Avatar';
-import EmptyState from '../components/EmptyState';
-import Icon from '../components/Icon';
-import FormField from '../components/FormField';
+import MessagingHeader, { EMPTY_FILTERS } from '../components/MessagingHeader';
+import ConversationThreadList from '../components/ConversationThreadList';
+import ConversationMessagePanel from '../components/ConversationMessagePanel';
+import ConversationContextPanel from '../components/ConversationContextPanel';
+import NewConversationModal from '../components/NewConversationModal';
+import FolderManager from '../components/FolderManager';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
+import { usePermission } from '../hooks/usePermission';
 import {
-  selectConversations, selectMessagesForConversation, selectClientById,
-  selectUnreadForConversation,
+  selectContactById, selectConversationById, selectMessagesForConversation,
+  selectUnreadForConversation, selectConversationsForInbox, selectUnreadCountForInbox,
+  selectEffectiveStatus,
 } from '../store/selectors';
-import { fmtRelative, fmtTime } from '../lib/dates';
+
+const DATE_WINDOW_MS = {
+  '24h': 24 * 60 * 60 * 1000,
+  '7d':  7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+};
+
+function withinDateRange(conv, range) {
+  if (range === 'all' || !range) return true;
+  const ms = DATE_WINDOW_MS[range];
+  if (!ms) return true;
+  const ts = conv.lastMessageAt || conv.createdAt;
+  if (!ts) return false;
+  return Date.now() - new Date(ts).getTime() <= ms;
+}
+
+// Compute each active filter's outcome, then combine with AND/OR logic.
+// Inactive filters (empty arrays, blank values, defaults) are ignored.
+function passesFilters(conv, filters, state) {
+  const active = [];
+  if (filters.channels.length > 0) {
+    active.push(filters.channels.includes(conv.channel));
+  }
+  if (filters.tagIds.length > 0) {
+    const contact = conv.contactId ? selectContactById(state, conv.contactId) : null;
+    const tagIds = contact?.tagIds || [];
+    active.push(filters.tagIds.some((id) => tagIds.includes(id)));
+  }
+  if (filters.ownerId) {
+    // Phase 2b: filters.ownerId = thread assignee (or '__unassigned' sentinel).
+    if (filters.ownerId === '__unassigned') {
+      active.push(!conv.assignedUserId);
+    } else {
+      active.push(conv.assignedUserId === filters.ownerId);
+    }
+  }
+  if (filters.dateRange && filters.dateRange !== 'all') {
+    active.push(withinDateRange(conv, filters.dateRange));
+  }
+  if (filters.statuses && filters.statuses.length > 0) {
+    const eff = selectEffectiveStatus(conv);
+    active.push(filters.statuses.includes(eff));
+  }
+  if (filters.starredOnly) {
+    active.push(Boolean(conv.starred));
+  }
+  if (filters.folderIds && filters.folderIds.length > 0) {
+    const set = new Set(conv.folderIds || []);
+    active.push(filters.folderIds.some((id) => set.has(id)));
+  }
+  if (active.length === 0) return true;
+  return filters.logic === 'or' ? active.some(Boolean) : active.every(Boolean);
+}
+
+function matchesSearch(conv, q, state) {
+  if (!q) return true;
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  const contact = conv.contactId ? selectContactById(state, conv.contactId) : null;
+  const name = contact ? `${contact.firstName} ${contact.lastName}`.toLowerCase() : (conv.title || '').toLowerCase();
+  if (name.includes(needle)) return true;
+  const msgs = selectMessagesForConversation(state, conv.id);
+  return msgs.some((m) => (m.text || '').toLowerCase().includes(needle));
+}
 
 export default function Messaging() {
   const state = useStore();
@@ -20,84 +98,156 @@ export default function Messaging() {
   const { conversationId: paramId } = useParams();
   const { currentUser } = useAuth();
 
-  const conversations = selectConversations(state);
+  const canStart = usePermission('messaging.startConversation');
+  const canInternal = usePermission('messaging.internalComment');
+  const canAssign = usePermission('messaging.assign');
+  const canManageFolders = usePermission('messaging.manageFolders');
+  const canBulk = usePermission('messaging.bulkActions');
 
-  const [channel, setChannel] = useState('All');
+  const [selectedInbox, setSelectedInbox] = useState('my');
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
-  const [draft, setDraft] = useState('');
-  const scrollRef = useRef(null);
+  const [activeId, setActiveId] = useState(paramId || null);
+  const [newConvOpen, setNewConvOpen] = useState(false);
+  const [folderManagerOpen, setFolderManagerOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
-  const filtered = useMemo(() => {
-    return conversations.filter((c) => {
-      if (!showArchived && c.archived) return false;
-      if (showArchived && !c.archived) return false;
-      if (channel !== 'All' && c.channel !== channel.toLowerCase()) return false;
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        const client = selectClientById(state, c.clientId);
-        const msgs = selectMessagesForConversation(state, c.id);
-        const hitClient = client?.name?.toLowerCase().includes(q);
-        const hitMsg = msgs.some((m) => m.text?.toLowerCase().includes(q));
-        if (!hitClient && !hitMsg) return false;
-      }
-      return true;
-    });
-  }, [conversations, state, channel, search, showArchived]);
+  // Base inbox list (no filters/search applied yet) — also used for totals in rail counts.
+  const inboxConversations = useMemo(
+    () => selectConversationsForInbox(state, selectedInbox, currentUser),
+    [state, selectedInbox, currentUser]
+  );
 
-  const [activeId, setActiveId] = useState(paramId || filtered[0]?.id || null);
+  // Apply filters + search on top of the inbox slice.
+  const visibleConversations = useMemo(
+    () => inboxConversations.filter((c) => passesFilters(c, filters, state) && matchesSearch(c, search, state)),
+    [inboxConversations, filters, search, state]
+  );
 
+  // Unread counts per inbox bucket (shown as badges on the header toggle).
+  const inboxUnread = useMemo(() => ({
+    my:       selectUnreadCountForInbox(state, 'my',       currentUser),
+    team:     selectUnreadCountForInbox(state, 'team',     currentUser),
+    internal: selectUnreadCountForInbox(state, 'internal', currentUser),
+  }), [state, currentUser]);
+
+  // Keep activeId in sync with URL + visible-set membership.
   useEffect(() => {
     if (paramId && paramId !== activeId) setActiveId(paramId);
-  }, [paramId]);
+  }, [paramId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (filtered.length && !filtered.find((c) => c.id === activeId)) {
-      setActiveId(filtered[0].id);
+    if (!visibleConversations.length) return;
+    if (!activeId || !visibleConversations.find((c) => c.id === activeId)) {
+      setActiveId(visibleConversations[0].id);
     }
-  }, [filtered, activeId]);
+  }, [visibleConversations, activeId]);
 
-  const activeConv = conversations.find((c) => c.id === activeId) || null;
-  const messages = activeConv ? selectMessagesForConversation(state, activeConv.id) : [];
-  const activeClient = activeConv ? selectClientById(state, activeConv.clientId) : null;
-
-  // Mark as read when opening
+  // If the user switches inbox, pick the first conversation in the new set
+  // and clear any lingering bulk selection (selections don't cross inboxes).
   useEffect(() => {
-    if (activeConv && selectUnreadForConversation(state, activeConv.id) > 0) {
-      dispatch({ type: ACTIONS.MARK_CONVERSATION_READ, id: activeConv.id });
+    setSelectedIds(new Set());
+    if (!visibleConversations.length) {
+      setActiveId(null);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId]);
+    if (!visibleConversations.find((c) => c.id === activeId)) {
+      setActiveId(visibleConversations[0].id);
+    }
+  }, [selectedInbox]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const activeConversation = activeId ? selectConversationById(state, activeId) : null;
+  const activeContact = activeConversation?.contactId ? selectContactById(state, activeConversation.contactId) : null;
+  const activeMessages = activeConversation ? selectMessagesForConversation(state, activeConversation.id) : [];
+
+  // Mark incoming messages as read when opening a thread.
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages.length, activeId]);
+    if (activeConversation && selectUnreadForConversation(state, activeConversation.id) > 0) {
+      dispatch({ type: ACTIONS.MARK_CONVERSATION_READ, id: activeConversation.id });
+    }
+  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sendMessage = (e) => {
-    e.preventDefault();
-    const text = draft.trim();
-    if (!text || !activeConv) return;
+  const handleSelect = (id) => {
+    setActiveId(id);
+    navigate(`/messaging/${id}`);
+  };
+
+  const handleSend = (text, opts) => {
+    if (!activeConversation) return;
+    const direction = opts?.channel === 'internal' ? 'internal' : 'out';
     dispatch({
       type: ACTIONS.ADD_MESSAGE,
-      message: { conversationId: activeConv.id, direction: 'out', text, authorUserId: currentUser?.id || null },
+      message: {
+        conversationId: activeConversation.id,
+        direction,
+        text,
+        authorUserId: currentUser?.id || null,
+        snippetId: opts?.snippetId || null,
+      },
     });
-    setDraft('');
   };
 
-  const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(e);
-    }
+  const handleArchiveToggle = () => {
+    if (!activeConversation) return;
+    dispatch({
+      type: activeConversation.archived ? ACTIONS.UNARCHIVE_CONVERSATION : ACTIONS.ARCHIVE_CONVERSATION,
+      id: activeConversation.id,
+    });
   };
 
-  const archive = () => {
-    if (!activeConv) return;
-    dispatch({ type: ACTIONS.ARCHIVE_CONVERSATION, id: activeConv.id });
+  // --- Phase 2b per-thread action handlers -------------------------------
+  const handleAssign = (userId) => {
+    if (!activeConversation) return;
+    dispatch({ type: ACTIONS.ASSIGN_CONVERSATION, id: activeConversation.id, userId });
   };
-  const unarchive = () => {
-    if (!activeConv) return;
-    dispatch({ type: ACTIONS.UNARCHIVE_CONVERSATION, id: activeConv.id });
+  const handleSetStatus = (status) => {
+    if (!activeConversation) return;
+    dispatch({ type: ACTIONS.SET_CONVERSATION_STATUS, id: activeConversation.id, status });
+  };
+  const handleSnooze = (until) => {
+    if (!activeConversation) return;
+    dispatch({ type: ACTIONS.SNOOZE_CONVERSATION, id: activeConversation.id, until });
+  };
+  const handleToggleStarActive = () => {
+    if (!activeConversation) return;
+    dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_STAR, id: activeConversation.id });
+  };
+  const handleToggleStarRow = (id) => {
+    dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_STAR, id });
+  };
+  const handleToggleFollow = () => {
+    if (!activeConversation || !currentUser) return;
+    dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_FOLLOW, id: activeConversation.id, userId: currentUser.id });
+  };
+  const handleSetFolders = (folderIds) => {
+    if (!activeConversation) return;
+    dispatch({ type: ACTIONS.SET_CONVERSATION_FOLDERS, id: activeConversation.id, folderIds });
+  };
+
+  // --- Bulk selection ----------------------------------------------------
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const handleSelectAll = (ids) => setSelectedIds(new Set(ids));
+  const handleClearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkAssign = (userId) => {
+    dispatch({ type: ACTIONS.BULK_ASSIGN_CONVERSATIONS, ids: Array.from(selectedIds), userId });
+    setSelectedIds(new Set());
+  };
+  const handleBulkMarkRead = () => {
+    dispatch({ type: ACTIONS.BULK_MARK_CONVERSATIONS_READ, ids: Array.from(selectedIds) });
+  };
+  const handleBulkMarkUnread = () => {
+    dispatch({ type: ACTIONS.BULK_MARK_CONVERSATIONS_UNREAD, ids: Array.from(selectedIds) });
+  };
+  const handleBulkArchive = () => {
+    dispatch({ type: ACTIONS.BULK_ARCHIVE_CONVERSATIONS, ids: Array.from(selectedIds) });
+    setSelectedIds(new Set());
   };
 
   return (
@@ -105,110 +255,71 @@ export default function Messaging() {
       <div className="page-head">
         <h1>Messaging</h1>
       </div>
-      <div className="schedule-toolbar">
-        <div className="tab-container tab-container-line">
-          {['All', 'SMS', 'Email'].map((v) => (
-            <button key={v} className={`tab-btn ${channel === v ? 'active' : ''}`} onClick={() => setChannel(v)}>{v}</button>
-          ))}
-        </div>
-        <label className="flex-row" style={{ gap: 6, marginLeft: 'auto', alignItems: 'center' }}>
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-          <span className="text-sm">Show archived</span>
-        </label>
-      </div>
-
-      <div className="card">
-        <div className="msg-layout">
-          <div className="msg-sidebar">
-            <div style={{ padding: 10 }}>
-              <input
-                className="input"
-                placeholder="Search messages…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="msg-list">
-              {filtered.length === 0 ? (
-                <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 12 }}>
-                  No conversations{showArchived ? ' in archive' : ''}.
-                </div>
-              ) : filtered.map((c) => {
-                const msgs = selectMessagesForConversation(state, c.id);
-                const last = msgs[msgs.length - 1];
-                const client = selectClientById(state, c.clientId);
-                const unread = selectUnreadForConversation(state, c.id);
-                return (
-                  <div
-                    key={c.id}
-                    className={`msg-item ${c.id === activeConv?.id ? 'active' : ''}`}
-                    onClick={() => { setActiveId(c.id); navigate(`/messaging/${c.id}`); }}
-                  >
-                    <Avatar initials={client?.primaryContact?.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2) || 'C'} variant={1} size="sm" />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="flex-row" style={{ justifyContent: 'space-between' }}>
-                        <div className="text-sm font-semi">{client?.name || 'Unlinked'}</div>
-                        {unread > 0 && <span className="unread-dot">{unread}</span>}
-                      </div>
-                      <div className="text-xs text-muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {last?.text || '—'}
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted">{last ? fmtRelative(last.sentAt) : ''}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {activeConv ? (
-            <div className="chat-area">
-              <div className="chat-header">
-                <div className="flex-row">
-                  <Avatar initials={activeClient?.primaryContact?.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2) || 'C'} variant={1} size="sm" />
-                  <div>
-                    <strong className="text-sm">{activeClient?.name || 'Unlinked'}</strong>
-                    <div className="text-xs text-muted">{activeConv.channel.toUpperCase()}</div>
-                  </div>
-                  <div className="flex-row" style={{ marginLeft: 'auto', gap: 6 }}>
-                    {activeClient && (
-                      <button className="btn btn-outline btn-sm" onClick={() => navigate(`/clients/${activeClient.id}`)}>
-                        View Client
-                      </button>
-                    )}
-                    {activeConv.archived
-                      ? <button className="btn btn-outline btn-sm" onClick={unarchive}>Unarchive</button>
-                      : <button className="btn btn-outline btn-sm" onClick={archive}>Archive</button>}
-                  </div>
-                </div>
-              </div>
-              <div className="chat-messages" ref={scrollRef}>
-                {messages.length === 0 ? (
-                  <EmptyState message="No messages yet." />
-                ) : messages.map((m) => (
-                  <div key={m.id} className={`chat-bubble ${m.direction === 'out' ? 'outgoing' : 'incoming'}`}>
-                    {m.text}
-                    <div className="chat-time">{fmtTime(m.sentAt)}</div>
-                  </div>
-                ))}
-              </div>
-              <form className="chat-compose" onSubmit={sendMessage}>
-                <textarea
-                  className="chat-input"
-                  placeholder="Type a message…  (Enter to send, Shift+Enter for newline)"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={handleKey}
-                  rows={2}
-                />
-                <button type="submit" className="btn btn-primary btn-sm" disabled={!draft.trim()}>Send</button>
-              </form>
-            </div>
-          ) : (
-            <EmptyState icon={<Icon name="messaging" size={28} />} title="Select a conversation" message="Pick a thread from the left to start chatting." />
-          )}
+      <div className="messaging-wrap card">
+        <MessagingHeader
+          selectedInbox={selectedInbox}
+          onInboxChange={setSelectedInbox}
+          unread={inboxUnread}
+          filters={filters}
+          onFiltersChange={setFilters}
+          canStart={canStart}
+          canManageFolders={canManageFolders}
+          onNewConversation={() => setNewConvOpen(true)}
+          onManageFolders={() => setFolderManagerOpen(true)}
+        />
+        <div className="msg-3pane">
+          <ConversationThreadList
+            conversations={visibleConversations}
+            activeId={activeId}
+            onSelect={handleSelect}
+            search={search}
+            onSearchChange={setSearch}
+            totalBeforeFilter={inboxConversations.length}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAll}
+            onClearSelection={handleClearSelection}
+            onToggleStar={handleToggleStarRow}
+            onBulkAssign={handleBulkAssign}
+            onBulkMarkRead={handleBulkMarkRead}
+            onBulkMarkUnread={handleBulkMarkUnread}
+            onBulkArchive={handleBulkArchive}
+            canAssign={canAssign}
+            canBulk={canBulk}
+          />
+          <ConversationMessagePanel
+            conversation={activeConversation}
+            contact={activeContact}
+            messages={activeMessages}
+            canInternalComment={canInternal}
+            canAssign={canAssign}
+            currentUser={currentUser}
+            onSend={handleSend}
+            onArchiveToggle={handleArchiveToggle}
+            onAssign={handleAssign}
+            onSetStatus={handleSetStatus}
+            onSnooze={handleSnooze}
+            onToggleStar={handleToggleStarActive}
+            onToggleFollow={handleToggleFollow}
+          />
+          <ConversationContextPanel
+            conversation={activeConversation}
+            contact={activeContact}
+            onSetFolders={handleSetFolders}
+            onManageFolders={() => setFolderManagerOpen(true)}
+            canManageFolders={canManageFolders}
+          />
         </div>
       </div>
+
+      <NewConversationModal
+        open={newConvOpen}
+        onClose={() => setNewConvOpen(false)}
+      />
+      <FolderManager
+        open={folderManagerOpen}
+        onClose={() => setFolderManagerOpen(false)}
+      />
     </>
   );
 }

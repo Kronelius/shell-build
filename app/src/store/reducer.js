@@ -82,8 +82,32 @@ export const ACTIONS = {
   UPDATE_CONVERSATION: 'UPDATE_CONVERSATION',
   ADD_MESSAGE: 'ADD_MESSAGE',
   MARK_CONVERSATION_READ: 'MARK_CONVERSATION_READ',
+  MARK_CONVERSATION_UNREAD: 'MARK_CONVERSATION_UNREAD',
   ARCHIVE_CONVERSATION: 'ARCHIVE_CONVERSATION',
   UNARCHIVE_CONVERSATION: 'UNARCHIVE_CONVERSATION',
+
+  // Snippets (Messaging Phase 2a)
+  ADD_SNIPPET: 'ADD_SNIPPET',
+  UPDATE_SNIPPET: 'UPDATE_SNIPPET',
+  DELETE_SNIPPET: 'DELETE_SNIPPET',
+  ADD_SNIPPET_FOLDER: 'ADD_SNIPPET_FOLDER',
+  DELETE_SNIPPET_FOLDER: 'DELETE_SNIPPET_FOLDER',
+
+  // Messaging Phase 2b — assignment / status / starring / following / folders / bulk
+  ASSIGN_CONVERSATION: 'ASSIGN_CONVERSATION',
+  SET_CONVERSATION_STATUS: 'SET_CONVERSATION_STATUS',
+  SNOOZE_CONVERSATION: 'SNOOZE_CONVERSATION',
+  UNSNOOZE_CONVERSATION: 'UNSNOOZE_CONVERSATION',
+  TOGGLE_CONVERSATION_STAR: 'TOGGLE_CONVERSATION_STAR',
+  TOGGLE_CONVERSATION_FOLLOW: 'TOGGLE_CONVERSATION_FOLLOW',
+  SET_CONVERSATION_FOLDERS: 'SET_CONVERSATION_FOLDERS',
+  ADD_MESSAGE_FOLDER: 'ADD_MESSAGE_FOLDER',
+  UPDATE_MESSAGE_FOLDER: 'UPDATE_MESSAGE_FOLDER',
+  DELETE_MESSAGE_FOLDER: 'DELETE_MESSAGE_FOLDER',
+  BULK_MARK_CONVERSATIONS_READ: 'BULK_MARK_CONVERSATIONS_READ',
+  BULK_MARK_CONVERSATIONS_UNREAD: 'BULK_MARK_CONVERSATIONS_UNREAD',
+  BULK_ARCHIVE_CONVERSATIONS: 'BULK_ARCHIVE_CONVERSATIONS',
+  BULK_ASSIGN_CONVERSATIONS: 'BULK_ASSIGN_CONVERSATIONS',
 
   // Reminders
   UPDATE_REMINDER_TEMPLATE: 'UPDATE_REMINDER_TEMPLATE',
@@ -376,14 +400,35 @@ export function reducer(state, action) {
 
     // ---------- Conversations / messages ----------
     case ACTIONS.ADD_CONVERSATION: {
-      const base = { id: newId('cv'), channel: 'sms', archived: false, createdAt: nowIso(), contactId: null };
+      const now = nowIso();
+      const base = {
+        id: newId('cv'), channel: 'sms', archived: false,
+        createdAt: now, lastMessageAt: now,
+        contactId: null, clientId: null, title: null,
+        // Phase 2b fields — sensible defaults so old/new convos stay comparable.
+        assignedUserId: null,
+        status: 'open',
+        snoozedUntil: null,
+        starred: false,
+        followedUserIds: [],
+        folderIds: [],
+      };
       return { ...state, conversations: [...state.conversations, { ...base, ...action.conversation }] };
     }
     case ACTIONS.UPDATE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, action.patch) };
     case ACTIONS.ADD_MESSAGE: {
-      const base = { id: newId('m'), direction: 'out', sentAt: nowIso(), readAt: null, authorUserId: null };
-      return { ...state, messages: [...state.messages, { ...base, ...action.message }] };
+      const base = {
+        id: newId('m'), direction: 'out', sentAt: nowIso(),
+        readAt: null, authorUserId: null, snippetId: null,
+      };
+      const msg = { ...base, ...action.message };
+      return {
+        ...state,
+        messages: [...state.messages, msg],
+        // Keep conversation.lastMessageAt in sync so thread list sorts correctly.
+        conversations: replaceById(state.conversations, msg.conversationId, { lastMessageAt: msg.sentAt }),
+      };
     }
     case ACTIONS.MARK_CONVERSATION_READ: {
       const t = nowIso();
@@ -392,10 +437,139 @@ export function reducer(state, action) {
         messages: state.messages.map((m) => (m.conversationId === action.id && !m.readAt && m.direction === 'in' ? { ...m, readAt: t } : m)),
       };
     }
+    case ACTIONS.MARK_CONVERSATION_UNREAD: {
+      // Unset readAt on the most recent inbound message so the thread surfaces again.
+      const inbound = state.messages
+        .filter((m) => m.conversationId === action.id && m.direction === 'in')
+        .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
+      const target = inbound[0];
+      if (!target) return state;
+      return {
+        ...state,
+        messages: state.messages.map((m) => (m.id === target.id ? { ...m, readAt: null } : m)),
+      };
+    }
     case ACTIONS.ARCHIVE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, { archived: true }) };
     case ACTIONS.UNARCHIVE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, { archived: false }) };
+
+    // ---------- Snippets ----------
+    case ACTIONS.ADD_SNIPPET: {
+      const base = { id: newId('sn'), label: '', body: '', channel: 'all', folderId: null };
+      return { ...state, snippets: [...(state.snippets || []), { ...base, ...action.snippet }] };
+    }
+    case ACTIONS.UPDATE_SNIPPET:
+      return { ...state, snippets: replaceById(state.snippets || [], action.id, action.patch) };
+    case ACTIONS.DELETE_SNIPPET:
+      return { ...state, snippets: (state.snippets || []).filter((s) => s.id !== action.id) };
+    case ACTIONS.ADD_SNIPPET_FOLDER: {
+      const base = { id: newId('snf'), label: '' };
+      return { ...state, snippetFolders: [...(state.snippetFolders || []), { ...base, ...action.folder }] };
+    }
+    case ACTIONS.DELETE_SNIPPET_FOLDER:
+      return {
+        ...state,
+        snippetFolders: (state.snippetFolders || []).filter((f) => f.id !== action.id),
+        // Orphan snippets are kept but moved to "no folder" so they stay reachable.
+        snippets: (state.snippets || []).map((s) => (s.folderId === action.id ? { ...s, folderId: null } : s)),
+      };
+
+    // ---------- Messaging Phase 2b ----------
+    case ACTIONS.ASSIGN_CONVERSATION:
+      return { ...state, conversations: replaceById(state.conversations, action.id, { assignedUserId: action.userId || null }) };
+
+    case ACTIONS.SET_CONVERSATION_STATUS: {
+      const patch = { status: action.status };
+      // Opening an existing convo clears any stale snooze timer.
+      if (action.status === 'open') patch.snoozedUntil = null;
+      return { ...state, conversations: replaceById(state.conversations, action.id, patch) };
+    }
+    case ACTIONS.SNOOZE_CONVERSATION:
+      return { ...state, conversations: replaceById(state.conversations, action.id, { status: 'snoozed', snoozedUntil: action.until }) };
+    case ACTIONS.UNSNOOZE_CONVERSATION:
+      return { ...state, conversations: replaceById(state.conversations, action.id, { status: 'open', snoozedUntil: null }) };
+
+    case ACTIONS.TOGGLE_CONVERSATION_STAR: {
+      const existing = state.conversations.find((c) => c.id === action.id);
+      if (!existing) return state;
+      return { ...state, conversations: replaceById(state.conversations, action.id, { starred: !existing.starred }) };
+    }
+    case ACTIONS.TOGGLE_CONVERSATION_FOLLOW: {
+      const existing = state.conversations.find((c) => c.id === action.id);
+      if (!existing) return state;
+      const current = existing.followedUserIds || [];
+      const next = current.includes(action.userId)
+        ? current.filter((uid) => uid !== action.userId)
+        : [...current, action.userId];
+      return { ...state, conversations: replaceById(state.conversations, action.id, { followedUserIds: next }) };
+    }
+
+    case ACTIONS.SET_CONVERSATION_FOLDERS:
+      return { ...state, conversations: replaceById(state.conversations, action.id, { folderIds: action.folderIds || [] }) };
+
+    case ACTIONS.ADD_MESSAGE_FOLDER: {
+      const base = { id: newId('mf'), label: '', color: 'slate', createdAt: nowIso() };
+      return { ...state, messageFolders: [...(state.messageFolders || []), { ...base, ...action.folder }] };
+    }
+    case ACTIONS.UPDATE_MESSAGE_FOLDER:
+      return { ...state, messageFolders: replaceById(state.messageFolders || [], action.id, action.patch) };
+    case ACTIONS.DELETE_MESSAGE_FOLDER:
+      return {
+        ...state,
+        messageFolders: (state.messageFolders || []).filter((f) => f.id !== action.id),
+        // Drop the deleted folder from every conversation so references stay clean.
+        conversations: state.conversations.map((c) =>
+          (c.folderIds || []).includes(action.id)
+            ? { ...c, folderIds: c.folderIds.filter((fid) => fid !== action.id) }
+            : c
+        ),
+      };
+
+    case ACTIONS.BULK_MARK_CONVERSATIONS_READ: {
+      const set = new Set(action.ids || []);
+      if (set.size === 0) return state;
+      const t = nowIso();
+      return {
+        ...state,
+        messages: state.messages.map((m) =>
+          set.has(m.conversationId) && m.direction === 'in' && !m.readAt ? { ...m, readAt: t } : m
+        ),
+      };
+    }
+    case ACTIONS.BULK_MARK_CONVERSATIONS_UNREAD: {
+      const set = new Set(action.ids || []);
+      if (set.size === 0) return state;
+      // Clear readAt on each conversation's most recent inbound message.
+      const targets = new Set();
+      set.forEach((convId) => {
+        const inbound = state.messages
+          .filter((m) => m.conversationId === convId && m.direction === 'in')
+          .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
+        if (inbound[0]) targets.add(inbound[0].id);
+      });
+      return {
+        ...state,
+        messages: state.messages.map((m) => (targets.has(m.id) ? { ...m, readAt: null } : m)),
+      };
+    }
+    case ACTIONS.BULK_ARCHIVE_CONVERSATIONS: {
+      const set = new Set(action.ids || []);
+      if (set.size === 0) return state;
+      return {
+        ...state,
+        conversations: state.conversations.map((c) => (set.has(c.id) ? { ...c, archived: true } : c)),
+      };
+    }
+    case ACTIONS.BULK_ASSIGN_CONVERSATIONS: {
+      const set = new Set(action.ids || []);
+      if (set.size === 0) return state;
+      const userId = action.userId || null;
+      return {
+        ...state,
+        conversations: state.conversations.map((c) => (set.has(c.id) ? { ...c, assignedUserId: userId } : c)),
+      };
+    }
 
     // ---------- Reminders ----------
     case ACTIONS.UPDATE_REMINDER_TEMPLATE:

@@ -1,5 +1,7 @@
-// Bumped to v2 when Contacts + CRM schema shipped. Old v1 caches are ignored.
-const STORAGE_KEY = 'pp.store.v2';
+// Bumped to v4 when Messaging Phase 2b shipped (assignment, status lifecycle,
+// starring, following, folders, bulk actions, crew visibility gate). v3 caches
+// lack the new conversation fields so they must be reseeded.
+const STORAGE_KEY = 'pp.store.v4';
 
 export function loadState() {
   try {

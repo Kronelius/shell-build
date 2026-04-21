@@ -25,6 +25,24 @@ export const selectTags = (s) => s.tags || [];
 export const selectContactActivities = (s) => s.contactActivities || [];
 export const selectUserPermissionOverrides = (s) => s.userPermissionOverrides || [];
 
+// v3 additions — messaging snippets
+export const selectSnippets = (s) => s.snippets || [];
+export const selectSnippetFolders = (s) => s.snippetFolders || [];
+export const selectSnippetById = (s, id) => (s.snippets || []).find((x) => x.id === id) || null;
+export const selectSnippetFolderById = (s, id) => (s.snippetFolders || []).find((f) => f.id === id) || null;
+export const selectSnippetsForFolder = (s, folderId) =>
+  (s.snippets || []).filter((x) => x.folderId === folderId);
+// Snippets that apply to a given channel. Snippets with channel='all' always match;
+// snippets pinned to a specific channel only match that channel.
+export const selectSnippetsForChannel = (s, channel) =>
+  (s.snippets || []).filter((x) => x.channel === 'all' || x.channel === channel);
+
+// v4 additions — messaging folders
+export const selectMessageFolders = (s) => s.messageFolders || [];
+export const selectMessageFolderById = (s, id) => (s.messageFolders || []).find((f) => f.id === id) || null;
+export const selectConversationsForFolder = (s, folderId) =>
+  (s.conversations || []).filter((c) => (c.folderIds || []).includes(folderId));
+
 // ---------- Lookups ----------
 export const selectClientById = (s, id) => s.clients.find((c) => c.id === id) || null;
 export const selectSiteById   = (s, id) => s.sites.find((x) => x.id === id) || null;
@@ -249,4 +267,84 @@ export function selectReminderStats(s) {
 // Unread messages count per conversation
 export function selectUnreadForConversation(s, conversationId) {
   return s.messages.filter((m) => m.conversationId === conversationId && m.direction === 'in' && !m.readAt).length;
+}
+
+// ---------- Messaging inbox helpers (Phase 2a) ----------
+
+// Sort conversations newest-first using denormalized lastMessageAt (falls back to createdAt).
+export function sortConversationsByRecency(list) {
+  return [...list].sort((a, b) => {
+    const aT = a.lastMessageAt || a.createdAt || '';
+    const bT = b.lastMessageAt || b.createdAt || '';
+    return aT < bT ? 1 : aT > bT ? -1 : 0;
+  });
+}
+
+// Compute the live status of a conversation, auto-un-snoozing past-due timers.
+// Pure read — never mutates state. UIs that care about 'open vs snoozed' should
+// call this rather than reading conv.status directly.
+export function selectEffectiveStatus(conv, now = Date.now()) {
+  if (!conv) return 'open';
+  if (conv.status === 'snoozed' && conv.snoozedUntil) {
+    if (new Date(conv.snoozedUntil).getTime() <= now) return 'open';
+  }
+  return conv.status || 'open';
+}
+
+// Crew visibility gate — enforced on Team/My for crew role only.
+// Crew only see threads they're assigned to, follow, own, or authored into.
+function crewCanSee(conv, s, currentUser) {
+  const uid = currentUser?.id;
+  if (!uid) return false;
+  if (conv.assignedUserId === uid) return true;
+  if ((conv.followedUserIds || []).includes(uid)) return true;
+  const contact = conv.contactId ? (s.contacts || []).find((x) => x.id === conv.contactId) : null;
+  if (contact && contact.ownerUserId === uid) return true;
+  return (s.messages || []).some((m) => m.conversationId === conv.id && m.authorUserId === uid);
+}
+
+// Returns conversations scoped to a given inbox bucket.
+//   'my'       — external (sms/email) linked to a contact the current user owns,
+//                or where the current user authored a message in the thread,
+//                or the thread is explicitly assigned to them.
+//   'team'     — all external (sms/email) conversations, regardless of owner.
+//                Crew users only see threads they're assigned to, follow, own, or authored into.
+//   'internal' — internal-only team chats (channel === 'internal').
+//                Crew users only see internal threads they follow or authored into.
+export function selectConversationsForInbox(s, inbox, currentUser) {
+  // Archived threads drop out of every inbox bucket — they're only reachable via
+  // the thread's own permalink or a future "Archived" filter.
+  const convos = (s.conversations || []).filter((c) => !c.archived);
+  const isCrew = currentUser?.role === 'crew';
+
+  if (inbox === 'internal') {
+    let list = convos.filter((c) => c.channel === 'internal');
+    if (isCrew) list = list.filter((c) => crewCanSee(c, s, currentUser));
+    return sortConversationsByRecency(list);
+  }
+
+  const external = convos.filter((c) => c.channel === 'sms' || c.channel === 'email');
+
+  if (inbox === 'team') {
+    let list = external;
+    if (isCrew) list = list.filter((c) => crewCanSee(c, s, currentUser));
+    return sortConversationsByRecency(list);
+  }
+
+  // 'my' — owner of linked contact OR participant author OR explicit assignee.
+  const userId = currentUser?.id;
+  const mine = external.filter((c) => {
+    if (!userId) return false;
+    if (c.assignedUserId === userId) return true;
+    const contact = c.contactId ? (s.contacts || []).find((x) => x.id === c.contactId) : null;
+    if (contact && contact.ownerUserId === userId) return true;
+    return (s.messages || []).some((m) => m.conversationId === c.id && m.authorUserId === userId);
+  });
+  return sortConversationsByRecency(mine);
+}
+
+// Unread count for a whole inbox bucket (used by the rail badges).
+export function selectUnreadCountForInbox(s, inbox, currentUser) {
+  const convos = selectConversationsForInbox(s, inbox, currentUser);
+  return convos.reduce((acc, c) => acc + selectUnreadForConversation(s, c.id), 0);
 }

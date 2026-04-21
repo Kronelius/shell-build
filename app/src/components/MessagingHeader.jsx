@@ -1,0 +1,306 @@
+import { useEffect, useRef, useState } from 'react';
+import Icon from './Icon';
+import TagPicker from './TagPicker';
+import { useStore } from '../store';
+import { selectActiveUsers, selectMessageFolders } from '../store/selectors';
+
+export const EMPTY_FILTERS = {
+  channels: [],        // [] = all
+  tagIds: [],          // [] = all
+  ownerId: '',         // '' = any assignee (Phase 2b repurposed this to thread assignee)
+  dateRange: 'all',    // '24h' | '7d' | '30d' | 'all'
+  logic: 'and',        // 'and' | 'or'
+  statuses: [],        // [] = all statuses (subset of 'open' | 'snoozed' | 'closed')
+  starredOnly: false,  // true → only starred threads
+  folderIds: [],       // [] = any folder membership
+};
+
+const INBOXES = [
+  { key: 'my',       label: 'My Inbox' },
+  { key: 'team',     label: 'Team Inbox' },
+  { key: 'internal', label: 'Internal Chat' },
+];
+
+const DATE_OPTIONS = [
+  { value: '24h', label: 'Last 24h' },
+  { value: '7d',  label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: 'all', label: 'All time' },
+];
+
+const CHANNEL_CHIPS = [
+  { key: 'sms',      label: 'SMS' },
+  { key: 'email',    label: 'Email' },
+  { key: 'internal', label: 'Internal' },
+];
+
+const STATUS_CHIPS = [
+  { key: 'open',    label: 'Open' },
+  { key: 'snoozed', label: 'Snoozed' },
+  { key: 'closed',  label: 'Closed' },
+];
+
+function FiltersPopover({ filters, onFiltersChange, onClose, onManageFolders, canManageFolders }) {
+  const state = useStore();
+  const activeUsers = selectActiveUsers(state);
+  const folders = selectMessageFolders(state);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const onClick = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('mousedown', onClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  const toggleChannel = (ch) => {
+    const set = new Set(filters.channels);
+    if (set.has(ch)) set.delete(ch); else set.add(ch);
+    onFiltersChange({ ...filters, channels: Array.from(set) });
+  };
+  const toggleStatus = (st) => {
+    const set = new Set(filters.statuses);
+    if (set.has(st)) set.delete(st); else set.add(st);
+    onFiltersChange({ ...filters, statuses: Array.from(set) });
+  };
+  const toggleFolder = (fid) => {
+    const set = new Set(filters.folderIds);
+    if (set.has(fid)) set.delete(fid); else set.add(fid);
+    onFiltersChange({ ...filters, folderIds: Array.from(set) });
+  };
+
+  const anyFilter =
+    filters.channels.length > 0 ||
+    filters.tagIds.length > 0 ||
+    filters.ownerId ||
+    filters.dateRange !== 'all' ||
+    filters.statuses.length > 0 ||
+    filters.starredOnly ||
+    filters.folderIds.length > 0;
+
+  return (
+    <div className="filters-popover" ref={wrapRef} role="dialog" aria-label="Filters">
+      <div className="filters-popover-head">
+        <span>Filters</span>
+        {anyFilter && (
+          <button type="button" className="linklike" onClick={() => onFiltersChange(EMPTY_FILTERS)}>
+            Clear all
+          </button>
+        )}
+      </div>
+
+      <div className="filters-popover-body">
+        <div className="filter-block">
+          <div className="filter-label">Channels</div>
+          <div className="filter-chips">
+            {CHANNEL_CHIPS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={`filter-chip ${filters.channels.includes(c.key) ? 'on' : ''}`}
+                onClick={() => toggleChannel(c.key)}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="filter-block">
+          <div className="filter-label">Status</div>
+          <div className="filter-chips">
+            {STATUS_CHIPS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={`filter-chip ${filters.statuses.includes(c.key) ? 'on' : ''}`}
+                onClick={() => toggleStatus(c.key)}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="filter-block">
+          <label className="filter-starred-row">
+            <input
+              type="checkbox"
+              checked={filters.starredOnly}
+              onChange={(e) => onFiltersChange({ ...filters, starredOnly: e.target.checked })}
+            />
+            <span>Starred only</span>
+          </label>
+        </div>
+
+        <div className="filter-block">
+          <div className="filter-label-row">
+            <div className="filter-label">Folders</div>
+            {canManageFolders && (
+              <button type="button" className="linklike text-xs" onClick={onManageFolders}>
+                Manage
+              </button>
+            )}
+          </div>
+          {folders.length === 0 ? (
+            <span className="text-xs text-muted">No folders yet</span>
+          ) : (
+            <div className="filter-chips">
+              {folders.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`filter-chip folder-filter-chip folder-color-${f.color} ${filters.folderIds.includes(f.id) ? 'on' : ''}`}
+                  onClick={() => toggleFolder(f.id)}
+                >
+                  <span className="folder-chip-dot" />
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="filter-block">
+          <div className="filter-label">Tags</div>
+          <TagPicker
+            value={filters.tagIds}
+            onChange={(ids) => onFiltersChange({ ...filters, tagIds: ids })}
+            canCreate={false}
+            placeholder="Filter by tag…"
+          />
+        </div>
+
+        <div className="filter-block">
+          <div className="filter-label">Assignee</div>
+          <select
+            className="input"
+            value={filters.ownerId}
+            onChange={(e) => onFiltersChange({ ...filters, ownerId: e.target.value })}
+          >
+            <option value="">Any assignee</option>
+            <option value="__unassigned">Unassigned</option>
+            {activeUsers.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-block">
+          <div className="filter-label">Date range</div>
+          <select
+            className="input"
+            value={filters.dateRange}
+            onChange={(e) => onFiltersChange({ ...filters, dateRange: e.target.value })}
+          >
+            {DATE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-block">
+          <div className="filter-label">Combine filters</div>
+          <div className="segmented segmented-sm">
+            {['and', 'or'].map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`segmented-btn ${filters.logic === v ? 'active' : ''}`}
+                onClick={() => onFiltersChange({ ...filters, logic: v })}
+              >
+                {v === 'and' ? 'Match all' : 'Match any'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function MessagingHeader({
+  selectedInbox,
+  onInboxChange,
+  unread = {},
+  filters,
+  onFiltersChange,
+  canStart,
+  canManageFolders,
+  onNewConversation,
+  onManageFolders,
+}) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const anyFilter =
+    filters.channels.length > 0 ||
+    filters.tagIds.length > 0 ||
+    filters.ownerId ||
+    filters.dateRange !== 'all' ||
+    filters.statuses.length > 0 ||
+    filters.starredOnly ||
+    filters.folderIds.length > 0;
+
+  return (
+    <header className="messaging-header">
+      <div className="messaging-inbox-toggle" role="tablist" aria-label="Inbox">
+        {INBOXES.map((ib) => {
+          const active = selectedInbox === ib.key;
+          const count = unread[ib.key] || 0;
+          return (
+            <button
+              key={ib.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`inbox-toggle-btn ${active ? 'active' : ''}`}
+              onClick={() => onInboxChange(ib.key)}
+            >
+              <span>{ib.label}</span>
+              {count > 0 && <span className="inbox-toggle-unread">{count}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="messaging-header-actions">
+        <div className="filters-wrap">
+          <button
+            type="button"
+            className={`btn btn-outline btn-sm ${anyFilter ? 'has-active-filter' : ''}`}
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+          >
+            <Icon name="filter" size={14} />
+            <span>Filters</span>
+            {anyFilter && <span className="filter-active-dot" aria-label="filters active" />}
+          </button>
+          {filtersOpen && (
+            <FiltersPopover
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+              onClose={() => setFiltersOpen(false)}
+              onManageFolders={() => { setFiltersOpen(false); onManageFolders(); }}
+              canManageFolders={canManageFolders}
+            />
+          )}
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={onNewConversation}
+          disabled={!canStart}
+          title={canStart ? 'Start a new conversation' : 'You lack permission to start conversations'}
+        >
+          <Icon name="plus" size={14} />
+          <span>New conversation</span>
+        </button>
+      </div>
+    </header>
+  );
+}
