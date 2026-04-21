@@ -1,4 +1,5 @@
-const STORAGE_KEY = 'pp.store.v1';
+// Bumped to v2 when Contacts + CRM schema shipped. Old v1 caches are ignored.
+const STORAGE_KEY = 'pp.store.v2';
 
 export function loadState() {
   try {

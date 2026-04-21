@@ -20,8 +20,10 @@ export default function SettingsRoles() {
   return (
     <div>
       <div className="page-head-text">
-        <h1 className="page-head-title">Roles & Permissions</h1>
-        <p className="page-head-subtitle">Control what each role can see and do. Owner-only.</p>
+        <h1 className="page-head-title">Role Permissions Matrix</h1>
+        <p className="page-head-subtitle">
+          Set defaults for each role. To grant or revoke individual staff access, open <a href="/settings/team">Team</a> and edit a member's overrides. Super Admin only.
+        </p>
       </div>
 
       <div className="card detail-card" style={{ marginBottom: 16 }}>

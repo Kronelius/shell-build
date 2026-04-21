@@ -1,5 +1,7 @@
 # HANDOFF — Commit to Existing GitHub Repo
 
+> **Archived (2026-04-20).** This document described the original one-shot handoff used to create the first commit in an empty GitHub repo. That step is complete — the repo is live and Phase 1 of the CRM build has shipped. Kept here for history only. For current project state see [CLAUDE.md](CLAUDE.md).
+
 ## Project location
 **`C:\Users\danie\Documents\Saasassins\Mockups`**
 

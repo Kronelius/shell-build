@@ -1,5 +1,7 @@
 // Selectors — read-only helpers over state. Kept pure; callers can memoize if hot.
 
+import { effectivePermissions } from '../lib/roles';
+
 export const selectCompany = (s) => s.company;
 export const selectUsers = (s) => s.users;
 export const selectActiveUsers = (s) => s.users.filter((u) => u.status === 'active');
@@ -17,6 +19,12 @@ export const selectReminderTemplates = (s) => s.reminderTemplates;
 export const selectReminderEvents = (s) => s.reminderEvents;
 export const selectPermissions = (s) => s.permissions;
 
+// v2 additions
+export const selectContacts = (s) => s.contacts || [];
+export const selectTags = (s) => s.tags || [];
+export const selectContactActivities = (s) => s.contactActivities || [];
+export const selectUserPermissionOverrides = (s) => s.userPermissionOverrides || [];
+
 // ---------- Lookups ----------
 export const selectClientById = (s, id) => s.clients.find((c) => c.id === id) || null;
 export const selectSiteById   = (s, id) => s.sites.find((x) => x.id === id) || null;
@@ -25,6 +33,13 @@ export const selectUserById    = (s, id) => s.users.find((x) => x.id === id) || 
 export const selectJobById     = (s, id) => s.jobs.find((x) => x.id === id) || null;
 export const selectInvoiceById = (s, id) => s.invoices.find((x) => x.id === id) || null;
 export const selectConversationById = (s, id) => s.conversations.find((x) => x.id === id) || null;
+export const selectContactById = (s, id) => (s.contacts || []).find((c) => c.id === id) || null;
+export const selectContactByEmail = (s, email) => {
+  if (!email) return null;
+  const lower = email.trim().toLowerCase();
+  return (s.contacts || []).find((c) => (c.email || '').toLowerCase() === lower) || null;
+};
+export const selectTagById = (s, id) => (s.tags || []).find((t) => t.id === id) || null;
 
 // ---------- Relationship reads ----------
 export const selectSitesForClient = (s, clientId) =>
@@ -44,6 +59,110 @@ export const selectConversationForClient = (s, clientId) =>
 
 export const selectJobsForUser = (s, userId) =>
   s.jobs.filter((j) => j.crewIds?.includes(userId));
+
+export const selectContactsForClient = (s, clientId) =>
+  (s.contacts || []).filter((c) => c.companyId === clientId && c.lifecycle !== 'archived');
+
+export const selectInvoicesForContact = (s, contactId) =>
+  (s.invoices || []).filter((inv) => inv.billingContactId === contactId);
+
+export const selectConversationsForContact = (s, contactId) =>
+  (s.conversations || []).filter((c) => c.contactId === contactId);
+
+export const selectActivitiesForContact = (s, contactId) =>
+  (s.contactActivities || [])
+    .filter((a) => a.contactId === contactId)
+    .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+
+// Merge explicit contact activities with synthesized events from related records (invoices, jobs, messages).
+// Used by the ContactDetail Activity timeline.
+export function selectSynthesizedActivityForContact(s, contactId) {
+  const contact = selectContactById(s, contactId);
+  if (!contact) return [];
+  const explicit = selectActivitiesForContact(s, contactId).map((a) => ({
+    ...a,
+    _source: 'activity',
+  }));
+  const invoices = (s.invoices || [])
+    .filter((inv) => inv.billingContactId === contactId)
+    .map((inv) => ({
+      id: `syn-inv-${inv.id}`,
+      kind: 'invoice',
+      contactId,
+      body: `Invoice ${inv.id} issued · ${inv.status}`,
+      occurredAt: inv.issueDate,
+      authorUserId: null,
+      _source: 'invoice',
+      _ref: inv.id,
+    }));
+  const jobs = contact.companyId
+    ? (s.jobs || [])
+        .filter((j) => j.clientId === contact.companyId)
+        .map((j) => ({
+          id: `syn-job-${j.id}`,
+          kind: 'meeting',
+          contactId,
+          body: `Job scheduled · ${j.status}`,
+          occurredAt: j.startAt,
+          authorUserId: null,
+          _source: 'job',
+          _ref: j.id,
+        }))
+    : [];
+  const convoIds = new Set((s.conversations || []).filter((cv) => cv.contactId === contactId).map((cv) => cv.id));
+  const msgs = (s.messages || [])
+    .filter((m) => convoIds.has(m.conversationId))
+    .map((m) => ({
+      id: `syn-msg-${m.id}`,
+      kind: m.direction === 'in' ? 'email' : 'email',
+      contactId,
+      body: `${m.direction === 'in' ? 'Received' : 'Sent'}: ${m.text}`,
+      occurredAt: m.sentAt,
+      authorUserId: m.authorUserId,
+      _source: 'message',
+      _ref: m.id,
+    }));
+  return [...explicit, ...invoices, ...jobs, ...msgs].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+}
+
+// Visibility + permission resolution for contacts.
+// Applies both the role-based view permission and the per-contact visibility flag.
+export function selectVisibleContactsFor(s, user, permissions) {
+  if (!user) return [];
+  const contacts = s.contacts || [];
+  const viewAll = (permissions || []).find((p) => p.id === 'contacts.view.all')?.roles.includes(user.role);
+  return contacts.filter((c) => {
+    if (c.lifecycle === 'archived') return false;
+    // Visibility gate
+    if (c.visibility === 'private') {
+      if (user.role === 'owner') return true;
+      return c.ownerUserId === user.id;
+    }
+    if (c.visibility === 'team') {
+      if (user.role === 'owner' || user.role === 'admin') return true;
+      return viewAll || c.ownerUserId === user.id;
+    }
+    // 'org' — visible to anyone with contacts.view (checked upstream)
+    if (!viewAll && user.role === 'crew') {
+      // Crew who doesn't have view.all only sees contacts they own or unassigned org contacts
+      return c.ownerUserId === user.id || !c.ownerUserId;
+    }
+    return true;
+  });
+}
+
+// Pipeline — contacts in lead/prospect lifecycles with a stage set.
+export function selectPipelineContacts(s) {
+  return (s.contacts || []).filter(
+    (c) => c.lifecycle !== 'archived' && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect')
+  );
+}
+
+// Effective permissions for a specific user (for the overrides UI).
+export function selectEffectivePermissionsForUser(s, userId) {
+  const user = selectUserById(s, userId);
+  return effectivePermissions(user, s.permissions, s.userPermissionOverrides || []);
+}
 
 // ---------- Derived ----------
 export function invoiceTotal(invoice) {

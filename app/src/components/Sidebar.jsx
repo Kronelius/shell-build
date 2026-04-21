@@ -9,7 +9,8 @@ const NAV = [
   { to: '/',          label: 'Dashboard',  icon: 'dashboard', perm: 'dashboard.view', end: true },
   { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use'  },
   { to: '/schedule',  label: 'Schedule',   icon: 'schedule',  perm: 'schedule.view'  },
-  { to: '/clients',   label: 'Clients',    icon: 'clients',   perm: 'clients.view'   },
+  { to: '/contacts',  label: 'Contacts',   icon: 'clients',   perm: 'contacts.view'  },
+  { to: '/pipeline',  label: 'Pipeline',   icon: 'chart',     perm: 'pipeline.view'  },
   { to: '/invoices',  label: 'Invoices',   icon: 'invoices',  perm: 'invoices.view'  },
   { to: '/reminders', label: 'Reminders',  icon: 'reminders', perm: 'reminders.view' },
 ];

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useStore } from '../../store';
 import { ACTIONS } from '../../store/reducer';
-import { selectUsers } from '../../store/selectors';
+import { selectUsers, selectUserPermissionOverrides } from '../../store/selectors';
 import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../components/Toast';
 import FormField from '../../components/FormField';
@@ -18,6 +18,8 @@ export default function SettingsTeam() {
   const toast = useToast();
   const canEdit = usePermission('settings.team.edit');
   const users = selectUsers(state);
+  const overrides = selectUserPermissionOverrides(state);
+  const hasOverride = (userId) => overrides.some((o) => o.userId === userId && ((o.grants?.length || 0) + (o.revokes?.length || 0) > 0));
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invite, setInvite] = useState({ name: '', email: '', role: 'crew' });
@@ -72,7 +74,7 @@ export default function SettingsTeam() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th></th></tr>
+                <tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {users.map((u) => (
@@ -84,10 +86,14 @@ export default function SettingsTeam() {
                       </Link>
                     </td>
                     <td>{u.email || '—'}</td>
-                    <td>{u.phone || '—'}</td>
                     <td>{ROLE_LABELS[u.role]}</td>
                     <td>
-                      <Badge variant={u.status === 'active' ? 'green' : u.status === 'invited' ? 'orange' : 'slate'}>
+                      <Badge variant={hasOverride(u.id) ? 'amber' : 'slate'}>
+                        {hasOverride(u.id) ? 'Custom' : 'Default'}
+                      </Badge>
+                    </td>
+                    <td>
+                      <Badge variant={u.status === 'active' ? 'green' : u.status === 'invited' ? 'amber' : 'slate'}>
                         {u.status.charAt(0).toUpperCase() + u.status.slice(1)}
                       </Badge>
                     </td>

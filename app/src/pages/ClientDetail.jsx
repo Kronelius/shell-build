@@ -4,7 +4,8 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
   selectClientById, selectSitesForClient, selectJobsForClient, selectInvoicesForClient,
-  selectServiceById, selectFrequencies, selectServices, invoiceTotal, invoiceBalance, deriveInvoiceStatus,
+  selectServiceById, selectFrequencies, selectServices, selectContactsForClient, selectContactById,
+  invoiceTotal, invoiceBalance, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useToast } from '../components/Toast';
@@ -15,11 +16,15 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField from '../components/FormField';
 import AddSiteModal from '../components/AddSiteModal';
+import AddContactModal from '../components/AddContactModal';
+import ContactPicker from '../components/ContactPicker';
+import Avatar from '../components/Avatar';
 import Icon from '../components/Icon';
 import { fmtDate, fmtTimeRange, money } from '../lib/dates';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'contacts', label: 'Contacts' },
   { key: 'sites',    label: 'Sites' },
   { key: 'history',  label: 'Service History' },
   { key: 'invoices', label: 'Invoices' },
@@ -35,14 +40,17 @@ export default function ClientDetail() {
   const canEdit = usePermission('clients.edit');
   const canArchive = usePermission('clients.archive');
   const canEditSites = usePermission('sites.edit');
+  const canEditContacts = usePermission('contacts.edit');
   const { currentUser } = useAuth();
 
   const client = selectClientById(state, clientId);
   const sites = client ? selectSitesForClient(state, client.id) : [];
   const jobs = client ? selectJobsForClient(state, client.id) : [];
   const invoices = client ? selectInvoicesForClient(state, client.id) : [];
+  const contacts = client ? selectContactsForClient(state, client.id) : [];
   const services = selectServices(state);
   const frequencies = selectFrequencies(state);
+  const primaryContact = client?.primaryContactId ? selectContactById(state, client.primaryContactId) : null;
 
   const [tab, setTab] = useState('overview');
   const [editing, setEditing] = useState(false);
@@ -52,6 +60,7 @@ export default function ClientDetail() {
   const [confirmDeleteSite, setConfirmDeleteSite] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [addContactOpen, setAddContactOpen] = useState(false);
 
   const outstanding = useMemo(() => invoices.reduce((a, inv) => {
     const s = deriveInvoiceStatus(inv);
@@ -70,9 +79,15 @@ export default function ClientDetail() {
     dispatch({ type: ACTIONS.UPDATE_CLIENT, id: client.id, patch: {
       name: form.name, primaryContact: form.primaryContact, email: form.email, phone: form.phone,
       serviceId: form.serviceId, frequencyId: form.frequencyId, status: form.status,
+      primaryContactId: form.primaryContactId || null,
     }});
     setEditing(false);
-    toast.success('Client updated');
+    toast.success('Account updated');
+  };
+
+  const setPrimary = (contactId) => {
+    dispatch({ type: ACTIONS.UPDATE_CLIENT, id: client.id, patch: { primaryContactId: contactId } });
+    toast.success('Primary contact updated');
   };
 
   const archive = () => {
@@ -121,21 +136,36 @@ export default function ClientDetail() {
         <div className="card detail-card">
           {!editing ? (
             <dl className="detail-dl">
-              <div><dt>Primary contact</dt><dd>{client.primaryContact || '—'}</dd></div>
-              <div><dt>Email</dt><dd>{client.email || '—'}</dd></div>
-              <div><dt>Phone</dt><dd>{client.phone || '—'}</dd></div>
+              <div><dt>Primary contact</dt><dd>
+                {primaryContact ? (
+                  <Link to={`/clients/contact/${primaryContact.id}`}>
+                    {primaryContact.firstName} {primaryContact.lastName}
+                    {primaryContact.title && <span className="text-muted"> — {primaryContact.title}</span>}
+                  </Link>
+                ) : (client.primaryContact || '—')}
+              </dd></div>
+              <div><dt>Email</dt><dd>{primaryContact?.email || client.email || '—'}</dd></div>
+              <div><dt>Phone</dt><dd>{primaryContact?.phone || client.phone || '—'}</dd></div>
               <div><dt>Service</dt><dd>{selectServiceById(state, client.serviceId)?.name || '—'}</dd></div>
               <div><dt>Frequency</dt><dd>{frequencies.find((f) => f.id === client.frequencyId)?.label || '—'}</dd></div>
               <div><dt>Lifetime revenue</dt><dd>{money(client.revenue || 0)}</dd></div>
               <div><dt>Outstanding</dt><dd>{outstanding > 0 ? <span className="text-danger">{money(outstanding)}</span> : money(0)}</dd></div>
               <div><dt>Last service</dt><dd>{client.lastServiceAt ? fmtDate(client.lastServiceAt) : '—'}</dd></div>
+              <div><dt>Contacts</dt><dd>{contacts.length}</dd></div>
               <div><dt>Sites</dt><dd>{sites.length}</dd></div>
             </dl>
           ) : (
             <div>
               <FormField label="Company name" name="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">Primary contact</label>
+                <ContactPicker
+                  value={form.primaryContactId || null}
+                  companyId={client.id}
+                  onChange={(id) => setForm({ ...form, primaryContactId: id })}
+                />
+              </div>
               <div className="form-row">
-                <FormField label="Primary contact" name="primaryContact" value={form.primaryContact || ''} onChange={(e) => setForm({ ...form, primaryContact: e.target.value })} />
                 <FormField label="Email" type="email" name="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 <FormField label="Phone" name="phone" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
@@ -162,6 +192,62 @@ export default function ClientDetail() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {tab === 'contacts' && (
+        <div>
+          <div className="section-head">
+            <div>
+              <h3 className="section-title">Contacts ({contacts.length})</h3>
+              <p className="text-muted text-sm">Everyone you work with at {client.name}. Click a name for the full CRM profile.</p>
+            </div>
+            {canEditContacts && <button className="btn btn-primary btn-sm" onClick={() => setAddContactOpen(true)}><Icon name="plus" size={14} /> Add Contact</button>}
+          </div>
+          {contacts.length === 0 ? (
+            <EmptyState
+              icon={<Icon name="user" size={28} />}
+              title="No contacts yet"
+              message="Add the people you work with at this account."
+              action={canEditContacts && <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>Add a contact</button>}
+            />
+          ) : (
+            <div className="card">
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th></th><th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th></th></tr></thead>
+                  <tbody>
+                    {contacts
+                      .slice()
+                      .sort((a, b) => (a.id === client.primaryContactId ? -1 : b.id === client.primaryContactId ? 1 : 0))
+                      .map((c) => {
+                        const isPrimary = c.id === client.primaryContactId;
+                        return (
+                          <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                            <td onClick={(e) => e.stopPropagation()} style={{ width: 36 }}>
+                              <Avatar initials={`${(c.firstName[0] || '').toUpperCase()}${(c.lastName[0] || '').toUpperCase()}`} variant={(c.id.length % 5) + 1} size="sm" />
+                            </td>
+                            <td>
+                              <span className="name">{c.firstName} {c.lastName}</span>
+                              {isPrimary && <span className="tier-badge" style={{ marginLeft: 8 }}>Primary</span>}
+                            </td>
+                            <td>{c.title || '—'}</td>
+                            <td>{c.email}</td>
+                            <td>{c.phone || '—'}</td>
+                            <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                              {!isPrimary && canEdit && (
+                                <button className="btn btn-outline btn-sm" onClick={() => setPrimary(c.id)}>Set as primary</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <AddContactModal open={addContactOpen} onClose={() => setAddContactOpen(false)} lockCompanyId={client.id} />
         </div>
       )}
 

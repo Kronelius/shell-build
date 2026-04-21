@@ -10,6 +10,8 @@ import Schedule from './pages/Schedule';
 import JobDetail from './pages/JobDetail';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
+import ContactDetail from './pages/ContactDetail';
+import Pipeline from './pages/Pipeline';
 import Invoices from './pages/Invoices';
 import InvoiceDetail from './pages/InvoiceDetail';
 import Reminders from './pages/Reminders';
@@ -36,8 +38,14 @@ export default function App() {
               <Route path="schedule" element={<RequirePerm perm="schedule.view"><Schedule /></RequirePerm>} />
               <Route path="schedule/:jobId" element={<RequirePerm perm="schedule.view"><JobDetail /></RequirePerm>} />
 
+              <Route path="contacts" element={<RequirePerm perm="contacts.view"><Clients /></RequirePerm>} />
+              <Route path="contacts/:contactId" element={<RequirePerm perm="contacts.view"><ContactDetail /></RequirePerm>} />
+
               <Route path="clients" element={<RequirePerm perm="clients.view"><Clients /></RequirePerm>} />
+              <Route path="clients/contact/:contactId" element={<RequirePerm perm="contacts.view"><ContactDetail /></RequirePerm>} />
               <Route path="clients/:clientId" element={<RequirePerm perm="clients.view"><ClientDetail /></RequirePerm>} />
+
+              <Route path="pipeline" element={<RequirePerm perm="pipeline.view"><Pipeline /></RequirePerm>} />
 
               <Route path="invoices" element={<RequirePerm perm="invoices.view"><Invoices /></RequirePerm>} />
               <Route path="invoices/:invoiceId" element={<RequirePerm perm="invoices.view"><InvoiceDetail /></RequirePerm>} />

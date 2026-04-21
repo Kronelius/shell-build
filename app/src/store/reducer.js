@@ -1,7 +1,7 @@
 // Single reducer for the whole app. Actions are flat and explicit.
 // Prefer small, named actions over a generic "update entity" action — easier to trace.
 
-import { newId, seedId } from '../lib/ids';
+import { newId } from '../lib/ids';
 import { nowIso } from '../lib/dates';
 import { INITIAL_STATE } from '../data/seed';
 
@@ -33,6 +33,30 @@ export const ACTIONS = {
   ARCHIVE_CLIENT: 'ARCHIVE_CLIENT',
   UNARCHIVE_CLIENT: 'UNARCHIVE_CLIENT',
   APPEND_CLIENT_NOTE: 'APPEND_CLIENT_NOTE',
+
+  // Contacts (CRM)
+  ADD_CONTACT: 'ADD_CONTACT',
+  UPDATE_CONTACT: 'UPDATE_CONTACT',
+  DELETE_CONTACT: 'DELETE_CONTACT',
+  ARCHIVE_CONTACT: 'ARCHIVE_CONTACT',
+  TAG_CONTACT: 'TAG_CONTACT',
+  UNTAG_CONTACT: 'UNTAG_CONTACT',
+  ASSIGN_CONTACT_OWNER: 'ASSIGN_CONTACT_OWNER',
+  SET_CONTACT_VISIBILITY: 'SET_CONTACT_VISIBILITY',
+  SET_CONTACT_STAGE: 'SET_CONTACT_STAGE',
+  SET_CONTACT_LIFECYCLE: 'SET_CONTACT_LIFECYCLE',
+  APPEND_CONTACT_NOTE: 'APPEND_CONTACT_NOTE',
+
+  // Tags
+  ADD_TAG: 'ADD_TAG',
+  UPDATE_TAG: 'UPDATE_TAG',
+  DELETE_TAG: 'DELETE_TAG',
+
+  // Contact activities
+  ADD_CONTACT_ACTIVITY: 'ADD_CONTACT_ACTIVITY',
+
+  // Per-user permission overrides
+  SET_USER_PERMISSION_OVERRIDE: 'SET_USER_PERMISSION_OVERRIDE',
 
   // Sites
   ADD_SITE: 'ADD_SITE',
@@ -115,11 +139,15 @@ export function reducer(state, action) {
     case ACTIONS.UPDATE_USER:
       return { ...state, users: replaceById(state.users, action.id, action.patch) };
     case ACTIONS.DELETE_USER:
-      return { ...state, users: removeById(state.users, action.id) };
+      return {
+        ...state,
+        users: removeById(state.users, action.id),
+        userPermissionOverrides: (state.userPermissionOverrides || []).filter((o) => o.userId !== action.id),
+      };
 
     // ---------- Clients ----------
     case ACTIONS.ADD_CLIENT: {
-      const base = { id: newId('cl'), status: 'active', revenue: 0, notes: '', createdAt: nowIso(), lastServiceAt: null };
+      const base = { id: newId('cl'), status: 'active', revenue: 0, notes: '', createdAt: nowIso(), lastServiceAt: null, primaryContactId: null };
       return { ...state, clients: [...state.clients, { ...base, ...action.client }] };
     }
     case ACTIONS.UPDATE_CLIENT:
@@ -129,7 +157,6 @@ export function reducer(state, action) {
     case ACTIONS.UNARCHIVE_CLIENT:
       return { ...state, clients: replaceById(state.clients, action.id, { status: 'active', archivedAt: null }) };
     case ACTIONS.APPEND_CLIENT_NOTE: {
-      // Notes are stored as a newline-prefixed string of timestamped entries for simplicity.
       const stamp = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
       return {
         ...state,
@@ -142,9 +169,168 @@ export function reducer(state, action) {
       };
     }
 
+    // ---------- Contacts ----------
+    case ACTIONS.ADD_CONTACT: {
+      const email = (action.contact?.email || '').trim().toLowerCase();
+      if (!email) return state; // email is required
+      // Uniqueness guard — reject if email is already used.
+      const exists = (state.contacts || []).some((c) => (c.email || '').toLowerCase() === email);
+      if (exists) return state;
+      const base = {
+        id: newId('ct'),
+        email,
+        firstName: '', lastName: '', title: '', phone: '',
+        companyId: null, ownerUserId: null,
+        tagIds: [],
+        visibility: 'org',
+        lifecycle: 'lead',
+        stage: null, dealValue: null, expectedCloseDate: null, stageChangedAt: nowIso(),
+        notes: '', customFields: {},
+        createdAt: nowIso(), updatedAt: nowIso(),
+      };
+      return {
+        ...state,
+        contacts: [...(state.contacts || []), { ...base, ...action.contact, email }],
+      };
+    }
+    case ACTIONS.UPDATE_CONTACT: {
+      const patch = { ...action.patch, updatedAt: nowIso() };
+      if (patch.email) {
+        const lower = patch.email.trim().toLowerCase();
+        const dup = (state.contacts || []).some((c) => c.id !== action.id && (c.email || '').toLowerCase() === lower);
+        if (dup) return state; // email must stay unique
+        patch.email = lower;
+      }
+      return { ...state, contacts: replaceById(state.contacts || [], action.id, patch) };
+    }
+    case ACTIONS.DELETE_CONTACT: {
+      // Remove the contact + unwire any FK references so the app doesn't render dangling ids.
+      const id = action.id;
+      return {
+        ...state,
+        contacts: (state.contacts || []).filter((c) => c.id !== id),
+        clients: state.clients.map((cl) => (cl.primaryContactId === id ? { ...cl, primaryContactId: null } : cl)),
+        invoices: state.invoices.map((inv) => (inv.billingContactId === id ? { ...inv, billingContactId: null } : inv)),
+        sites: state.sites.map((st) => (st.siteContactId === id ? { ...st, siteContactId: null } : st)),
+        conversations: state.conversations.map((cv) => (cv.contactId === id ? { ...cv, contactId: null } : cv)),
+        contactActivities: (state.contactActivities || []).filter((a) => a.contactId !== id),
+      };
+    }
+    case ACTIONS.ARCHIVE_CONTACT:
+      return { ...state, contacts: replaceById(state.contacts || [], action.id, { lifecycle: 'archived', archivedAt: nowIso(), updatedAt: nowIso() }) };
+    case ACTIONS.TAG_CONTACT:
+      return {
+        ...state,
+        contacts: (state.contacts || []).map((c) => {
+          if (c.id !== action.id) return c;
+          const tagIds = c.tagIds || [];
+          if (tagIds.includes(action.tagId)) return c;
+          return { ...c, tagIds: [...tagIds, action.tagId], updatedAt: nowIso() };
+        }),
+      };
+    case ACTIONS.UNTAG_CONTACT:
+      return {
+        ...state,
+        contacts: (state.contacts || []).map((c) => {
+          if (c.id !== action.id) return c;
+          return { ...c, tagIds: (c.tagIds || []).filter((t) => t !== action.tagId), updatedAt: nowIso() };
+        }),
+      };
+    case ACTIONS.ASSIGN_CONTACT_OWNER:
+      return { ...state, contacts: replaceById(state.contacts || [], action.id, { ownerUserId: action.userId, updatedAt: nowIso() }) };
+    case ACTIONS.SET_CONTACT_VISIBILITY:
+      return { ...state, contacts: replaceById(state.contacts || [], action.id, { visibility: action.visibility, updatedAt: nowIso() }) };
+    case ACTIONS.SET_CONTACT_STAGE: {
+      const now = nowIso();
+      const prev = (state.contacts || []).find((c) => c.id === action.id);
+      if (!prev) return state;
+      const activity = {
+        id: newId('act'),
+        contactId: action.id,
+        kind: 'stage_change',
+        authorUserId: action.authorUserId || state.currentUserId,
+        body: `Stage: ${prev.stage || '—'} → ${action.stage}`,
+        occurredAt: now,
+      };
+      return {
+        ...state,
+        contacts: replaceById(state.contacts || [], action.id, {
+          stage: action.stage,
+          stageChangedAt: now,
+          updatedAt: now,
+          // Move to 'customer' lifecycle automatically on 'won'; 'archived' on 'lost' stays lead unless caller sets lifecycle.
+          lifecycle: action.stage === 'won' ? 'customer' : prev.lifecycle,
+        }),
+        contactActivities: [...(state.contactActivities || []), activity],
+      };
+    }
+    case ACTIONS.SET_CONTACT_LIFECYCLE:
+      return { ...state, contacts: replaceById(state.contacts || [], action.id, { lifecycle: action.lifecycle, updatedAt: nowIso() }) };
+    case ACTIONS.APPEND_CONTACT_NOTE: {
+      const now = nowIso();
+      const activity = {
+        id: newId('act'),
+        contactId: action.id,
+        kind: 'note',
+        authorUserId: action.authorUserId || state.currentUserId,
+        body: action.text,
+        occurredAt: now,
+      };
+      return {
+        ...state,
+        contacts: (state.contacts || []).map((c) => {
+          if (c.id !== action.id) return c;
+          const stamp = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+          const entry = `[${stamp}] ${action.text}`;
+          const next = c.notes ? `${entry}\n\n${c.notes}` : entry;
+          return { ...c, notes: next, updatedAt: now };
+        }),
+        contactActivities: [...(state.contactActivities || []), activity],
+      };
+    }
+
+    // ---------- Tags ----------
+    case ACTIONS.ADD_TAG: {
+      const base = { id: newId('tg'), color: 'slate', scope: 'contact' };
+      return { ...state, tags: [...(state.tags || []), { ...base, ...action.tag }] };
+    }
+    case ACTIONS.UPDATE_TAG:
+      return { ...state, tags: replaceById(state.tags || [], action.id, action.patch) };
+    case ACTIONS.DELETE_TAG:
+      return {
+        ...state,
+        tags: (state.tags || []).filter((t) => t.id !== action.id),
+        contacts: (state.contacts || []).map((c) => ({
+          ...c,
+          tagIds: (c.tagIds || []).filter((tid) => tid !== action.id),
+        })),
+      };
+
+    // ---------- Contact activities ----------
+    case ACTIONS.ADD_CONTACT_ACTIVITY: {
+      const base = { id: newId('act'), occurredAt: nowIso(), authorUserId: state.currentUserId };
+      return { ...state, contactActivities: [...(state.contactActivities || []), { ...base, ...action.activity }] };
+    }
+
+    // ---------- Per-user permission overrides ----------
+    case ACTIONS.SET_USER_PERMISSION_OVERRIDE: {
+      const { userId, grants = [], revokes = [] } = action;
+      const existing = (state.userPermissionOverrides || []).find((o) => o.userId === userId);
+      const isEmpty = grants.length === 0 && revokes.length === 0;
+      let next = state.userPermissionOverrides || [];
+      if (isEmpty) {
+        next = next.filter((o) => o.userId !== userId);
+      } else if (existing) {
+        next = next.map((o) => (o.userId === userId ? { userId, grants, revokes } : o));
+      } else {
+        next = [...next, { userId, grants, revokes }];
+      }
+      return { ...state, userPermissionOverrides: next };
+    }
+
     // ---------- Sites ----------
     case ACTIONS.ADD_SITE: {
-      const base = { id: newId('st'), accessNotes: '', createdAt: nowIso() };
+      const base = { id: newId('st'), accessNotes: '', createdAt: nowIso(), siteContactId: null };
       return { ...state, sites: [...state.sites, { ...base, ...action.site }] };
     }
     case ACTIONS.UPDATE_SITE:
@@ -166,7 +352,7 @@ export function reducer(state, action) {
 
     // ---------- Invoices ----------
     case ACTIONS.ADD_INVOICE: {
-      const base = { id: action.invoice?.id || nextInvoiceId(state), jobIds: [], lineItems: [], payments: [], taxRate: state.company.taxRate || 0, status: 'pending', createdAt: nowIso() };
+      const base = { id: action.invoice?.id || nextInvoiceId(state), jobIds: [], lineItems: [], payments: [], taxRate: state.company.taxRate || 0, status: 'pending', createdAt: nowIso(), billingContactId: null };
       return { ...state, invoices: [...state.invoices, { ...base, ...action.invoice, id: base.id }] };
     }
     case ACTIONS.UPDATE_INVOICE:
@@ -190,7 +376,7 @@ export function reducer(state, action) {
 
     // ---------- Conversations / messages ----------
     case ACTIONS.ADD_CONVERSATION: {
-      const base = { id: newId('cv'), channel: 'sms', archived: false, createdAt: nowIso() };
+      const base = { id: newId('cv'), channel: 'sms', archived: false, createdAt: nowIso(), contactId: null };
       return { ...state, conversations: [...state.conversations, { ...base, ...action.conversation }] };
     }
     case ACTIONS.UPDATE_CONVERSATION:
