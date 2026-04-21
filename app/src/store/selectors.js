@@ -51,6 +51,16 @@ export const selectContactByEmail = (s, email) => {
   const lower = email.trim().toLowerCase();
   return (s.contacts || []).find((c) => (c.email || '').toLowerCase() === lower) || null;
 };
+export const selectUserByEmail = (s, email) => {
+  if (!email) return null;
+  const lower = email.trim().toLowerCase();
+  return s.users.find((u) => (u.email || '').toLowerCase() === lower) || null;
+};
+export const selectPipelineStages = (s) => s.pipelineStages || [];
+export const selectPipelineStageByKey = (s, key) =>
+  (s.pipelineStages || []).find((st) => st.key === key) || null;
+export const selectContactsByStageKey = (s, key) =>
+  (s.contacts || []).filter((c) => c.stage === key);
 export const selectTagById = (s, id) => (s.tags || []).find((t) => t.id === id) || null;
 
 // ---------- Relationship reads ----------
@@ -294,6 +304,11 @@ export function selectDashboardStats(s) {
     weekRevenue: collected, // simplified — expanded in Phase 4
   };
 }
+
+export const selectUnreadReminderCount = (s) =>
+  (s.reminderEvents || []).filter((e) => !e.readAt).length;
+export const selectFailedReminderCount = (s) =>
+  (s.reminderEvents || []).filter((e) => e.status === 'failed').length;
 
 // Reminder stats (computed from events)
 export function selectReminderStats(s) {

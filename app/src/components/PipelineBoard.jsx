@@ -2,21 +2,14 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectPipelineContacts, selectUsers } from '../store/selectors';
+import { selectPipelineContacts, selectUsers, selectPipelineStages } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useToast } from './Toast';
 import { money } from '../lib/dates';
 import PipelineCard from './PipelineCard';
 import FormField from './FormField';
-
-export const PIPELINE_STAGES = [
-  { key: 'new',        label: 'New' },
-  { key: 'contacted',  label: 'Contacted' },
-  { key: 'qualified',  label: 'Qualified' },
-  { key: 'proposal',   label: 'Proposal' },
-  { key: 'won',        label: 'Won' },
-  { key: 'lost',       label: 'Lost' },
-];
+import Icon from './Icon';
+import StageManagerModal from './StageManagerModal';
 
 export default function PipelineBoard() {
   const state = useStore();
@@ -24,23 +17,94 @@ export default function PipelineBoard() {
   const navigate = useNavigate();
   const toast = useToast();
   const canEdit = usePermission('pipeline.edit');
+  const canAssignOwner = usePermission('contacts.assignOwner');
+  const canDelete = usePermission('contacts.delete');
   const users = selectUsers(state);
   const contacts = selectPipelineContacts(state);
+  const stages = selectPipelineStages(state);
 
   const [ownerFilter, setOwnerFilter] = useState('all');
+  const [manageStagesOpen, setManageStagesOpen] = useState(false);
   // { stage: string, index: number } — index is the insertion slot (0..cards.length) in that column.
   const [dropTarget, setDropTarget] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
+  // Multi-select for bulk actions.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   const byStage = useMemo(() => {
-    const map = Object.fromEntries(PIPELINE_STAGES.map((s) => [s.key, []]));
+    const map = Object.fromEntries(stages.map((s) => [s.key, []]));
     contacts.forEach((c) => {
       if (ownerFilter !== 'all' && c.ownerUserId !== ownerFilter) return;
       if (!map[c.stage]) return;
       map[c.stage].push(c);
     });
     return map;
-  }, [contacts, ownerFilter]);
+  }, [contacts, ownerFilter, stages]);
+
+  const visibleIds = useMemo(() => {
+    const out = new Set();
+    stages.forEach((s) => (byStage[s.key] || []).forEach((c) => out.add(c.id)));
+    return out;
+  }, [byStage]);
+
+  // Drop new/prune selection to only contain currently-visible cards
+  // (e.g. owner filter change removes cards from view).
+  const effectiveSelected = useMemo(() => {
+    const out = new Set();
+    selectedIds.forEach((id) => { if (visibleIds.has(id)) out.add(id); });
+    return out;
+  }, [selectedIds, visibleIds]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectStage = (stageKey) => {
+    const cards = byStage[stageKey] || [];
+    const allChecked = cards.length > 0 && cards.every((c) => effectiveSelected.has(c.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allChecked) cards.forEach((c) => next.delete(c.id));
+      else cards.forEach((c) => next.add(c.id));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const bulkMoveStage = (stageKey) => {
+    if (!stageKey || !canEdit) return;
+    effectiveSelected.forEach((id) => {
+      dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey });
+    });
+    const label = stages.find((s) => s.key === stageKey)?.label || stageKey;
+    toast.success(`Moved ${effectiveSelected.size} to ${label}`);
+    clearSelection();
+  };
+
+  const bulkAssignOwner = (userId) => {
+    if (!canAssignOwner) return;
+    const resolved = userId === 'unassigned' ? null : userId;
+    effectiveSelected.forEach((id) => {
+      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId: resolved });
+    });
+    toast.success(`Owner assigned to ${effectiveSelected.size} contact${effectiveSelected.size === 1 ? '' : 's'}`);
+    clearSelection();
+  };
+
+  const bulkArchive = () => {
+    if (!canDelete) return;
+    const count = effectiveSelected.size;
+    effectiveSelected.forEach((id) => {
+      dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id });
+    });
+    toast.success(`Archived ${count} contact${count === 1 ? '' : 's'}`);
+    clearSelection();
+  };
 
   // Decide whether the drop-slot should render before card at index `i` in stage `stageKey`.
   const slotActive = (stageKey, i) =>
@@ -100,10 +164,12 @@ export default function PipelineBoard() {
 
     dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey, insertBeforeId });
     if (current.stage !== stageKey) {
-      const label = PIPELINE_STAGES.find((s) => s.key === stageKey)?.label || stageKey;
+      const label = stages.find((s) => s.key === stageKey)?.label || stageKey;
       toast.success(`${current.firstName} ${current.lastName} → ${label}`);
     }
   };
+
+  const selectionCount = effectiveSelected.size;
 
   return (
     <div className="pipeline-wrap">
@@ -118,12 +184,52 @@ export default function PipelineBoard() {
         <div className="pipeline-hint text-xs text-muted">
           {canEdit ? 'Drag cards between columns to advance stages. Drop between cards to reorder.' : 'Read-only — pipeline.edit permission required to move cards.'}
         </div>
+        {canEdit && (
+          <button className="btn btn-outline btn-sm" onClick={() => setManageStagesOpen(true)}>
+            <Icon name="settings" size={14} /> Manage Stages
+          </button>
+        )}
       </div>
+
+      {selectionCount > 0 && (
+        <div className="bulk-bar">
+          <span className="text-sm font-semi">{selectionCount} selected</span>
+          <div style={{ flex: 1 }} />
+          {canEdit && (
+            <FormField
+              label=""
+              as="select"
+              value=""
+              onChange={(e) => bulkMoveStage(e.target.value)}
+              options={[{ value: '', label: 'Move to stage…' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
+            />
+          )}
+          {canAssignOwner && (
+            <FormField
+              label=""
+              as="select"
+              value=""
+              onChange={(e) => bulkAssignOwner(e.target.value)}
+              options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
+            />
+          )}
+          {canDelete && (
+            <button className="btn btn-outline btn-sm" onClick={bulkArchive}>Archive</button>
+          )}
+          <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
+        </div>
+      )}
+
+      <StageManagerModal open={manageStagesOpen} onClose={() => setManageStagesOpen(false)} />
+
       <div className="pipeline-board">
-        {PIPELINE_STAGES.map((stage) => {
+        {stages.map((stage) => {
           const cards = byStage[stage.key] || [];
           const sumValue = cards.reduce((acc, c) => acc + (c.dealValue || 0), 0);
           const isDropTargetCol = dropTarget?.stage === stage.key;
+          const stageSelectedCount = cards.filter((c) => effectiveSelected.has(c.id)).length;
+          const allSelected = cards.length > 0 && stageSelectedCount === cards.length;
+          const someSelected = stageSelectedCount > 0 && !allSelected;
           return (
             <div
               key={stage.key}
@@ -133,7 +239,19 @@ export default function PipelineBoard() {
               onDrop={(e) => handleDrop(e, stage.key)}
             >
               <div className="pipeline-col-head">
-                <div className="pipeline-col-title">{stage.label}</div>
+                <div className="pipeline-col-title">
+                  {cards.length > 0 && (
+                    <input
+                      type="checkbox"
+                      className="pipeline-col-check"
+                      aria-label={`Select all in ${stage.label}`}
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                      onChange={() => toggleSelectStage(stage.key)}
+                    />
+                  )}
+                  {stage.label}
+                </div>
                 <div className="pipeline-col-meta">
                   <span className="pipeline-col-count">{cards.length}</span>
                   <span className="pipeline-col-sum">{money(sumValue)}</span>
@@ -154,6 +272,8 @@ export default function PipelineBoard() {
                     <PipelineCard
                       contact={c}
                       dragging={draggingId === c.id}
+                      selected={effectiveSelected.has(c.id)}
+                      onToggleSelect={toggleSelect}
                       onClick={(contact) => navigate(`/clients/contact/${contact.id}`)}
                       onDragStart={(contact) => setDraggingId(contact.id)}
                       onDragEnd={clearDrag}

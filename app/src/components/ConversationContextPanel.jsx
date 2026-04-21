@@ -15,7 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   selectClientById, selectInvoicesForContact, selectJobsForClient,
   selectSynthesizedActivityForContact, selectTagById, selectUserById,
-  selectUsers, invoiceTotal, deriveInvoiceStatus,
+  selectUsers, selectPipelineStages, invoiceTotal, deriveInvoiceStatus,
 } from '../store/selectors';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
 
@@ -25,11 +25,6 @@ const LIFECYCLE_VARIANTS = {
   customer: 'green',
   vendor: 'slate',
   archived: 'slate',
-};
-
-const PIPELINE_STAGE_LABELS = {
-  new: 'New', contacted: 'Contacted', qualified: 'Qualified',
-  proposal: 'Proposal', won: 'Won', lost: 'Lost',
 };
 
 const VISIBILITY_LABELS = {
@@ -76,6 +71,7 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
   const toast = useToast();
   const { currentUser } = useAuth();
   const users = selectUsers(state);
+  const stages = selectPipelineStages(state);
 
   const canEditAll = usePermission('contacts.edit');
   const canAssignOwner = usePermission('contacts.assignOwner');
@@ -247,8 +243,8 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
               <dd>
                 <select className="inline-select" value={form.stage} onChange={up('stage')} disabled={!canEdit}>
                   <option value="">—</option>
-                  {Object.entries(PIPELINE_STAGE_LABELS).map(([v, label]) => (
-                    <option key={v} value={v}>{label}</option>
+                  {stages.map((s) => (
+                    <option key={s.key} value={s.key}>{s.label}</option>
                   ))}
                 </select>
               </dd>

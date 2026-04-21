@@ -7,16 +7,27 @@ import TagChip from './TagChip';
 // Single card in the Kanban board. Draggable via native HTML5 DnD.
 // Every row is always rendered (placeholder when empty) so every card has the same footprint.
 
-export default function PipelineCard({ contact, onClick, onDragStart, onDragEnd, onDragOver, dragging = false }) {
+export default function PipelineCard({
+  contact,
+  onClick,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  dragging = false,
+  selected = false,
+  onToggleSelect,
+}) {
   const state = useStore();
   const owner = contact.ownerUserId ? selectUserById(state, contact.ownerUserId) : null;
   const company = contact.companyId ? selectClientById(state, contact.companyId) : null;
   const companyName = company?.name || contact.customFields?.company || '—';
   const firstTag = contact.tagIds?.[0] ? selectTagById(state, contact.tagIds[0]) : null;
 
+  const stop = (e) => e.stopPropagation();
+
   return (
     <div
-      className={`pipeline-card${dragging ? ' is-dragging' : ''}`}
+      className={`pipeline-card${dragging ? ' is-dragging' : ''}${selected ? ' is-selected' : ''}`}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move';
@@ -30,6 +41,17 @@ export default function PipelineCard({ contact, onClick, onDragStart, onDragEnd,
       tabIndex={0}
     >
       <div className="pipeline-card-head">
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            className="pipeline-card-check"
+            aria-label={`Select ${contact.firstName} ${contact.lastName}`}
+            checked={selected}
+            onChange={() => onToggleSelect(contact.id)}
+            onClick={stop}
+            onMouseDown={stop}
+          />
+        )}
         <span className="pipeline-card-name" title={`${contact.firstName} ${contact.lastName}`}>
           {contact.firstName} {contact.lastName}
         </span>

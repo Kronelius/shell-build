@@ -433,10 +433,13 @@ const reminderTemplates = [
 ];
 
 // Seed a few past reminder events so the stats aren't zero.
+// Older events (>7d) are marked as read; recent ones start unread so the
+// Delivery Inbox has a realistic triage queue on first load.
 const reminderEvents = (() => {
   const evts = [];
   const tplKeys = reminderTemplates.map((t) => t.key);
   for (let i = 0; i < 28; i += 1) {
+    const ageDays = 30 - i; // i grows → ageDays shrinks → newer
     evts.push({
       id: seedId('re', `e${i}`),
       templateKey: tplKeys[i % tplKeys.length],
@@ -444,7 +447,8 @@ const reminderEvents = (() => {
       clientId: jobs[i % jobs.length].clientId,
       channel: i % 2 === 0 ? 'sms' : 'email',
       status: i % 13 === 0 ? 'failed' : 'sent',
-      sentAt: daysAgo(30 - i),
+      sentAt: daysAgo(ageDays),
+      readAt: ageDays > 7 ? daysAgo(ageDays - 1) : null,
     });
   }
   return evts;
@@ -456,11 +460,28 @@ const contactActivities = [];
 // Per-user permission overrides — sparse. Empty at seed.
 const userPermissionOverrides = [];
 
+// ---------- Pipeline stages (v6) ----------
+// Stored in state so users can rename/reorder/add/delete from the Pipeline UI.
+// `key` is the stable identifier stored on contacts (`contact.stage`) and is
+// immutable once created. `label` is what users see and can rename freely.
+// The reducer keys special behavior on the string literals 'won' and 'lost'
+// (e.g. lifecycle → 'customer' on 'won'), so those keys keep their semantics
+// even if labels are renamed. If a user deletes one of those stages, the
+// behavior simply becomes unreachable — no crash.
+const pipelineStages = [
+  { id: seedId('ps', 'new'),       key: 'new',       label: 'New' },
+  { id: seedId('ps', 'contacted'), key: 'contacted', label: 'Contacted' },
+  { id: seedId('ps', 'qualified'), key: 'qualified', label: 'Qualified' },
+  { id: seedId('ps', 'proposal'),  key: 'proposal',  label: 'Proposal' },
+  { id: seedId('ps', 'won'),       key: 'won',       label: 'Won' },
+  { id: seedId('ps', 'lost'),      key: 'lost',      label: 'Lost' },
+];
+
 // Current user is the owner by default. Store will expose a switcher.
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 5,
+  version: 7,
   company,
   currentUserId,
   users,
@@ -485,4 +506,6 @@ export const INITIAL_STATE = {
   snippetFolders,
   // v5: message-folders removed (Phase 2b feature rolled back — Phase 2b per-conversation
   // fields like assignedUserId/status/snoozedUntil/starred/followedUserIds remain on each conversation).
+  // v6: pipelineStages moved from hardcoded const to state for user-editable CRUD.
+  pipelineStages,
 };

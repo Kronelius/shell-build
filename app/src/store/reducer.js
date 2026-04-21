@@ -108,9 +108,18 @@ export const ACTIONS = {
   // Reminders
   UPDATE_REMINDER_TEMPLATE: 'UPDATE_REMINDER_TEMPLATE',
   ADD_REMINDER_EVENT: 'ADD_REMINDER_EVENT',
+  MARK_REMINDER_EVENT_READ: 'MARK_REMINDER_EVENT_READ',
+  MARK_REMINDER_EVENT_UNREAD: 'MARK_REMINDER_EVENT_UNREAD',
+  RETRY_REMINDER_EVENT: 'RETRY_REMINDER_EVENT',
 
   // Permissions
   UPDATE_PERMISSION: 'UPDATE_PERMISSION',
+
+  // Pipeline stages (v6)
+  ADD_PIPELINE_STAGE: 'ADD_PIPELINE_STAGE',
+  UPDATE_PIPELINE_STAGE: 'UPDATE_PIPELINE_STAGE',
+  DELETE_PIPELINE_STAGE: 'DELETE_PIPELINE_STAGE',
+  REORDER_PIPELINE_STAGES: 'REORDER_PIPELINE_STAGES',
 };
 
 function replaceById(list, id, patch) {
@@ -573,13 +582,59 @@ export function reducer(state, action) {
     case ACTIONS.UPDATE_REMINDER_TEMPLATE:
       return { ...state, reminderTemplates: replaceById(state.reminderTemplates, action.id, action.patch) };
     case ACTIONS.ADD_REMINDER_EVENT: {
-      const base = { id: newId('re'), channel: 'sms', status: 'sent', sentAt: nowIso() };
+      const base = { id: newId('re'), channel: 'sms', status: 'sent', sentAt: nowIso(), readAt: null };
       return { ...state, reminderEvents: [...state.reminderEvents, { ...base, ...action.event }] };
     }
+    case ACTIONS.MARK_REMINDER_EVENT_READ:
+      return { ...state, reminderEvents: replaceById(state.reminderEvents, action.id, { readAt: nowIso() }) };
+    case ACTIONS.MARK_REMINDER_EVENT_UNREAD:
+      return { ...state, reminderEvents: replaceById(state.reminderEvents, action.id, { readAt: null }) };
+    case ACTIONS.RETRY_REMINDER_EVENT:
+      // In-place retry: flip status back to 'sent' and bump the timestamp so the
+      // row rises to the top of the inbox. The original failure is considered
+      // resolved; history is not preserved (by design — see D scope choice A).
+      return { ...state, reminderEvents: replaceById(state.reminderEvents, action.id, { status: 'sent', sentAt: nowIso() }) };
 
     // ---------- Permissions ----------
     case ACTIONS.UPDATE_PERMISSION:
       return { ...state, permissions: replaceById(state.permissions, action.id, action.patch) };
+
+    // ---------- Pipeline stages ----------
+    case ACTIONS.ADD_PIPELINE_STAGE: {
+      const existing = state.pipelineStages || [];
+      const label = (action.label || '').trim();
+      if (!label) return state;
+      // Slug the label into a stable key. Dedupe by appending a suffix if needed.
+      const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'stage';
+      let key = baseKey;
+      let n = 2;
+      while (existing.some((s) => s.key === key)) { key = `${baseKey}-${n++}`; }
+      return { ...state, pipelineStages: [...existing, { id: newId('ps'), key, label }] };
+    }
+    case ACTIONS.UPDATE_PIPELINE_STAGE: {
+      const existing = state.pipelineStages || [];
+      const label = (action.patch?.label || '').trim();
+      if (!label) return state;
+      return { ...state, pipelineStages: replaceById(existing, action.id, { label }) };
+    }
+    case ACTIONS.DELETE_PIPELINE_STAGE: {
+      const existing = state.pipelineStages || [];
+      const target = existing.find((s) => s.id === action.id);
+      if (!target) return state;
+      // Refuse if any contact is parked in this stage. UI should guard first; this is the safety net.
+      const inUse = (state.contacts || []).some((c) => c.stage === target.key);
+      if (inUse) return state;
+      return { ...state, pipelineStages: existing.filter((s) => s.id !== action.id) };
+    }
+    case ACTIONS.REORDER_PIPELINE_STAGES: {
+      const existing = state.pipelineStages || [];
+      const ids = Array.isArray(action.ids) ? action.ids : [];
+      const map = Object.fromEntries(existing.map((s) => [s.id, s]));
+      const ordered = ids.map((id) => map[id]).filter(Boolean);
+      // Preserve anything not listed (shouldn't happen in practice, but defensive).
+      const leftover = existing.filter((s) => !ids.includes(s.id));
+      return { ...state, pipelineStages: [...ordered, ...leftover] };
+    }
 
     default:
       return state;

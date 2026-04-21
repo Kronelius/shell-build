@@ -1,6 +1,7 @@
-// v5: message-folders feature removed (messageFolders collection + folderIds on
-// conversations are gone). v4 caches still have those fields, so we force a reseed.
-const STORAGE_KEY = 'pp.store.v5';
+// v7: reminderEvents gain an optional `readAt` field for the Delivery Inbox.
+// Existing v6 caches would default to unread on all rows, which is acceptable,
+// but bump the key anyway so seeded rows show the realistic pre-read mix.
+const STORAGE_KEY = 'pp.store.v7';
 
 export function loadState() {
   try {

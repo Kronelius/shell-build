@@ -5,7 +5,7 @@ import { ACTIONS } from '../store/reducer';
 import {
   selectContactById, selectClientById, selectUserById, selectUsers, selectClients,
   selectInvoicesForContact, selectConversationsForContact, selectJobsForClient,
-  selectSynthesizedActivityForContact, selectTagById,
+  selectSynthesizedActivityForContact, selectTagById, selectPipelineStages,
   invoiceTotal, invoiceBalance, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
@@ -40,11 +40,6 @@ const LIFECYCLE_VARIANTS = {
   archived: 'slate',
 };
 
-const PIPELINE_STAGE_LABELS = {
-  new: 'New', contacted: 'Contacted', qualified: 'Qualified',
-  proposal: 'Proposal', won: 'Won', lost: 'Lost',
-};
-
 export default function ContactDetail({ contactId: propContactId, embedded = false } = {}) {
   const params = useParams();
   const contactId = propContactId || params.contactId;
@@ -62,6 +57,8 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
   const contact = selectContactById(state, contactId);
   const users = selectUsers(state);
   const clients = selectClients(state);
+  const stages = selectPipelineStages(state);
+  const stageLabel = (key) => stages.find((s) => s.key === key)?.label || key;
 
   const [tab, setTab] = useState('overview');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -122,7 +119,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
       <Badge variant={LIFECYCLE_VARIANTS[contact.lifecycle] || 'slate'}>
         {contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}
       </Badge>
-      {contact.stage && <Badge variant="blue">{PIPELINE_STAGE_LABELS[contact.stage] || contact.stage}</Badge>}
+      {contact.stage && <Badge variant="blue">{stageLabel(contact.stage)}</Badge>}
     </div>
   );
   // Prefer opening an existing thread over creating a new one — enforces "one thread per contact" UX.
@@ -199,7 +196,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
               <div><dt>Lifecycle</dt><dd>{contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}</dd></div>
               {contact.stage && (
                 <>
-                  <div><dt>Pipeline stage</dt><dd>{PIPELINE_STAGE_LABELS[contact.stage]}</dd></div>
+                  <div><dt>Pipeline stage</dt><dd>{stageLabel(contact.stage)}</dd></div>
                   <div><dt>Deal value</dt><dd>{contact.dealValue ? money(contact.dealValue) : '—'}</dd></div>
                   <div><dt>Expected close</dt><dd>{contact.expectedCloseDate ? fmtDate(contact.expectedCloseDate) : '—'}</dd></div>
                 </>
@@ -268,7 +265,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
                   disabled={!canEditThis}
                   options={[
                     { value: '', label: '— None —' },
-                    ...Object.entries(PIPELINE_STAGE_LABELS).map(([v, l]) => ({ value: v, label: l })),
+                    ...stages.map((s) => ({ value: s.key, label: s.label })),
                   ]}
                 />
                 <div className="form-row">
