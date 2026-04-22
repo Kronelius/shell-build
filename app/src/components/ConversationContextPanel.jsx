@@ -270,8 +270,8 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
             </div>
           </>
         )}
-        <div><dt>Last activity</dt><dd className="text-muted">{fmtRelative(contact.updatedAt || contact.createdAt)}</dd></div>
-        <div><dt>Created</dt><dd className="text-muted">{fmtDate(contact.createdAt)}</dd></div>
+        <div><dt>Last activity</dt><dd><span className="text-muted">{fmtRelative(contact.updatedAt || contact.createdAt)}</span></dd></div>
+        <div><dt>Created</dt><dd><span className="text-muted">{fmtDate(contact.createdAt)}</span></dd></div>
       </dl>
 
       {isDirty && (
