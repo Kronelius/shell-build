@@ -1266,7 +1266,7 @@ tr.clickable:hover { background: var(--inset-bg); }
      Widths are driven by CSS vars set inline by the resize hook.
      Media queries below still override grid-template-columns directly
      so narrow viewports collapse correctly regardless of the vars. */
-  grid-template-columns: var(--pane-left, 340px) 6px minmax(320px, 1fr) 6px var(--pane-right, 320px);
+  grid-template-columns: var(--pane-left, 340px) 6px minmax(480px, 1fr) 6px var(--pane-right, 320px);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -2183,11 +2183,11 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 /* ── Responsive ── */
 @media (max-width: 1280px) {
-  .msg-3pane { grid-template-columns: 300px 6px minmax(320px, 1fr) 6px 280px; }
+  .msg-3pane { grid-template-columns: 300px 6px minmax(480px, 1fr) 6px 280px; }
 }
 @media (max-width: 1024px) {
   /* Drop the right-hand context pane and its handle. */
-  .msg-3pane { grid-template-columns: 300px 6px minmax(320px, 1fr); }
+  .msg-3pane { grid-template-columns: 300px 6px minmax(480px, 1fr); }
   .context-pane,
   .msg-pane-handle-right { display: none; }
 }

@@ -6,7 +6,6 @@ import EmptyState from './EmptyState';
 import Icon from './Icon';
 import SnippetPicker from './SnippetPicker';
 import AssignMenu from './AssignMenu';
-import ConversationStatusMenu from './ConversationStatusMenu';
 import { useStore } from '../store';
 import { selectUserById } from '../store/selectors';
 import { fmtTime, fmtRelative } from '../lib/dates';
@@ -169,7 +168,6 @@ export default function ConversationMessagePanel({
             <Icon name="bell" size={14} />
           </button>
           <AssignMenu conversation={conversation} onAssign={onAssign} disabled={!canAssign} />
-          <ConversationStatusMenu conversation={conversation} onSetStatus={onSetStatus} onSnooze={onSnooze} />
           <button type="button" className="btn btn-outline btn-sm" onClick={onArchiveToggle}>
             <Icon name="archive" size={14} />
             {conversation.archived ? 'Unarchive' : 'Archive'}

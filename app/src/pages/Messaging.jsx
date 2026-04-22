@@ -32,14 +32,18 @@ const DATE_WINDOW_MS = {
   '30d': 30 * 24 * 60 * 60 * 1000,
 };
 
-// Pane-resize constraints. Kept conservative so neither panel can starve the
-// message pane (which has a CSS-level minmax(320px, 1fr) minimum too).
+// Pane-resize constraints. The middle pane is protected by both a CSS
+// minmax(480px, 1fr) on the grid AND a JS-side soft clamp here — without the
+// JS clamp the side pane could keep visually resizing while the middle pushed
+// the layout past the container width.
 const PANE_MIN = 260;
 const PANE_LEFT_MAX = 520;
 const PANE_RIGHT_MAX = 520;
+const MIDDLE_MIN = 480;
+const HANDLE_WIDTH_TOTAL = 12; // two 6px handles
 const PANE_STORAGE_KEY = 'pp.messaging.panes.v1';
 
-function usePaneSizes() {
+function usePaneSizes(containerRef) {
   const [sizes, setSizes] = useState(() => {
     try {
       const raw = localStorage.getItem(PANE_STORAGE_KEY);
@@ -70,6 +74,7 @@ function usePaneSizes() {
       startX: e.clientX,
       startLeft: sizes.left,
       startRight: sizes.right,
+      containerWidth: containerRef.current?.getBoundingClientRect().width || 0,
     };
     setDragging(side);
     document.body.style.userSelect = 'none';
@@ -79,12 +84,18 @@ function usePaneSizes() {
       const ds = dragState.current;
       if (!ds) return;
       const dx = me.clientX - ds.startX;
+      // Dynamic max for the side being dragged: don't let the middle pane fall
+      // below MIDDLE_MIN. availableForSide = container - other side - handles - MIDDLE_MIN.
+      const other = ds.side === 'left' ? ds.startRight : ds.startLeft;
+      const dynamicMax = Math.max(PANE_MIN, ds.containerWidth - other - HANDLE_WIDTH_TOTAL - MIDDLE_MIN);
+      const hardMax = ds.side === 'left' ? PANE_LEFT_MAX : PANE_RIGHT_MAX;
+      const cap = Math.min(hardMax, dynamicMax);
       if (ds.side === 'left') {
-        const next = Math.min(PANE_LEFT_MAX, Math.max(PANE_MIN, ds.startLeft + dx));
+        const next = Math.min(cap, Math.max(PANE_MIN, ds.startLeft + dx));
         setSizes((s) => (s.left === next ? s : { ...s, left: next }));
       } else {
         // Right handle: dragging right shrinks the right pane.
-        const next = Math.min(PANE_RIGHT_MAX, Math.max(PANE_MIN, ds.startRight - dx));
+        const next = Math.min(cap, Math.max(PANE_MIN, ds.startRight - dx));
         setSizes((s) => (s.right === next ? s : { ...s, right: next }));
       }
     };
@@ -98,7 +109,7 @@ function usePaneSizes() {
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  }, [sizes.left, sizes.right]);
+  }, [sizes.left, sizes.right, containerRef]);
 
   return { sizes, dragging, onDragStart };
 }
@@ -175,7 +186,8 @@ export default function Messaging() {
   const [activeId, setActiveId] = useState(paramId || null);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const panes = usePaneSizes();
+  const paneContainerRef = useRef(null);
+  const panes = usePaneSizes(paneContainerRef);
 
   // Base inbox list (no filters/search applied yet) — also used for totals in rail counts.
   const inboxConversations = useMemo(
@@ -336,6 +348,7 @@ export default function Messaging() {
         />
         <div
           className="msg-3pane"
+          ref={paneContainerRef}
           style={{ '--pane-left': `${panes.sizes.left}px`, '--pane-right': `${panes.sizes.right}px` }}
         >
           <ConversationThreadList
