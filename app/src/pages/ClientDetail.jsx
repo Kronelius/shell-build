@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
@@ -37,6 +38,7 @@ export default function ClientDetail() {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const canEdit = usePermission('clients.edit');
   const canArchive = usePermission('clients.archive');
   const canEditSites = usePermission('sites.edit');
@@ -138,7 +140,7 @@ export default function ClientDetail() {
             <dl className="detail-dl">
               <div><dt>Primary contact</dt><dd>
                 {primaryContact ? (
-                  <Link to={`/clients/contact/${primaryContact.id}`}>
+                  <Link to={`/clients/contact/${primaryContact.id}`} state={nav}>
                     {primaryContact.firstName} {primaryContact.lastName}
                     {primaryContact.title && <span className="text-muted"> — {primaryContact.title}</span>}
                   </Link>
@@ -223,7 +225,7 @@ export default function ClientDetail() {
                       .map((c) => {
                         const isPrimary = c.id === client.primaryContactId;
                         return (
-                          <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                          <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                             <td onClick={(e) => e.stopPropagation()} style={{ width: 36 }}>
                               <Avatar initials={`${(c.firstName[0] || '').toUpperCase()}${(c.lastName[0] || '').toUpperCase()}`} variant={(c.id.length % 5) + 1} size="sm" />
                             </td>
@@ -287,7 +289,7 @@ export default function ClientDetail() {
                       <Icon name="user" size={14} />
                       <span className="text-muted">Contact:</span>
                       {siteContact ? (
-                        <Link className="link" to={`/contacts/${siteContact.id}`}>
+                        <Link className="link" to={`/contacts/${siteContact.id}`} state={nav}>
                           {siteContact.firstName} {siteContact.lastName}
                         </Link>
                       ) : (
@@ -313,7 +315,7 @@ export default function ClientDetail() {
                 <thead><tr><th>Date</th><th>Service</th><th>Site</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                   {jobs.map((j) => (
-                    <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`)}>
+                    <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
                       <td>{fmtDate(j.startAt)} <span className="text-muted text-sm">{fmtTimeRange(j.startAt, j.endAt)}</span></td>
                       <td>{selectServiceById(state, j.serviceId)?.name || '—'}</td>
                       <td>{state.sites.find((s) => s.id === j.siteId)?.name || '—'}</td>
@@ -342,7 +344,7 @@ export default function ClientDetail() {
                   {invoices.map((inv) => {
                     const st = deriveInvoiceStatus(inv);
                     return (
-                      <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                      <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
                         <td className="name">{inv.id}</td>
                         <td>{fmtDate(inv.issueDate)}</td>
                         <td className="money">{money(invoiceTotal(inv))}</td>

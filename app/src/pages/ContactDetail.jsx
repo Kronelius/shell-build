@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
@@ -47,6 +48,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
   const dispatch = useDispatch();
   const toast = useToast();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const { currentUser } = useAuth();
 
   const canEditAll = usePermission('contacts.edit');
@@ -130,7 +132,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
       .filter((c) => !c.archived)
       .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
     if (existing.length > 0) {
-      navigate(`/messaging/${existing[0].id}`);
+      navigate(`/messaging/${existing[0].id}`, { state: nav });
     } else {
       setNewConvOpen(true);
     }
@@ -192,7 +194,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
               <div><dt>Email</dt><dd>{contact.email}</dd></div>
               <div><dt>Phone</dt><dd>{contact.phone || '—'}</dd></div>
               <div><dt>Title</dt><dd>{contact.title || '—'}</dd></div>
-              <div><dt>Company</dt><dd>{company ? <Link to={`/clients/${company.id}`}>{company.name}</Link> : companyLabel}</dd></div>
+              <div><dt>Company</dt><dd>{company ? <Link to={`/clients/${company.id}`} state={nav}>{company.name}</Link> : companyLabel}</dd></div>
               <div><dt>Lifecycle</dt><dd>{contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}</dd></div>
               {contact.stage && (
                 <>
@@ -291,8 +293,8 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
                     <div className="activity-text">{a.body}</div>
                     <div className="activity-meta text-xs text-muted">
                       {fmtRelative(a.occurredAt)}
-                      {a._source === 'invoice' && <> · <Link to={`/invoices/${a._ref}`}>Open invoice</Link></>}
-                      {a._source === 'job' && <> · <Link to={`/schedule/${a._ref}`}>Open job</Link></>}
+                      {a._source === 'invoice' && <> · <Link to={`/invoices/${a._ref}`} state={nav}>Open invoice</Link></>}
+                      {a._source === 'job' && <> · <Link to={`/schedule/${a._ref}`} state={nav}>Open job</Link></>}
                     </div>
                   </div>
                 </div>
@@ -318,7 +320,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
                     {invoices.map((inv) => {
                       const st = deriveInvoiceStatus(inv);
                       return (
-                        <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                        <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
                           <td className="name">{inv.id}</td>
                           <td>{fmtDate(inv.issueDate)}</td>
                           <td className="money">{money(invoiceTotal(inv))}</td>
@@ -346,7 +348,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
                   <thead><tr><th>Date</th><th>Service</th><th>Status</th><th></th></tr></thead>
                   <tbody>
                     {relatedJobs.slice(0, 10).map((j) => (
-                      <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`)}>
+                      <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
                         <td>{fmtDate(j.startAt)}</td>
                         <td>{state.services.find((s) => s.id === j.serviceId)?.name || '—'}</td>
                         <td><Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
@@ -370,7 +372,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             ) : (
               <div style={{ padding: '0 16px 16px' }}>
                 {conversations.map((cv) => (
-                  <Link key={cv.id} to={`/messaging/${cv.id}`} className="chip" style={{ marginRight: 6 }}>
+                  <Link key={cv.id} to={`/messaging/${cv.id}`} state={nav} className="chip" style={{ marginRight: 6 }}>
                     {cv.channel.toUpperCase()} · {fmtRelative(cv.createdAt)}
                   </Link>
                 ))}

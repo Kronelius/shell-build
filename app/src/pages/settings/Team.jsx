@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useFromHere } from '../../hooks/useFromHere';
 import { useStore } from '../../store';
 import { selectUsers, selectUserPermissionOverrides } from '../../store/selectors';
 import { usePermission } from '../../hooks/usePermission';
@@ -12,6 +13,7 @@ import { ROLE_LABELS } from '../../lib/roles';
 
 export default function SettingsTeam() {
   const state = useStore();
+  const nav = useFromHere();
   const canEdit = usePermission('settings.team.edit');
   const users = selectUsers(state);
   const overrides = selectUserPermissionOverrides(state);
@@ -46,7 +48,7 @@ export default function SettingsTeam() {
                 {users.map((u) => (
                   <tr key={u.id}>
                     <td>
-                      <Link to={`/settings/team/${u.id}`} className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                      <Link to={`/settings/team/${u.id}`} state={nav} className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
                         <Avatar initials={u.initials} variant={u.avatar} size="sm" />
                         <span className="name">{u.name}</span>
                       </Link>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { selectPipelineContacts, selectUsers, selectPipelineStages } from '../store/selectors';
@@ -15,6 +16,7 @@ export default function PipelineBoard() {
   const state = useStore();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const toast = useToast();
   const canEdit = usePermission('pipeline.edit');
   const canAssignOwner = usePermission('contacts.assignOwner');
@@ -274,7 +276,7 @@ export default function PipelineBoard() {
                       dragging={draggingId === c.id}
                       selected={effectiveSelected.has(c.id)}
                       onToggleSelect={toggleSelect}
-                      onClick={(contact) => navigate(`/clients/contact/${contact.id}`)}
+                      onClick={(contact) => navigate(`/clients/contact/${contact.id}`, { state: nav })}
                       onDragStart={(contact) => setDraggingId(contact.id)}
                       onDragEnd={clearDrag}
                       onDragOver={(e) => onCardDragOver(e, stage.key, i)}

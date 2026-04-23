@@ -1,15 +1,18 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function DetailHeader({ backTo, backLabel = 'Back', title, subtitle, badge, actions }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const target = location.state?.from || backTo;
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (target) navigate(target);
+    else navigate(-1);
+  };
   return (
     <div className="detail-head">
       <div className="detail-head-top">
-        {backTo ? (
-          <Link to={backTo} className="detail-back">← {backLabel}</Link>
-        ) : (
-          <button type="button" className="detail-back" onClick={() => navigate(-1)}>← {backLabel}</button>
-        )}
+        <a href={target || '#'} className="detail-back" onClick={handleClick}>← {backLabel}</a>
       </div>
       <div className="detail-head-body">
         <div className="detail-head-text">

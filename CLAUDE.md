@@ -64,6 +64,12 @@ Dev-server preset is in `.claude/launch.json` as `polishpoint-app`.
 - **`userPermissionOverrides`** is a sparse list `[{ userId, grants, revokes }]`. Empty rows are pruned on save.
 - **Schema versioning**: bump `INITIAL_STATE.version` in `seed.js` AND the `STORAGE_KEY` in `persist.js` when you change the shape. A version mismatch forces a fresh reseed from INITIAL_STATE.
 
+## Navigation conventions
+
+- **Back arrows return to where the user came from.** `DetailHeader` reads `location.state?.from` and falls back to the `backTo` prop only when the user arrived via direct URL / refresh.
+- **Every link or `navigate()` call that opens a detail page must carry a referrer.** At the top of the component, call `const nav = useFromHere();` (from `app/src/hooks/useFromHere.js`), then pass `state={nav}` on `<Link>` or `{ state: nav }` as the second arg to `navigate(url, ...)`. Skipping this silently regresses the back button for that entry point.
+- **List pages keep filter state in the URL** (`useSearchParams` with `replace: true`), not `useState`. This is what makes the referrer meaningful — Back restores the exact filtered view. When adding a new filter to Clients / Invoices / Schedule, extend the `setParam` pattern already in place. Top-level nav clicks (sidebar → `/schedule`, `/invoices`, etc.) do NOT need `state={nav}` — only deep-links to a specific record do.
+
 ## Permissions cheat sheet
 
 Roles: `owner` (Super Admin in UI) / `admin` / `crew`. Defaults are in `lib/roles.js`; the live matrix lives in `state.permissions` and is editable at `/settings/roles` (Super Admin only). Overrides grant or revoke permissions per user; `can()` resolves revoke > grant > role default.

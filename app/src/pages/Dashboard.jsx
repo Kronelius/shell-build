@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import Badge, { statusBadgeVariant } from '../components/Badge';
 import StatCard from '../components/StatCard';
 import Avatar from '../components/Avatar';
@@ -30,6 +31,7 @@ function formattedToday() {
 export default function Dashboard() {
   const state = useStore();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const [layout, setLayout] = useState('overview');
   const { currentUser } = useAuth();
   const canInvoices = usePermission('invoices.view');
@@ -192,7 +194,7 @@ export default function Dashboard() {
                   const service = selectServiceById(state, job.serviceId);
                   const site = selectSiteById(state, job.siteId);
                   return (
-                    <div key={job.id} className="sched-block clickable" onClick={() => navigate(`/schedule/${job.id}`)}>
+                    <div key={job.id} className="sched-block clickable" onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
                       <strong>{fmtTime(job.startAt)}</strong> — {client?.name || '—'}
                       <Badge variant={statusBadgeVariant(job.status === 'in_progress' ? 'In Progress' : job.status === 'done' ? 'Confirmed' : 'Pending')} style={{ marginLeft: 6 }}>
                         {job.status === 'in_progress' ? 'In Progress' : job.status === 'done' ? 'Done' : 'Upcoming'}
@@ -246,7 +248,7 @@ export default function Dashboard() {
                           key={item.id}
                           type="button"
                           className="followup-row"
-                          onClick={() => navigate(item.href)}
+                          onClick={() => navigate(item.href, { state: nav })}
                         >
                           <span className={`followup-icon followup-icon-${item.kind}`}>
                             <Icon name={item.kind === 'lead' ? 'user' : 'messaging'} size={14} />
@@ -299,7 +301,7 @@ export default function Dashboard() {
                   ) : upcoming.map((j) => {
                     const client = selectClientById(state, j.clientId);
                     return (
-                      <div key={j.id} className="sched-block clickable" onClick={() => navigate(`/schedule/${j.id}`)}>
+                      <div key={j.id} className="sched-block clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
                         <strong>{new Date(j.startAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong> · {fmtTimeRange(j.startAt, j.endAt)}
                         <div className="text-xs text-muted">{client?.name}</div>
                       </div>
@@ -349,7 +351,7 @@ export default function Dashboard() {
                     <thead><tr><th>Client</th><th>Revenue</th><th>Jobs</th></tr></thead>
                     <tbody>
                       {topClients.map((c) => (
-                        <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`)}>
+                        <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`, { state: nav })}>
                           <td className="name">{c.name}</td>
                           <td className="money">{money(c.revenue || 0)}</td>
                           <td>{jobs.filter((j) => j.clientId === c.id).length}</td>
@@ -370,7 +372,7 @@ export default function Dashboard() {
                       {overdueList.map((inv) => {
                         const c = selectClientById(state, inv.clientId);
                         return (
-                          <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                          <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
                             <td className="name">{inv.id}</td>
                             <td>{c?.name || '—'}</td>
                             <td className="money text-danger">{money(invoiceBalance(inv))}</td>

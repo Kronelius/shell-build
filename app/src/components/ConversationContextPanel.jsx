@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import Avatar from './Avatar';
 import Badge, { statusBadgeVariant } from './Badge';
 import ContactPicker from './ContactPicker';
@@ -65,7 +66,7 @@ function buildForm(contact) {
 // A Save bar only appears when a field has actually changed from the stored contact.
 // Conversation-scoped actions (Change contact / Unlink) live in an overflow menu in the
 // context-panel HEAD — not here — so this card stays focused on the contact record itself.
-function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPicking }) {
+function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPicking, nav }) {
   const state = useStore();
   const dispatch = useDispatch();
   const toast = useToast();
@@ -208,7 +209,7 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
         </div>
         <div>
           <dt>Company</dt>
-          <dd>{company ? <Link to={`/clients/${company.id}`}>{company.name}</Link> : <span className="text-muted">—</span>}</dd>
+          <dd>{company ? <Link to={`/clients/${company.id}`} state={nav}>{company.name}</Link> : <span className="text-muted">—</span>}</dd>
         </div>
         <div>
           <dt>Address</dt>
@@ -322,6 +323,7 @@ function InternalContextPanel({ conversation }) {
 
 export default function ConversationContextPanel({ conversation, contact, onLinkContact }) {
   const state = useStore();
+  const nav = useFromHere();
   const [tab, setTab] = useState('contact');
   const [focusOpen, setFocusOpen] = useState(false);
   // Conversation-scoped actions live on the panel HEAD, not inside the details card.
@@ -391,7 +393,7 @@ export default function ConversationContextPanel({ conversation, contact, onLink
         <div className="context-head-text">
           {contact ? (
             <>
-              <Link to={`/contacts/${contact.id}`} className="context-head-name">
+              <Link to={`/contacts/${contact.id}`} state={nav} className="context-head-name">
                 {contact.firstName} {contact.lastName}
               </Link>
               <div className="text-xs text-muted">{contact.title || '—'}</div>
@@ -486,6 +488,7 @@ export default function ConversationContextPanel({ conversation, contact, onLink
               onLinkContact={onLinkContact}
               picking={pickingContact}
               onCancelPicking={() => setPickingContact(false)}
+              nav={nav}
             />
             {contact && (
               <div className="context-card">
@@ -535,7 +538,7 @@ export default function ConversationContextPanel({ conversation, contact, onLink
                     const st = deriveInvoiceStatus(inv);
                     return (
                       <li key={inv.id}>
-                        <Link to={`/invoices/${inv.id}`} className="context-related-row">
+                        <Link to={`/invoices/${inv.id}`} state={nav} className="context-related-row">
                           <span className="context-related-primary">{inv.id}</span>
                           <span className="context-related-sub">{fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}</span>
                           <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>
@@ -557,7 +560,7 @@ export default function ConversationContextPanel({ conversation, contact, onLink
                 <ul className="context-related">
                   {jobs.slice(0, 5).map((j) => (
                     <li key={j.id}>
-                      <Link to={`/schedule/${j.id}`} className="context-related-row">
+                      <Link to={`/schedule/${j.id}`} state={nav} className="context-related-row">
                         <span className="context-related-primary">{fmtDate(j.startAt)}</span>
                         <span className="context-related-sub">{state.services.find((s) => s.id === j.serviceId)?.name || 'Service'}</span>
                         <Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>

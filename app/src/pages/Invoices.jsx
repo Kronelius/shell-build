@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import Badge, { statusBadgeVariant } from '../components/Badge';
 import StatCard from '../components/StatCard';
 import EmptyState from '../components/EmptyState';
@@ -22,16 +23,25 @@ export default function Invoices() {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const canCreate = usePermission('invoices.edit');
   const canPay = usePermission('invoices.recordPayment');
 
   const invoices = selectInvoices(state);
   const clients = selectClients(state);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const setParam = (key, value, defaultValue) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === '' || value == null || value === defaultValue) next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [clientFilter, setClientFilter] = useState('all');
-  const [dateRange, setDateRange] = useState('30');
+  const statusFilter = searchParams.get('status') || 'all';
+  const clientFilter = searchParams.get('client') || 'all';
+  const dateRange = searchParams.get('range') || '30';
   const [selection, setSelection] = useState(new Set());
   const [confirmPaid, setConfirmPaid] = useState(false);
 
@@ -115,11 +125,11 @@ export default function Invoices() {
       </div>
 
       <div className="filter-bar">
-        <FormField label="Status" as="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+        <FormField label="Status" as="select" value={statusFilter} onChange={(e) => setParam('status', e.target.value, 'all')}
           options={[{ value: 'all', label: 'All statuses' }, { value: 'draft', label: 'Draft' }, { value: 'pending', label: 'Pending' }, { value: 'overdue', label: 'Overdue' }, { value: 'paid', label: 'Paid' }, { value: 'void', label: 'Void' }]} />
-        <FormField label="Client" as="select" value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}
+        <FormField label="Client" as="select" value={clientFilter} onChange={(e) => setParam('client', e.target.value, 'all')}
           options={[{ value: 'all', label: 'All clients' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} />
-        <FormField label="Date range" as="select" value={dateRange} onChange={(e) => setDateRange(e.target.value)}
+        <FormField label="Date range" as="select" value={dateRange} onChange={(e) => setParam('range', e.target.value, '30')}
           options={[{ value: 'all', label: 'All time' }, { value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
       </div>
 
@@ -163,7 +173,7 @@ export default function Invoices() {
                 {filtered.map((inv) => {
                   const client = selectClientById(state, inv.clientId);
                   return (
-                    <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                    <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
                       <td onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selection.has(inv.id)} onChange={() => toggleSelect(inv.id)} />
                       </td>

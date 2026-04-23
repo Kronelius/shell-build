@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
@@ -23,6 +24,7 @@ export default function InvoiceDetail() {
   const dispatch = useDispatch();
   const toast = useToast();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const canEdit = usePermission('invoices.edit');
   const canPay = usePermission('invoices.recordPayment');
 
@@ -183,7 +185,7 @@ export default function InvoiceDetail() {
               <dd>
                 {billingContact ? (
                   <>
-                    <Link className="link" to={`/contacts/${billingContact.id}`}>
+                    <Link className="link" to={`/contacts/${billingContact.id}`} state={nav}>
                       {billingContact.firstName} {billingContact.lastName}
                     </Link>
                     {billingContact.email ? <div className="text-muted text-sm">{billingContact.email}</div> : null}

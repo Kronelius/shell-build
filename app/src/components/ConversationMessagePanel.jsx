@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import Avatar from './Avatar';
 import ChannelBadge from './ChannelBadge';
 import EmptyState from './EmptyState';
@@ -61,6 +62,7 @@ export default function ConversationMessagePanel({
 }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
+  const nav = useFromHere();
 
   // Compose state — channel defaults to the conversation's primary channel,
   // but the user can toggle Internal (team comments stay inline, not sent out).
@@ -140,7 +142,7 @@ export default function ConversationMessagePanel({
             {isInternalThread || !contact ? (
               headerName
             ) : (
-              <button type="button" className="linklike" onClick={() => navigate(`/contacts/${contact.id}`)}>
+              <button type="button" className="linklike" onClick={() => navigate(`/contacts/${contact.id}`, { state: nav })}>
                 {headerName}
               </button>
             )}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import Badge, { statusBadgeVariant } from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import Icon from '../components/Icon';
@@ -16,18 +17,39 @@ import { fmtTimeRange, sameDay, startOfWeek, startOfMonth, addDays } from '../li
 
 const STATUS_LABEL = { upcoming: 'Upcoming', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled' };
 
+const toIsoDay = (d) => {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+const fromIsoDay = (s) => {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 export default function Schedule() {
   const state = useStore();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const { currentUser } = useAuth();
   const canCreate = usePermission('schedule.edit');
 
-  const [view, setView] = useState('Day');
-  const [refDate, setRefDate] = useState(new Date());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const setParam = (key, value, defaultValue) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === '' || value == null || value === defaultValue) next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
+
+  const view = searchParams.get('view') || 'Day';
+  const setView = (v) => setParam('view', v, 'Day');
+  const refDate = searchParams.get('d') ? fromIsoDay(searchParams.get('d')) : new Date();
+  const todayIso = toIsoDay(new Date());
+  const setRefDate = (d) => setParam('d', toIsoDay(d), todayIso);
   const [modalOpen, setModalOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterUser, setFilterUser] = useState('all');
-  const [filterService, setFilterService] = useState('all');
+  const filterStatus = searchParams.get('status') || 'all';
+  const filterUser = searchParams.get('user') || 'all';
+  const filterService = searchParams.get('service') || 'all';
 
   const jobsAll = selectJobs(state);
   const services = selectServices(state);
@@ -91,7 +113,7 @@ export default function Schedule() {
       <div className="schedule-toolbar">
         <div className="tab-container tab-container-line">
           {['Day', 'Week', 'Month'].map((v) => (
-            <button key={v} className={`tab-btn ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>{v}</button>
+            <button key={v} className={`tab-btn ${view === v ? 'active' : ''}`} onClick={() => setView(v)} type="button">{v}</button>
           ))}
         </div>
         <div className="flex-row" style={{ gap: 6, marginLeft: 'auto', alignItems: 'center' }}>
@@ -103,11 +125,11 @@ export default function Schedule() {
       </div>
 
       <div className="filter-bar">
-        <FormField label="Status" as="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+        <FormField label="Status" as="select" value={filterStatus} onChange={(e) => setParam('status', e.target.value, 'all')}
           options={[{ value: 'all', label: 'All statuses' }, { value: 'upcoming', label: 'Upcoming' }, { value: 'in_progress', label: 'In Progress' }, { value: 'done', label: 'Done' }, { value: 'cancelled', label: 'Cancelled' }]} />
-        <FormField label="Service" as="select" value={filterService} onChange={(e) => setFilterService(e.target.value)}
+        <FormField label="Service" as="select" value={filterService} onChange={(e) => setParam('service', e.target.value, 'all')}
           options={[{ value: 'all', label: 'All services' }, ...services.map((s) => ({ value: s.id, label: s.name }))]} />
-        <FormField label="Team" as="select" value={filterUser} onChange={(e) => setFilterUser(e.target.value)}
+        <FormField label="Team" as="select" value={filterUser} onChange={(e) => setParam('user', e.target.value, 'all')}
           options={[{ value: 'all', label: 'Everyone' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
       </div>
 
@@ -124,7 +146,7 @@ export default function Schedule() {
                 const site = selectSiteById(state, job.siteId);
                 const crew = (job.crewIds || []).map((id) => selectUserById(state, id)).filter(Boolean);
                 return (
-                  <div key={job.id} className={`tl-item ${job.status} clickable`} onClick={() => navigate(`/schedule/${job.id}`)}>
+                  <div key={job.id} className={`tl-item ${job.status} clickable`} onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
                     <div className="tl-dot" />
                     <div className="tl-time">{fmtTimeRange(job.startAt, job.endAt)}</div>
                     <div className="tl-card">
@@ -158,7 +180,7 @@ export default function Schedule() {
                 ) : jobs.map((j) => {
                   const client = selectClientById(state, j.clientId);
                   return (
-                    <div key={j.id} className={`week-card ${j.status} clickable`} onClick={() => navigate(`/schedule/${j.id}`)}>
+                    <div key={j.id} className={`week-card ${j.status} clickable`} onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
                       <div className="text-xs font-semi">{fmtTimeRange(j.startAt, j.endAt)}</div>
                       <div className="text-sm">{client?.name || '—'}</div>
                     </div>
@@ -180,7 +202,7 @@ export default function Schedule() {
                 {jobs.slice(0, 3).map((j) => {
                   const client = selectClientById(state, j.clientId);
                   return (
-                    <div key={j.id} className={`month-job ${j.status} clickable`} onClick={() => navigate(`/schedule/${j.id}`)}>
+                    <div key={j.id} className={`month-job ${j.status} clickable`} onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
                       {client?.name || '—'}
                     </div>
                   );

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useFromHere } from '../hooks/useFromHere';
 import Badge, { statusBadgeVariant } from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import Icon from '../components/Icon';
@@ -35,6 +36,7 @@ const VISIBILITIES = ['all', 'org', 'team', 'private'];
 export default function Clients() {
   const state = useStore();
   const navigate = useNavigate();
+  const nav = useFromHere();
   const dispatch = useDispatch();
   const toast = useToast();
   const { currentUser } = useAuth();
@@ -56,24 +58,33 @@ export default function Clients() {
     [state, currentUser, permissions]
   );
 
-  const [tab, setTab] = useState('contacts');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const setParam = (key, value, defaultValue) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === '' || value == null || value === defaultValue) next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
 
-  // Contacts filters
-  const [cSearch, setCSearch] = useState('');
-  const [cLifecycle, setCLifecycle] = useState('all');
-  const [cOwner, setCOwner] = useState('all');
-  const [cTag, setCTag] = useState('all');
-  const [cVisibility, setCVisibility] = useState('all');
-  const [cCompany, setCCompany] = useState('all');
+  const tab = searchParams.get('tab') || 'contacts';
+  const setTab = (v) => setParam('tab', v, 'contacts');
+
+  // Contacts filters (URL-backed)
+  const cSearch = searchParams.get('q') || '';
+  const cLifecycle = searchParams.get('lifecycle') || 'all';
+  const cOwner = searchParams.get('owner') || 'all';
+  const cTag = searchParams.get('tag') || 'all';
+  const cVisibility = searchParams.get('visibility') || 'all';
+  const cCompany = searchParams.get('company') || 'all';
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkTagIds, setBulkTagIds] = useState([]);
   const [addContactOpen, setAddContactOpen] = useState(false);
 
-  // Accounts (Clients) filters — preserved from pre-CRM implementation
-  const [aSearch, setASearch] = useState('');
-  const [aStatus, setAStatus] = useState('active');
-  const [aService, setAService] = useState('all');
-  const [aFreq, setAFreq] = useState('all');
+  // Accounts (Clients) filters (URL-backed, prefixed to avoid collision)
+  const aSearch = searchParams.get('aq') || '';
+  const aStatus = searchParams.get('astatus') || 'active';
+  const aService = searchParams.get('aservice') || 'all';
+  const aFreq = searchParams.get('afreq') || 'all';
   const [addClientOpen, setAddClientOpen] = useState(false);
 
   const filteredContacts = useMemo(() => {
@@ -166,23 +177,23 @@ export default function Clients() {
       </div>
 
       <div className="tab-container tab-container-line" style={{ marginBottom: 16 }}>
-        <button className={`tab-btn ${tab === 'contacts' ? 'active' : ''}`} onClick={() => setTab('contacts')}>Contacts</button>
-        <button className={`tab-btn ${tab === 'accounts' ? 'active' : ''}`} onClick={() => setTab('accounts')}>Accounts</button>
+        <button className={`tab-btn ${tab === 'contacts' ? 'active' : ''}`} onClick={() => setTab('contacts')} type="button">Contacts</button>
+        <button className={`tab-btn ${tab === 'accounts' ? 'active' : ''}`} onClick={() => setTab('accounts')} type="button">Accounts</button>
       </div>
 
       {tab === 'contacts' && (
         <>
           <div className="filter-bar">
-            <FormField label="Search" value={cSearch} onChange={(e) => setCSearch(e.target.value)} placeholder="Name, email, title…" />
-            <FormField label="Lifecycle" as="select" value={cLifecycle} onChange={(e) => setCLifecycle(e.target.value)}
+            <FormField label="Search" value={cSearch} onChange={(e) => setParam('q', e.target.value)} placeholder="Name, email, title…" />
+            <FormField label="Lifecycle" as="select" value={cLifecycle} onChange={(e) => setParam('lifecycle', e.target.value, 'all')}
               options={LIFECYCLES.map((v) => ({ value: v, label: v === 'all' ? 'All lifecycles' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
-            <FormField label="Owner" as="select" value={cOwner} onChange={(e) => setCOwner(e.target.value)}
+            <FormField label="Owner" as="select" value={cOwner} onChange={(e) => setParam('owner', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All owners' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
-            <FormField label="Tag" as="select" value={cTag} onChange={(e) => setCTag(e.target.value)}
+            <FormField label="Tag" as="select" value={cTag} onChange={(e) => setParam('tag', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All tags' }, ...allTags.map((t) => ({ value: t.id, label: t.label }))]} />
-            <FormField label="Company" as="select" value={cCompany} onChange={(e) => setCCompany(e.target.value)}
+            <FormField label="Company" as="select" value={cCompany} onChange={(e) => setParam('company', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All companies' }, { value: 'unattached', label: 'Unattached' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} />
-            <FormField label="Visibility" as="select" value={cVisibility} onChange={(e) => setCVisibility(e.target.value)}
+            <FormField label="Visibility" as="select" value={cVisibility} onChange={(e) => setParam('visibility', e.target.value, 'all')}
               options={VISIBILITIES.map((v) => ({ value: v, label: v === 'all' ? 'All visibility' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
           </div>
 
@@ -252,7 +263,7 @@ export default function Clients() {
                               onChange={() => toggleSelected(c.id)}
                             />
                           </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                             <div className="flex-row" style={{ gap: 8 }}>
                               <Avatar initials={`${(c.firstName[0] || '').toUpperCase()}${(c.lastName[0] || '').toUpperCase()}`} variant={(c.id.length % 5) + 1} size="sm" />
                               <div>
@@ -261,16 +272,16 @@ export default function Clients() {
                               </div>
                             </div>
                           </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                             <div>{companyLabel}</div>
                             <div className="text-xs text-muted">{c.title || '—'}</div>
                           </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                             <Badge variant={LIFECYCLE_VARIANTS[c.lifecycle] || 'slate'}>
                               {c.lifecycle.charAt(0).toUpperCase() + c.lifecycle.slice(1)}
                             </Badge>
                           </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                             {owner ? (
                               <div className="flex-row" style={{ gap: 6 }}>
                                 <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
@@ -278,7 +289,7 @@ export default function Clients() {
                               </div>
                             ) : <span className="text-muted text-xs">Unassigned</span>}
                           </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`)}>
+                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                             <div className="flex-row" style={{ gap: 4 }}>
                               {(c.tagIds || []).slice(0, 3).map((tid) => {
                                 const t = selectTagById(state, tid);
@@ -287,8 +298,8 @@ export default function Clients() {
                               {(c.tagIds || []).length > 3 && <span className="text-xs text-muted">+{(c.tagIds || []).length - 3}</span>}
                             </div>
                           </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`)} className="text-xs text-muted">{fmtRelative(c.updatedAt)}</td>
-                          <td className="text-right" onClick={() => navigate(`/clients/contact/${c.id}`)}><Icon name="chevronRight" size={14} /></td>
+                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })} className="text-xs text-muted">{fmtRelative(c.updatedAt)}</td>
+                          <td className="text-right" onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}><Icon name="chevronRight" size={14} /></td>
                         </tr>
                       );
                     })}
@@ -305,12 +316,12 @@ export default function Clients() {
       {tab === 'accounts' && (
         <>
           <div className="filter-bar">
-            <FormField label="Search" value={aSearch} onChange={(e) => setASearch(e.target.value)} placeholder="Name, contact, email…" />
-            <FormField label="Status" as="select" value={aStatus} onChange={(e) => setAStatus(e.target.value)}
+            <FormField label="Search" value={aSearch} onChange={(e) => setParam('aq', e.target.value)} placeholder="Name, contact, email…" />
+            <FormField label="Status" as="select" value={aStatus} onChange={(e) => setParam('astatus', e.target.value, 'active')}
               options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
-            <FormField label="Service" as="select" value={aService} onChange={(e) => setAService(e.target.value)}
+            <FormField label="Service" as="select" value={aService} onChange={(e) => setParam('aservice', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All services' }, ...services.map((s) => ({ value: s.id, label: s.name }))]} />
-            <FormField label="Frequency" as="select" value={aFreq} onChange={(e) => setAFreq(e.target.value)}
+            <FormField label="Frequency" as="select" value={aFreq} onChange={(e) => setParam('afreq', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All frequencies' }, ...frequencies.map((f) => ({ value: f.id, label: f.label }))]} />
           </div>
 
@@ -346,7 +357,7 @@ export default function Clients() {
                       const primary = c.primaryContactId ? allContacts.find((ct) => ct.id === c.primaryContactId) : null;
                       const primaryLabel = primary ? `${primary.firstName} ${primary.lastName}` : (c.primaryContact || '—');
                       return (
-                        <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`)}>
+                        <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`, { state: nav })}>
                           <td className="name">{c.name}</td>
                           <td>{primaryLabel}</td>
                           <td>{selectServiceById(state, c.serviceId)?.name || '—'}</td>
