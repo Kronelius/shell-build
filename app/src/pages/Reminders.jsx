@@ -15,6 +15,9 @@ import {
   selectClientById, selectUnreadReminderCount, selectFailedReminderCount,
 } from '../store/selectors';
 import { fmtRelative } from '../lib/dates';
+import { retryDelivery } from '../lib/reminderScheduler';
+import { sendSMS } from '../lib/twilio';
+import { sendEmail } from '../lib/email';
 
 const STAGE_META = {
   booking_confirmation: { icon: 'schedule',  label: 'Job Booked',     hint: 'Sent immediately after booking' },
@@ -172,11 +175,19 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
       if (status === 'unread' && e.readAt) return false;
       if (status === 'failed' && e.status !== 'failed') return false;
       if (status === 'sent' && e.status !== 'sent') return false;
+      if (status === 'pending' && e.status !== 'pending') return false;
       if (channel !== 'all' && e.channel !== channel) return false;
       if (templateKey !== 'all' && e.templateKey !== templateKey) return false;
       return true;
     }).sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
   }, [events, status, channel, templateKey, range]);
+
+  const statusVariant = (s) => {
+    if (s === 'sent') return 'green';
+    if (s === 'pending') return 'amber';
+    if (s === 'failed') return 'red';
+    return 'slate';
+  };
 
   const toggleRead = (e) => {
     if (e.readAt) {
@@ -186,10 +197,21 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
     }
   };
 
-  const retry = (e) => {
+  const retry = async (e) => {
     if (!canEdit) return;
-    dispatch({ type: ACTIONS.RETRY_REMINDER_EVENT, id: e.id });
-    toast.success(`Resent ${STAGE_META[e.templateKey]?.label || e.templateKey}`);
+    // Move to 'pending' immediately so the inbox row shows the resend in flight.
+    dispatch({
+      type: ACTIONS.UPDATE_REMINDER_EVENT,
+      id: e.id,
+      patch: { status: 'pending', failureReason: null },
+    });
+    const patch = await retryDelivery({ event: e, state, sendSMS, sendEmail });
+    dispatch({ type: ACTIONS.UPDATE_REMINDER_EVENT, id: e.id, patch });
+    if (patch.status === 'sent') {
+      toast.success(`Resent ${STAGE_META[e.templateKey]?.label || e.templateKey}`);
+    } else {
+      toast.error(`Resend failed: ${patch.failureReason || 'Unknown error'}`);
+    }
   };
 
   return (
@@ -206,10 +228,11 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           options={[
-            { value: 'all',    label: 'All' },
-            { value: 'unread', label: 'Unread' },
-            { value: 'failed', label: 'Failed' },
-            { value: 'sent',   label: 'Sent' },
+            { value: 'all',     label: 'All' },
+            { value: 'unread',  label: 'Unread' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'failed',  label: 'Failed' },
+            { value: 'sent',    label: 'Sent' },
           ]}
         />
         <FormField
@@ -270,11 +293,21 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
                   return (
                     <tr key={e.id} className={`inbox-row ${isUnread ? 'is-unread' : ''}`}>
                       <td>
-                        <Badge variant={e.status === 'sent' ? 'green' : 'red'}>{e.status}</Badge>
+                        <Badge variant={statusVariant(e.status)}>{e.status}</Badge>
+                        {e.failureReason && (
+                          <div className="text-xs" style={{ color: 'var(--color-text-error, #b91c1c)', marginTop: 2 }}>
+                            {e.failureReason}
+                          </div>
+                        )}
                       </td>
                       <td>{fmtRelative(e.sentAt)}</td>
                       <td>{meta.label}</td>
-                      <td>{client?.name || '—'}</td>
+                      <td>
+                        {client?.name || '—'}
+                        {e.recipient && (
+                          <div className="text-xs text-muted">{e.recipient}</div>
+                        )}
+                      </td>
                       <td>{e.channel.toUpperCase()}</td>
                       <td className="text-right">
                         {e.status === 'failed' && canEdit && (

@@ -1,8 +1,10 @@
 # Session Handoff
 
-**Last session end:** Twilio SMS + A2P 10DLC module shipped — the largest open Core item is now complete. Full adapter pattern in `lib/twilio.js`; production deployments wire by setting `VITE_TWILIO_BACKEND_URL`. Manually verified end-to-end in dev: connect → A2P submit → super-admin approve → outbound test SMS (queued → sent → delivered) → simulate inbound → thread routing → outbound reply from Messaging composer. **Work is uncommitted on `main`.**
+**Last session end:** Automated Reminders auto-fire shipped — the second open Core item now complete. Audit revealed templates were seeded and the inbox UI worked, but **no actual auto-fire on job lifecycle existed** (only manual "Send Test" buttons). Built scheduler + email adapter + real retry. Verified end-to-end: scheduler fires booking_confirmation immediately on new upcoming jobs; day_of_eta in the 0–12h window; SMS routes through Twilio; email through `lib/email.js`; failures show clear reasons; retry re-delivers. **Work is uncommitted on `main`.**
 
-Current branch: `main`, latest commit `e378cd2`. Working tree dirty (Twilio module + scope-realignment doc edits).
+Earlier in the session: doc realignment + Twilio SMS + A2P module shipped and pushed (commits `527520f` and `79fb588`).
+
+Current branch: `main`, latest commit `79fb588`. Working tree dirty (Reminders auto-fire module).
 
 ---
 
@@ -19,7 +21,37 @@ Per `CLAUDE.md`:
 
 ## What shipped this session
 
-### Twilio SMS + A2P 10DLC (Core deliverable)
+### Automated Reminders auto-fire (Core deliverable, this push)
+
+**Audit gap:** templates seeded (`booking_confirmation`, `reminder_24h`, `day_of_eta`, `post_service`) and inbox UI worked, but the only `ADD_REMINDER_EVENT` dispatches were manual test buttons in `InvoiceDetail.jsx` and `Notifications.jsx`. The Core promise is "Automated Reminders" — they weren't.
+
+**Files added:**
+- `app/src/lib/email.js` — email adapter (mirrors `twilio.js`; branches on `VITE_EMAIL_BACKEND_URL`; ~5% stub failure rate to exercise failure UI)
+- `app/src/lib/reminderScheduler.js` — pure functions: `shouldFire`, `hasFired`, `getDueReminders`, `retryDelivery`, `buildTokens`, `interpolate`
+- `app/src/components/ReminderScheduler.jsx` — mounted at app root; reacts to state changes (jobs/events/templates/twilio-status) AND ticks every 60s for time-based windows. Dispatches `ADD_REMINDER_EVENT` (status `pending`) → calls adapter → dispatches `UPDATE_REMINDER_EVENT` with final status.
+
+**Files modified:**
+- `app/src/store/reducer.js` — added `UPDATE_REMINDER_EVENT` action (generic patch on a single event). The old `RETRY_REMINDER_EVENT` remains but is unused now.
+- `app/src/pages/Reminders.jsx` — Inbox now handles `pending` status (amber badge) + shows `failureReason` inline + shows `recipient` under client name. Retry handler now calls `retryDelivery()` which goes through the adapter and patches the same event id (no duplicates).
+- `app/src/App.jsx` — mounted `<ReminderScheduler />` alongside `<TwilioInboundListener />`.
+
+**Fire windows (one-time per job per template, deduped):**
+- `booking_confirmation`: immediately on any upcoming job
+- `reminder_24h`: when startAt is 12–30h away
+- `day_of_eta`: when startAt is 0–12h away
+- `post_service`: when status flips to `completed`
+
+**Token interpolation** for templates: `{client_contact} {company} {service} {site_name} {date} {time}`. Recipient resolution: SMS → site/contact/client phone; email → site/contact/client email.
+
+**StrictMode race fix:** module-level `inFlight` Set survives the dev double-mount. Once a `(templateKey, jobId)` is added it's never deleted — synchronous failure paths (e.g. `Twilio not connected`) used to clear the key before mount-#2's effect ran, allowing duplicates. Permanent dedup is fine because state-based `hasFired()` handles cross-session refires.
+
+**Verified in dev:**
+- Fresh seed: 30 events, 0 duplicates, 2 scheduler-fired (filling gaps not covered by seed cycling)
+- Twilio not connected → scheduler marks SMS reminders failed with reason "Twilio not connected"
+- Connect Twilio + approve A2P + add new job → booking_confirmation email and day_of_eta SMS both fire successfully with provider message IDs
+- Click Retry on a failed event → status: pending → sent (same event id, no dup; new SID assigned)
+
+### Twilio SMS + A2P 10DLC (Core deliverable, prior commit `79fb588`)
 
 **State (v7 → v8):**
 - `company.integrations.twilio` added: `connected`, `accountSidLast4` (never full SID/token in localStorage), `phoneNumber`, `phoneNumberFriendlyName`, `connectedAt`, `lastError`, `inboundWebhookUrl`, `a2p { status, brandName, ein, businessAddress, useCase, sampleMessages, submittedAt, approvedAt, rejectionReason, notes }`.
@@ -77,15 +109,14 @@ Per `CLAUDE.md`:
 
 | Item | Status | Effort |
 |---|---|---|
-| Operations Dashboard polish + mobile audit | `[~]` | Light |
 | Scheduling RRULE / conflict-detection audit | `[~]` | Light–medium |
-| Reminders — confirm 3 templates wired (24h / day-of / confirmation) | `[~]` | Light |
+| Operations Dashboard polish + mobile audit | `[~]` | Light |
 | Messaging mobile audit | `[~]` | Light |
 | Migration tooling (CSV import for contacts/clients) | `[ ]` | Medium |
 | Permission default audit (admin sees no financials) | `[ ]` | Trivial |
 | Role label naming decision | `[ ]` | Trivial |
 
-**Suggested next pickup:** the Reminders audit — small scope, but unblocks the verification that the existing `reminderTemplates` (24h / day-of / booking-confirmation / post-service) are all firing and visible in the Delivery Inbox.
+**Suggested next pickup:** Scheduling RRULE / conflict-detection audit. Verifies recurrence (daily/weekly/biweekly/monthly/custom) and overlapping-cleaner conflict detection both work end-to-end. If gaps, build them production-shaped.
 
 ---
 

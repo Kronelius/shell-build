@@ -108,6 +108,7 @@ export const ACTIONS = {
   // Reminders
   UPDATE_REMINDER_TEMPLATE: 'UPDATE_REMINDER_TEMPLATE',
   ADD_REMINDER_EVENT: 'ADD_REMINDER_EVENT',
+  UPDATE_REMINDER_EVENT: 'UPDATE_REMINDER_EVENT',
   MARK_REMINDER_EVENT_READ: 'MARK_REMINDER_EVENT_READ',
   MARK_REMINDER_EVENT_UNREAD: 'MARK_REMINDER_EVENT_UNREAD',
   RETRY_REMINDER_EVENT: 'RETRY_REMINDER_EVENT',
@@ -601,6 +602,10 @@ export function reducer(state, action) {
       const base = { id: newId('re'), channel: 'sms', status: 'sent', sentAt: nowIso(), readAt: null };
       return { ...state, reminderEvents: [...state.reminderEvents, { ...base, ...action.event }] };
     }
+    case ACTIONS.UPDATE_REMINDER_EVENT:
+      // Used by the scheduler to patch delivery status (pending → sent / failed)
+      // and add failureReason / providerMessageId after the adapter resolves.
+      return { ...state, reminderEvents: replaceById(state.reminderEvents, action.id, action.patch || {}) };
     case ACTIONS.MARK_REMINDER_EVENT_READ:
       return { ...state, reminderEvents: replaceById(state.reminderEvents, action.id, { readAt: nowIso() }) };
     case ACTIONS.MARK_REMINDER_EVENT_UNREAD:

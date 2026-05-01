@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast';
 import RequirePerm from './components/RequirePerm';
 import NotFound from './components/NotFound';
 import TwilioInboundListener from './components/TwilioInboundListener';
+import ReminderScheduler from './components/ReminderScheduler';
 
 import Dashboard from './pages/Dashboard';
 import Schedule from './pages/Schedule';
@@ -33,6 +34,7 @@ export default function App() {
     <StoreProvider>
       <ToastProvider>
         <TwilioInboundListener />
+        <ReminderScheduler />
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>

@@ -62,14 +62,28 @@ Largely built. Audit:
 - Email uniqueness — **[x]**
 - **Migration tooling** — minimum CSV import for contacts/clients (separate $200 charge applies)
 
-## `[~]` Automated Reminders (staff/clients) `[Core]`
+## `[x]` Automated Reminders (staff/clients) `[Core]`
 
-Built as `Reminders.jsx` with delivery inbox. Audit:
-- 24-hour reminder template wired
-- Day-of reminder template wired
-- Booking confirmation template wired
-- Retry behavior + failure escalation
-- Per-event read/unread — **[x]**
+Audit complete — all DoD items shipped:
+- `[x]` 24-hour reminder template wired (auto-fires when job startAt is 12–30h away)
+- `[x]` Day-of reminder template wired (auto-fires when startAt is 0–12h away)
+- `[x]` Booking confirmation template wired (auto-fires immediately on `ADD_JOB` for upcoming jobs)
+- `[x]` Post-service template wired (auto-fires when job status flips to `completed`)
+- `[x]` Real retry behavior (re-delivers through adapter, not just status flip)
+- `[x]` Failure escalation (clear failure reason in inbox + toast; pending state visible)
+- `[x]` Per-event read/unread
+
+**Architecture:** `lib/reminderScheduler.js` exposes pure functions (`shouldFire`, `getDueReminders`, `retryDelivery`, `interpolate`, `buildTokens`). `components/ReminderScheduler.jsx` mounts at app root, reacts to state changes, ticks every 60s, dispatches `ADD_REMINDER_EVENT` (status `pending`) → calls adapter → dispatches `UPDATE_REMINDER_EVENT` with final status.
+
+`lib/email.js` adds the matching email adapter (mirrors `twilio.js`; branches on `VITE_EMAIL_BACKEND_URL`, ~5% stub failure rate). SMS reminders route through `lib/twilio.sendSMS`; email reminders through `lib/email.sendEmail`.
+
+Module-level `inFlight` Set guards against React.StrictMode's dev-only double-mount race (a useRef would be reset on remount, allowing duplicate fires before state propagates). Once a `(templateKey, jobId)` pair is added, it's never deleted; state-based `hasFired()` handles cross-session dedup.
+
+Token interpolation: `{client_contact} {company} {service} {site_name} {date} {time}`. Recipient resolution: SMS → site/contact/client phone; email → site/contact/client email.
+
+New reducer action: `UPDATE_REMINDER_EVENT` (generic patch — used by scheduler + retry). The old `RETRY_REMINDER_EVENT` action remains but is unused now; retry goes through `retryDelivery()`.
+
+Inbox surface in `Reminders.jsx`: status badge handles `sent / pending / failed`; failed rows show the failure reason inline; rows show `recipient` under client name; retry button calls `retryDelivery()` (re-delivers through adapter and patches the same event).
 
 ## `[~]` Messaging Suite `[Core]`
 
@@ -133,6 +147,7 @@ Built as `Invoices.jsx` + `InvoiceDetail.jsx`. **Note: only logging in Core** �
 - `[x]` Pipeline bulk actions + stage CRUD
 - `[x]` Reminders delivery inbox (per-event read/unread + retry + delivery dashboard)
 - `[x]` SMS via Twilio + A2P 10DLC (Settings → Integrations: connect, number provision, A2P registration with super-admin status override, webhook URL display, test SMS, simulate inbound; full adapter pattern in `lib/twilio.js`; outbound wired through Messaging composer with delivery-status tracking; inbound auto-routes to existing or new thread)
+- `[x]` Automated Reminders auto-fire (`lib/reminderScheduler.js` + `components/ReminderScheduler.jsx`: booking_confirmation on new upcoming jobs, reminder_24h in 12–30h window, day_of_eta in 0–12h window, post_service on status=completed; routes through `lib/twilio.js` for SMS and `lib/email.js` for email; real retry that re-delivers through the adapter; pending/sent/failed lifecycle visible in Delivery Inbox)
 
 ---
 
