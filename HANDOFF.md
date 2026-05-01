@@ -122,8 +122,11 @@ Per `CLAUDE.md`:
 
 ## Patterns to preserve (copy these for future work)
 
-- **Adapter pattern for external services**: `lib/twilio.js` is the model. Branch on env var; provide a fully-shaped stub for dev that simulates timings + failure modes. Production swap is just env var configuration. Apply the same shape for QuickBooks, Gusto, Stripe Connect when they sell.
-- **Optimistic dispatch + status patching**: `handleSend` in `Messaging.jsx` adds the message immediately with `deliveryStatus: 'queued'` then patches via `SET_MESSAGE_DELIVERY` as the adapter resolves. UI updates feel instant; failures still surface clearly.
+- **Adapter pattern for external services**: `lib/twilio.js` and `lib/email.js` are the models. Branch on env var; provide a fully-shaped stub for dev that simulates timings + failure modes. Production swap is just env var configuration. Apply the same shape for QuickBooks, Gusto, Stripe Connect when they sell.
+- **Background scheduler / dispatcher mounted at app root**: `ReminderScheduler.jsx` and `TwilioInboundListener.jsx` are the models. Mount once in `App.jsx` inside the providers; react to state changes via `useEffect` deps + tick on `setInterval` for time-based logic; dispatch through the regular store. Apply the same shape for any future module that needs background processing (e.g. sequence engine if/when sold).
+- **Module-level dedup for StrictMode races**: when an `useEffect` dispatches an action, React's dev-only double-mount can fire it twice before state propagates. A `useRef` Set is reset on remount. Use a **module-level** `Set` and **never delete** entries from it — state-based dedup (e.g. `hasFired()`) covers refires after a real session. See `inFlight` in `ReminderScheduler.jsx`.
+- **Real retry through adapter (not status flip)**: retry buttons should call the same delivery path the original send used, not just toggle a status field. Pattern: factor out an `async` helper (`retryDelivery` in `lib/reminderScheduler.js`) that takes the event + state + adapter functions, returns a patch object, and let the caller wrap with `pending` → resolve → final patch.
+- **Optimistic dispatch + status patching**: `handleSend` in `Messaging.jsx` adds the message immediately with `deliveryStatus: 'queued'` then patches via `SET_MESSAGE_DELIVERY` as the adapter resolves. UI updates feel instant; failures still surface clearly. Same pattern in `ReminderScheduler.fireOne`.
 - **Send-readiness blockers selector**: `selectTwilioBlockers` returns an ordered list of human-readable blocker reasons. UI cards show every blocker explicitly rather than just disabling the send button silently.
 - **Two-step modal flow**: `ConnectTwilioModal` uses local `step` state to walk credentials → number selection. Pattern reusable for other multi-stage integration flows.
 - **Inline editable cards with dirty-track Save bar**: `buildForm(entity)` snapshot → compare against form state → Save row renders only when dirty. Reference: `ContactLinkCard` in `ConversationContextPanel.jsx`.
@@ -147,9 +150,11 @@ Per `CLAUDE.md`:
 - **Contact owner vs conversation assignee**: different fields (`contact.ownerUserId` vs `conversation.assignedUserId`). Don't conflate them in the data model.
 - **Snippet folders ≠ message folders**: snippets still use `selectSnippetFolders` and `folderId` (singular). Intentional — message folders were removed in v5.
 - **LF/CRLF noise**: Windows machine, git converts line endings on commit. Harmless.
-- **Twilio stub failure rate**: ~8% of stubbed outbound sends fail (in `lib/twilio.js` `STUB_FAILURE_RATE`). This is intentional — exercises the failure UI path. Real production never sees this.
-- **localStorage size**: each Twilio integration adds ~2KB to the persisted state. Negligible, noted for future audit.
-- **Message id collision risk**: optimistic outbound message ids are `m_${Date.now()}_${randomBase36}`; reducer's `newId('m')` uses a different id generator. They won't collide.
+- **Twilio stub failure rate**: ~8% of stubbed outbound sends fail (in `lib/twilio.js` `STUB_FAILURE_RATE`). Email stub fails ~5%. Both intentional — exercises failure UI. Real production never sees stub failures.
+- **localStorage size**: each Twilio integration adds ~2KB to the persisted state. Reminder events with stored body/recipient add a few hundred bytes each. Negligible, noted for future audit.
+- **Message id collision risk**: optimistic outbound message ids are `m_${Date.now()}_${randomBase36}`; reducer's `newId('m')` uses a different id generator. They won't collide. Same for `re_${Date.now()}_${randomBase36}` reminder ids.
+- **StrictMode double-mount + sync failure paths**: when a synchronous failure path (e.g. "Twilio not connected") runs both the dispatch AND a `finalize` cleanup in the same tick, an in-flight guard that's deleted on cleanup will be empty when StrictMode's mount-#2 effect runs — duplicate dispatch results. Solution: never delete from the dedup Set; keep it permanent for the session. See `inFlight` comment in `ReminderScheduler.jsx`.
+- **Reminder template content stored on event**: each fired reminder snapshots the rendered `body`/`subject`/`recipient` onto the event row. If the user edits a template later, in-flight events keep the original content (correct for retry semantics). New fires use the new template.
 
 ---
 
@@ -169,8 +174,15 @@ If any of these get requested mid-session, **stop and confirm a sale** before bu
 
 ## Suggested next-session opener
 
-> "Continue Core completion for Rainier. Read `HANDOFF.md` and `SHELL_ROADMAP.md`. Audit Reminders — confirm the 24h / day-of / confirmation templates are all wired and firing into the delivery inbox. Then move to Scheduling RRULE/conflict audit."
+Working tree is clean — last push was `ea18942` (Reminders auto-fire). Start the next Core item:
 
-Or, if commits come first:
+> "Continue Core completion for Rainier. Read `CLAUDE.md`, `HANDOFF.md`, and `SHELL_ROADMAP.md` first. Then audit the **Scheduling RRULE / conflict-detection** module — verify daily/weekly/biweekly/monthly/custom recurrence and overlapping-cleaner conflict detection both work end-to-end. If gaps, build them production-shaped (full DoD in one pass — entity changes + reducer + selectors + every UI surface + permissions + storage-key bump if needed). Tick off DoD items in `SHELL_ROADMAP.md` as they ship; refresh `HANDOFF.md` at session end."
 
-> "Read `HANDOFF.md`. Before anything else, review the uncommitted work and commit it in logical chunks: (1) doc realignment + memories, (2) Twilio module."
+After Scheduling audit, the remaining Core items in priority order:
+1. Operations Dashboard polish + mobile audit (light)
+2. Messaging mobile audit (light)
+3. Migration tooling — CSV import for contacts/clients (medium, real new module — covers the $200 migration add-on)
+4. Permission default audit — admin sees no financials by default (trivial)
+5. Role label naming decision (trivial)
+
+After all of these → Core complete → tag the shell baseline → ready for the clone-to-client-repo deployment step.
