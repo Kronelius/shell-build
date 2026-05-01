@@ -59,6 +59,7 @@ export default function ConversationMessagePanel({
   onSnooze,
   onToggleStar,
   onToggleFollow,
+  onBack,
 }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
@@ -136,6 +137,11 @@ export default function ConversationMessagePanel({
   return (
     <section className="message-pane">
       <div className="message-pane-head">
+        {onBack && (
+          <button type="button" className="msg-back-btn" onClick={onBack} aria-label="Back to inbox">
+            <Icon name="chevronLeft" size={20} />
+          </button>
+        )}
         <Avatar initials={initials} variant={avatarVariant} size="sm" />
         <div className="message-pane-titles">
           <div className="message-pane-name">

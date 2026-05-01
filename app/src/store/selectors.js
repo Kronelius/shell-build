@@ -82,6 +82,31 @@ export const selectConversationForClient = (s, clientId) =>
 export const selectJobsForUser = (s, userId) =>
   s.jobs.filter((j) => j.crewIds?.includes(userId));
 
+// v9: recurring series
+export const selectSeriesJobs = (s, seriesId) =>
+  seriesId ? s.jobs.filter((j) => j.seriesId === seriesId).sort((a, b) => a.startAt.localeCompare(b.startAt)) : [];
+export const selectSeriesMaster = (s, seriesId) =>
+  seriesId ? s.jobs.find((j) => j.seriesId === seriesId && j.recurrence) : null;
+
+// v9: conflict detection — crew members assigned to overlapping time slots.
+// Returns [{ job, userId, userName }] for each overlap. Excludes cancelled jobs.
+export function selectCrewConflicts(s, crewIds, startAt, endAt, excludeJobId = null) {
+  if (!crewIds?.length || !startAt || !endAt) return [];
+  const results = [];
+  for (const job of s.jobs) {
+    if (job.id === excludeJobId) continue;
+    if (job.status === 'cancelled') continue;
+    if (job.startAt >= endAt || job.endAt <= startAt) continue;
+    for (const uid of crewIds) {
+      if (job.crewIds?.includes(uid)) {
+        const user = s.users.find((u) => u.id === uid);
+        results.push({ job, userId: uid, userName: user?.name || uid });
+      }
+    }
+  }
+  return results;
+}
+
 export const selectContactsForClient = (s, clientId) =>
   (s.contacts || []).filter((c) => c.companyId === clientId && c.lifecycle !== 'archived');
 

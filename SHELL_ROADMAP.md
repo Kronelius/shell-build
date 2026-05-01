@@ -30,7 +30,7 @@ Build production-shaped, not placeholder-shaped. Every module ships with full en
 
 This is **the only build target right now.** Ship every item here for Rainier.
 
-## `[~]` Operations Dashboard `[Core]`
+## `[x]` Operations Dashboard `[Core]`
 
 Built as `Dashboard.jsx`. Audit + finish:
 - Greeting + role-aware view
@@ -39,18 +39,18 @@ Built as `Dashboard.jsx`. Audit + finish:
 - Top clients — **[x]**
 - Overdue invoice list — **[x]**
 - Follow-ups card (stale leads + unanswered threads) — **[x]**
-- Mobile-friendly layout audit
-- Wire any Rainier-specific dashboard cards from the dashboard-elements attachment they referenced
+- Mobile-friendly layout audit — **[x]** (`minmax(0, 1fr)` grid fixes; verified at 375/768/desktop)
+- Rainier-specific dashboard cards — **deferred to Rainier repo** (their content, not shell)
 
-## `[~]` Scheduling & Calendar `[Core]`
+## `[x]` Scheduling & Calendar `[Core]`
 
 Built as `Schedule.jsx`. Audit:
-- Day / week / month views
-- Drag-drop reschedule
-- RRULE recurrence (daily / weekly / biweekly / monthly / custom)
-- Conflict detection (overlapping cleaner assignments)
+- [x] Day / week / month views
+- [x] Drag-drop reschedule (week view DnD + day view Reschedule button)
+- [x] RRULE recurrence (daily / weekly / biweekly / monthly / custom)
+- [x] Conflict detection (overlapping cleaner assignments)
 
-## `[~]` Client Database `[Core]`
+## `[x]` Client Database `[Core]`
 
 Largely built. Audit:
 - Contacts/Accounts split — **[x]**
@@ -60,7 +60,7 @@ Largely built. Audit:
 - Activity timeline — **[x]**
 - ContactDetail / ClientDetail tabs — **[x]**
 - Email uniqueness — **[x]**
-- **Migration tooling** — minimum CSV import for contacts/clients (separate $200 charge applies)
+- **Migration tooling** — **[x]** CSV import: file upload + paste, auto-mapping by header name, column-to-field mapping UI, preview with dedupe + validation, batch dispatch. (Per-client data import billed separately as $200 add-on.)
 
 ## `[x]` Automated Reminders (staff/clients) `[Core]`
 
@@ -85,7 +85,7 @@ New reducer action: `UPDATE_REMINDER_EVENT` (generic patch — used by scheduler
 
 Inbox surface in `Reminders.jsx`: status badge handles `sent / pending / failed`; failed rows show the failure reason inline; rows show `recipient` under client name; retry button calls `retryDelivery()` (re-delivers through adapter and patches the same event).
 
-## `[~]` Messaging Suite `[Core]`
+## `[x]` Messaging Suite `[Core]`
 
 Built. Audit:
 - GHL-style inbox — **[x]**
@@ -93,7 +93,7 @@ Built. Audit:
 - Assignment + contact linkage — **[x]**
 - Pinned threads — **[x]**
 - Context panel with inline editing — **[x]**
-- Mobile-friendly behavior verification
+- Mobile-friendly behavior — **[x]** Single-pane mobile pattern: inbox by default, tap thread → message panel with back button, tap back → inbox. No auto-select on mobile.
 
 ## `[x]` SMS via Twilio + A2P setup `[Core]`
 
@@ -115,7 +115,7 @@ Definition of done — all shipped:
 
 Storage bumped v7 → v8 (`pp.store.v8`).
 
-## `[~]` Logging invoices `[Core]`
+## `[x]` Logging invoices `[Core]`
 
 Built as `Invoices.jsx` + `InvoiceDetail.jsx`. **Note: only logging in Core** — full invoice/payment customization is the IPR add-on (not sold to Rainier). Audit Core scope:
 - Manual invoice creation — **[x]**
@@ -123,15 +123,15 @@ Built as `Invoices.jsx` + `InvoiceDetail.jsx`. **Note: only logging in Core** �
 - Payment recording (manual entry only in Core) — **[x]**
 - Billing-contact picker — **[x]**
 
-## `[ ]` Permission default audit `[Core]`
+## `[Rainier]` Permission default audit `[Per-client]`
 
-- Admin role: confirm financials hidden by default (Rainier Q24)
+Per-client config tweak — belongs in the Rainier repo, not shell.
+- Admin role: hide financials by default (Rainier Q24) — apply during clone
 - Document final default matrix in `roles.js` comments
-- Crew role gates the right surfaces
 
-## `[ ]` Role label naming `[Core]`
+## `[x]` Role label naming `[Core]`
 
-- Decide: rename `owner / admin / crew` → `Super Admin / Admin / Staff` in `roles.js`, OR keep schema and rely on `ROLE_LABELS` map (current pattern works fine — recommend keeping)
+Decision: **keep the schema** (`owner / admin / crew`) and rely on `ROLE_LABELS` for UI display ("Super Admin / Admin / Crew"). Documented in `roles.js`. Renaming the schema would touch every reducer/selector/permission check for zero user-visible benefit. If a client wants different labels, update `ROLE_LABELS` only.
 
 ---
 

@@ -1,6 +1,6 @@
-// v8: company.integrations.twilio added (connection state + A2P 10DLC tracking).
-// Bump in lockstep with INITIAL_STATE.version so v7 caches force a fresh reseed.
-const STORAGE_KEY = 'pp.store.v8';
+// v9: job recurrence (seriesId + recurrence rule) + conflict detection.
+// Bump in lockstep with INITIAL_STATE.version so v8 caches force a fresh reseed.
+const STORAGE_KEY = 'pp.store.v9';
 
 export function loadState() {
   try {

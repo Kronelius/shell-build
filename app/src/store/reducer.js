@@ -3,6 +3,7 @@
 
 import { newId } from '../lib/ids';
 import { nowIso } from '../lib/dates';
+import { expandRecurrence } from '../lib/recurrence';
 import { INITIAL_STATE } from '../data/seed';
 
 export const ACTIONS = {
@@ -65,9 +66,12 @@ export const ACTIONS = {
 
   // Jobs
   ADD_JOB: 'ADD_JOB',
+  ADD_JOB_SERIES: 'ADD_JOB_SERIES',
   UPDATE_JOB: 'UPDATE_JOB',
+  UPDATE_JOB_SERIES: 'UPDATE_JOB_SERIES',
   SET_JOB_STATUS: 'SET_JOB_STATUS',
   DELETE_JOB: 'DELETE_JOB',
+  DELETE_JOB_SERIES: 'DELETE_JOB_SERIES',
 
   // Invoices
   ADD_INVOICE: 'ADD_INVOICE',
@@ -410,15 +414,46 @@ export function reducer(state, action) {
 
     // ---------- Jobs ----------
     case ACTIONS.ADD_JOB: {
-      const base = { id: newId('j'), status: 'upcoming', crewIds: [], notes: '', createdAt: nowIso() };
+      const base = { id: newId('j'), status: 'upcoming', crewIds: [], notes: '', seriesId: null, recurrence: null, createdAt: nowIso() };
       return { ...state, jobs: [...state.jobs, { ...base, ...action.job }] };
+    }
+    case ACTIONS.ADD_JOB_SERIES: {
+      const seriesId = newId('ser');
+      const ts = nowIso();
+      const master = { id: newId('j'), status: 'upcoming', crewIds: [], notes: '', ...action.baseJob, seriesId, recurrence: action.recurrence, createdAt: ts };
+      const instances = expandRecurrence({ startAt: master.startAt, endAt: master.endAt, recurrence: action.recurrence });
+      const children = instances.map((inst) => ({
+        ...master, ...inst, id: newId('j'), recurrence: null, createdAt: ts,
+      }));
+      return { ...state, jobs: [...state.jobs, master, ...children] };
     }
     case ACTIONS.UPDATE_JOB:
       return { ...state, jobs: replaceById(state.jobs, action.id, action.patch) };
+    case ACTIONS.UPDATE_JOB_SERIES: {
+      return {
+        ...state,
+        jobs: state.jobs.map((j) => {
+          if (j.seriesId !== action.seriesId) return j;
+          if (j.status !== 'upcoming') return j;
+          if (action.fromDate && j.startAt < action.fromDate) return j;
+          return { ...j, ...action.patch };
+        }),
+      };
+    }
     case ACTIONS.SET_JOB_STATUS:
       return { ...state, jobs: replaceById(state.jobs, action.id, { status: action.status }) };
     case ACTIONS.DELETE_JOB:
       return { ...state, jobs: removeById(state.jobs, action.id) };
+    case ACTIONS.DELETE_JOB_SERIES:
+      return {
+        ...state,
+        jobs: state.jobs.filter((j) => {
+          if (j.seriesId !== action.seriesId) return true;
+          if (j.status !== 'upcoming') return true;
+          if (action.fromDate && j.startAt < action.fromDate) return true;
+          return false;
+        }),
+      };
 
     // ---------- Invoices ----------
     case ACTIONS.ADD_INVOICE: {

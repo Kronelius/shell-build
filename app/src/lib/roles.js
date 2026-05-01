@@ -2,6 +2,13 @@
 // The matrix is the *default*; the live assignment lives in the store (state.permissions)
 // and can be edited in Settings → Roles (Super Admin only).
 // Per-user overrides live in state.userPermissionOverrides and are applied in can().
+//
+// Naming: schema is `owner / admin / crew`; UI labels are `Super Admin / Admin / Crew`
+// via ROLE_LABELS. Decision: keep the schema keys — they're shorter, already wired
+// through the codebase, and the UI display is fully owned by ROLE_LABELS / ROLE_DESCRIPTIONS.
+// Renaming the schema would touch every reducer/selector/permission check for zero user-visible
+// benefit. If a client wants different labels (e.g. "Manager" instead of "Admin"), update
+// ROLE_LABELS only.
 
 export const ROLES = ['owner', 'admin', 'crew'];
 

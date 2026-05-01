@@ -10,6 +10,7 @@ import TagChip from '../components/TagChip';
 import TagPicker from '../components/TagPicker';
 import AddClientModal from '../components/AddClientModal';
 import AddContactModal from '../components/AddContactModal';
+import CsvImportModal from '../components/CsvImportModal';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
@@ -79,6 +80,7 @@ export default function Clients() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkTagIds, setBulkTagIds] = useState([]);
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // Accounts (Clients) filters (URL-backed, prefixed to avoid collision)
   const aSearch = searchParams.get('aq') || '';
@@ -168,10 +170,16 @@ export default function Clients() {
         </div>
         <div className="page-head-actions">
           {tab === 'contacts' && canCreateContact && (
-            <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>+ Add Contact</button>
+            <>
+              <button className="btn btn-outline" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
+              <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>+ Add Contact</button>
+            </>
           )}
           {tab === 'accounts' && canCreateClient && (
-            <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>+ Add Account</button>
+            <>
+              <button className="btn btn-outline" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
+              <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>+ Add Account</button>
+            </>
           )}
         </div>
       </div>
@@ -310,6 +318,7 @@ export default function Clients() {
           )}
 
           <AddContactModal open={addContactOpen} onClose={() => setAddContactOpen(false)} />
+          <CsvImportModal open={csvImportOpen} onClose={() => setCsvImportOpen(false)} entity="contacts" />
         </>
       )}
 
@@ -378,6 +387,7 @@ export default function Clients() {
           )}
 
           <AddClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} />
+          <CsvImportModal open={csvImportOpen} onClose={() => setCsvImportOpen(false)} entity="clients" />
         </>
       )}
 

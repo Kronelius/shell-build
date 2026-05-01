@@ -299,19 +299,42 @@ const sites = [
 const siteFor = (clientKey) => sites.find((s) => s.id === seedId('st', clientKey));
 
 // Today's schedule (jobs) + some past/future
+// v9: jobs gain optional seriesId (links recurring instances) and recurrence (rule, first instance only).
+const SERIES_METRO = seedId('ser', 'metro-weekly');
+const SERIES_RIVER = seedId('ser', 'river-weekly');
+
 const jobs = [
-  { id: seedId('j', 'today-1'), clientId: clients[0].id, siteId: siteFor('metro-main').id,  serviceId: services[0].id, crewIds: [users[1].id],           startAt: atTime(0, 8, 0),  endAt: atTime(0, 9, 30),  status: 'done',        notes: 'Standard janitorial.', createdAt: daysAgo(7) },
-  { id: seedId('j', 'today-2'), clientId: clients[1].id, siteId: siteFor('lake-main').id,   serviceId: services[1].id, crewIds: [users[2].id],           startAt: atTime(0, 10, 0), endAt: atTime(0, 12, 0),  status: 'in_progress', notes: '',                     createdAt: daysAgo(5) },
-  { id: seedId('j', 'today-3'), clientId: clients[4].id, siteId: siteFor('pac-tower').id,   serviceId: services[0].id, crewIds: [users[4].id],           startAt: atTime(0, 13, 0), endAt: atTime(0, 15, 0),  status: 'upcoming',    notes: '',                     createdAt: daysAgo(3) },
-  { id: seedId('j', 'today-4'), clientId: clients[5].id, siteId: siteFor('river-main').id,  serviceId: services[5].id, crewIds: [users[1].id, users[3].id], startAt: atTime(0, 15, 30), endAt: atTime(0, 17, 0), status: 'upcoming', notes: '',                     createdAt: daysAgo(2) },
+  // --- One-off jobs ---
+  { id: seedId('j', 'today-2'), clientId: clients[1].id, siteId: siteFor('lake-main').id,   serviceId: services[1].id, crewIds: [users[2].id],           startAt: atTime(0, 10, 0), endAt: atTime(0, 12, 0),  status: 'in_progress', notes: '',                     seriesId: null, recurrence: null, createdAt: daysAgo(5) },
+  { id: seedId('j', 'today-3'), clientId: clients[4].id, siteId: siteFor('pac-tower').id,   serviceId: services[0].id, crewIds: [users[4].id],           startAt: atTime(0, 13, 0), endAt: atTime(0, 15, 0),  status: 'upcoming',    notes: '',                     seriesId: null, recurrence: null, createdAt: daysAgo(3) },
   // Tomorrow
-  { id: seedId('j', 'tom-1'),   clientId: clients[0].id, siteId: siteFor('metro-annex').id, serviceId: services[0].id, crewIds: [users[1].id],           startAt: atTime(1, 8, 0),  endAt: atTime(1, 9, 30),  status: 'upcoming',    notes: '',                     createdAt: daysAgo(1) },
-  { id: seedId('j', 'tom-2'),   clientId: clients[3].id, siteId: siteFor('green-clbhs').id, serviceId: services[2].id, crewIds: [users[2].id, users[4].id], startAt: atTime(1, 10, 30), endAt: atTime(1, 12, 0), status: 'upcoming', notes: 'Window exterior.',     createdAt: daysAgo(1) },
+  { id: seedId('j', 'tom-2'),   clientId: clients[3].id, siteId: siteFor('green-clbhs').id, serviceId: services[2].id, crewIds: [users[2].id, users[4].id], startAt: atTime(1, 10, 30), endAt: atTime(1, 12, 0), status: 'upcoming', notes: 'Window exterior.',     seriesId: null, recurrence: null, createdAt: daysAgo(1) },
   // Later this week
-  { id: seedId('j', 'week-1'),  clientId: clients[4].id, siteId: siteFor('pac-annex').id,   serviceId: services[0].id, crewIds: [users[2].id],           startAt: atTime(3, 9, 0),  endAt: atTime(3, 11, 0),  status: 'upcoming',    notes: '',                     createdAt: daysAgo(1) },
-  { id: seedId('j', 'week-2'),  clientId: clients[2].id, siteId: siteFor('summit-main').id, serviceId: services[4].id, crewIds: [users[3].id],           startAt: atTime(4, 13, 0), endAt: atTime(4, 15, 0),  status: 'upcoming',    notes: 'Loading bay pressure wash.', createdAt: daysAgo(1) },
+  { id: seedId('j', 'week-1'),  clientId: clients[4].id, siteId: siteFor('pac-annex').id,   serviceId: services[0].id, crewIds: [users[2].id],           startAt: atTime(3, 9, 0),  endAt: atTime(3, 11, 0),  status: 'upcoming',    notes: '',                     seriesId: null, recurrence: null, createdAt: daysAgo(1) },
+  { id: seedId('j', 'week-2'),  clientId: clients[2].id, siteId: siteFor('summit-main').id, serviceId: services[4].id, crewIds: [users[3].id],           startAt: atTime(4, 13, 0), endAt: atTime(4, 15, 0),  status: 'upcoming',    notes: 'Loading bay pressure wash.', seriesId: null, recurrence: null, createdAt: daysAgo(1) },
   // Yesterday
-  { id: seedId('j', 'yes-1'),   clientId: clients[5].id, siteId: siteFor('river-main').id,  serviceId: services[5].id, crewIds: [users[3].id],           startAt: atTime(-1, 14, 0), endAt: atTime(-1, 15, 0), status: 'done',    notes: '',                     createdAt: daysAgo(3) },
+  { id: seedId('j', 'yes-1'),   clientId: clients[5].id, siteId: siteFor('river-main').id,  serviceId: services[5].id, crewIds: [users[3].id],           startAt: atTime(-1, 14, 0), endAt: atTime(-1, 15, 0), status: 'done',    notes: '',                     seriesId: null, recurrence: null, createdAt: daysAgo(3) },
+
+  // --- Metro Medical weekly janitorial (recurring series) ---
+  // Instance 0: last week (done)
+  { id: seedId('j', 'metro-w0'), clientId: clients[0].id, siteId: siteFor('metro-main').id, serviceId: services[0].id, crewIds: [users[1].id], startAt: atTime(-7, 8, 0), endAt: atTime(-7, 9, 30), status: 'done', notes: 'Standard janitorial.', seriesId: SERIES_METRO, recurrence: { frequency: 'weekly', daysOfWeek: null, endType: 'count', endCount: 12, endDate: null }, createdAt: daysAgo(14) },
+  // Instance 1: today
+  { id: seedId('j', 'metro-w1'), clientId: clients[0].id, siteId: siteFor('metro-main').id, serviceId: services[0].id, crewIds: [users[1].id], startAt: atTime(0, 8, 0),  endAt: atTime(0, 9, 30),  status: 'done', notes: 'Standard janitorial.', seriesId: SERIES_METRO, recurrence: null, createdAt: daysAgo(14) },
+  // Instance 2: next week
+  { id: seedId('j', 'metro-w2'), clientId: clients[0].id, siteId: siteFor('metro-main').id, serviceId: services[0].id, crewIds: [users[1].id], startAt: atTime(7, 8, 0),  endAt: atTime(7, 9, 30),  status: 'upcoming', notes: '', seriesId: SERIES_METRO, recurrence: null, createdAt: daysAgo(14) },
+  // Instance 3: two weeks out
+  { id: seedId('j', 'metro-w3'), clientId: clients[0].id, siteId: siteFor('metro-main').id, serviceId: services[0].id, crewIds: [users[1].id], startAt: atTime(14, 8, 0), endAt: atTime(14, 9, 30), status: 'upcoming', notes: '', seriesId: SERIES_METRO, recurrence: null, createdAt: daysAgo(14) },
+  // Instance 4: three weeks out
+  { id: seedId('j', 'metro-w4'), clientId: clients[0].id, siteId: siteFor('metro-main').id, serviceId: services[0].id, crewIds: [users[1].id], startAt: atTime(21, 8, 0), endAt: atTime(21, 9, 30), status: 'upcoming', notes: '', seriesId: SERIES_METRO, recurrence: null, createdAt: daysAgo(14) },
+
+  // --- Riverside Senior Living weekly restroom sanitation (recurring series) ---
+  { id: seedId('j', 'river-w0'), clientId: clients[5].id, siteId: siteFor('river-main').id, serviceId: services[5].id, crewIds: [users[3].id], startAt: atTime(0, 15, 30), endAt: atTime(0, 17, 0), status: 'upcoming', notes: '', seriesId: SERIES_RIVER, recurrence: { frequency: 'weekly', daysOfWeek: null, endType: 'count', endCount: 12, endDate: null }, createdAt: daysAgo(7) },
+  { id: seedId('j', 'river-w1'), clientId: clients[5].id, siteId: siteFor('river-main').id, serviceId: services[5].id, crewIds: [users[3].id], startAt: atTime(7, 15, 30), endAt: atTime(7, 17, 0), status: 'upcoming', notes: '', seriesId: SERIES_RIVER, recurrence: null, createdAt: daysAgo(7) },
+  { id: seedId('j', 'river-w2'), clientId: clients[5].id, siteId: siteFor('river-main').id, serviceId: services[5].id, crewIds: [users[3].id], startAt: atTime(14, 15, 30), endAt: atTime(14, 17, 0), status: 'upcoming', notes: '', seriesId: SERIES_RIVER, recurrence: null, createdAt: daysAgo(7) },
+  { id: seedId('j', 'river-w3'), clientId: clients[5].id, siteId: siteFor('river-main').id, serviceId: services[5].id, crewIds: [users[3].id], startAt: atTime(21, 15, 30), endAt: atTime(21, 17, 0), status: 'upcoming', notes: '', seriesId: SERIES_RIVER, recurrence: null, createdAt: daysAgo(7) },
+
+  // --- Extra one-off: tomorrow Metro annex ---
+  { id: seedId('j', 'tom-1'),   clientId: clients[0].id, siteId: siteFor('metro-annex').id, serviceId: services[0].id, crewIds: [users[1].id],           startAt: atTime(1, 8, 0),  endAt: atTime(1, 9, 30),  status: 'upcoming',    notes: '',                     seriesId: null, recurrence: null, createdAt: daysAgo(1) },
 ];
 
 // Line items helper
@@ -508,7 +531,7 @@ const pipelineStages = [
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 8,
+  version: 9,
   company,
   currentUserId,
   users,

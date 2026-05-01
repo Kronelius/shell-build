@@ -6,14 +6,16 @@ import EmptyState from '../components/EmptyState';
 import Icon from '../components/Icon';
 import NewJobModal from '../components/NewJobModal';
 import FormField from '../components/FormField';
-import { useStore } from '../store';
+import { useDispatch, useStore } from '../store';
+import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
+import { useToast } from '../components/Toast';
 import {
   selectJobs, selectClientById, selectServiceById, selectSiteById, selectServices,
-  selectActiveUsers, selectUserById, selectJobsForUser,
+  selectActiveUsers, selectUserById, selectJobsForUser, selectCrewConflicts,
 } from '../store/selectors';
-import { fmtTimeRange, sameDay, startOfWeek, startOfMonth, addDays } from '../lib/dates';
+import { fmtTimeRange, sameDay, startOfWeek, startOfMonth, addDays, composeIso, splitIso } from '../lib/dates';
 
 const STATUS_LABEL = { upcoming: 'Upcoming', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled' };
 
@@ -28,10 +30,12 @@ const fromIsoDay = (s) => {
 
 export default function Schedule() {
   const state = useStore();
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const nav = useFromHere();
   const { currentUser } = useAuth();
   const canCreate = usePermission('schedule.edit');
+  const toast = useToast();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const setParam = (key, value, defaultValue) => {
@@ -47,9 +51,14 @@ export default function Schedule() {
   const todayIso = toIsoDay(new Date());
   const setRefDate = (d) => setParam('d', toIsoDay(d), todayIso);
   const [modalOpen, setModalOpen] = useState(false);
+  const [rescheduleJob, setRescheduleJob] = useState(null);
   const filterStatus = searchParams.get('status') || 'all';
   const filterUser = searchParams.get('user') || 'all';
   const filterService = searchParams.get('service') || 'all';
+
+  // Week DnD state
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTargetDay, setDropTargetDay] = useState(null);
 
   const jobsAll = selectJobs(state);
   const services = selectServices(state);
@@ -64,6 +73,23 @@ export default function Schedule() {
   }), [scope, filterStatus, filterUser, filterService]);
 
   const dayJobs = useMemo(() => filteredJobs.filter((j) => sameDay(j.startAt, refDate)).sort((a, b) => a.startAt.localeCompare(b.startAt)), [filteredJobs, refDate]);
+
+  // Conflict set for day view
+  const dayConflictJobIds = useMemo(() => {
+    const ids = new Set();
+    for (let i = 0; i < dayJobs.length; i++) {
+      for (let k = i + 1; k < dayJobs.length; k++) {
+        const a = dayJobs[i], b = dayJobs[k];
+        if (a.status === 'cancelled' || b.status === 'cancelled') continue;
+        if (a.startAt < b.endAt && a.endAt > b.startAt) {
+          const shared = (a.crewIds || []).filter((id) => (b.crewIds || []).includes(id));
+          if (shared.length > 0) { ids.add(a.id); ids.add(b.id); }
+        }
+      }
+    }
+    return ids;
+  }, [dayJobs]);
+
   const weekDays = useMemo(() => {
     const start = startOfWeek(refDate);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -71,6 +97,24 @@ export default function Schedule() {
   const weekJobs = useMemo(() => {
     return weekDays.map((d) => ({ date: d, jobs: filteredJobs.filter((j) => sameDay(j.startAt, d)).sort((a, b) => a.startAt.localeCompare(b.startAt)) }));
   }, [weekDays, filteredJobs]);
+
+  // Conflict set for week view
+  const weekConflictJobIds = useMemo(() => {
+    const ids = new Set();
+    for (const { jobs } of weekJobs) {
+      for (let i = 0; i < jobs.length; i++) {
+        for (let k = i + 1; k < jobs.length; k++) {
+          const a = jobs[i], b = jobs[k];
+          if (a.status === 'cancelled' || b.status === 'cancelled') continue;
+          if (a.startAt < b.endAt && a.endAt > b.startAt) {
+            const shared = (a.crewIds || []).filter((id) => (b.crewIds || []).includes(id));
+            if (shared.length > 0) { ids.add(a.id); ids.add(b.id); }
+          }
+        }
+      }
+    }
+    return ids;
+  }, [weekJobs]);
 
   const monthGrid = useMemo(() => {
     const start = startOfMonth(refDate);
@@ -98,6 +142,55 @@ export default function Schedule() {
     }
     return refDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }, [view, refDate]);
+
+  // Week DnD handlers
+  const onWeekDragStart = (e, job) => {
+    if (!canCreate) return;
+    e.dataTransfer.setData('text/plain', job.id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingId(job.id);
+  };
+  const onWeekDragEnd = () => { setDraggingId(null); setDropTargetDay(null); };
+  const onColDragOver = (e, dayIso) => {
+    if (!canCreate) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetDay(dayIso);
+  };
+  const onColDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setDropTargetDay(null);
+  };
+  const onColDrop = (e, targetDate) => {
+    e.preventDefault();
+    const jobId = e.dataTransfer.getData('text/plain');
+    setDraggingId(null);
+    setDropTargetDay(null);
+    if (!canCreate || !jobId) return;
+    const job = state.jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const s = splitIso(job.startAt);
+    const targetIso = toIsoDay(targetDate);
+    if (s.date === targetIso) return;
+    const newStart = composeIso(targetIso, s.time);
+    const eTime = splitIso(job.endAt);
+    const newEnd = composeIso(targetIso, eTime.time);
+    dispatch({ type: ACTIONS.UPDATE_JOB, id: jobId, patch: { startAt: newStart, endAt: newEnd } });
+    const conflicts = selectCrewConflicts(state, job.crewIds, newStart, newEnd, jobId);
+    if (conflicts.length > 0) {
+      toast.warn(`Moved — ${conflicts[0].userName} has a conflict at new time`);
+    } else {
+      toast.success('Job moved');
+    }
+  };
+
+  // Month cell click → Day view (set both params atomically)
+  const monthCellClick = (date) => {
+    const next = new URLSearchParams(searchParams);
+    const iso = toIsoDay(date);
+    if (iso === todayIso) next.delete('d'); else next.set('d', iso);
+    next.delete('view');
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <>
@@ -145,11 +238,16 @@ export default function Schedule() {
                 const service = selectServiceById(state, job.serviceId);
                 const site = selectSiteById(state, job.siteId);
                 const crew = (job.crewIds || []).map((id) => selectUserById(state, id)).filter(Boolean);
+                const hasConflict = dayConflictJobIds.has(job.id);
                 return (
-                  <div key={job.id} className={`tl-item ${job.status} clickable`} onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
+                  <div key={job.id} className={`tl-item ${job.status}`}>
                     <div className="tl-dot" />
-                    <div className="tl-time">{fmtTimeRange(job.startAt, job.endAt)}</div>
-                    <div className="tl-card">
+                    <div className="tl-time">
+                      {fmtTimeRange(job.startAt, job.endAt)}
+                      {job.seriesId && <Icon name="repeat" size={10} className="series-badge" />}
+                      {hasConflict && <Icon name="warning" size={10} className="conflict-dot" />}
+                    </div>
+                    <div className="tl-card clickable" onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
                       <strong>{client?.name || '—'}</strong> — {service?.name || '—'}{' '}
                       <Badge variant={statusBadgeVariant(STATUS_LABEL[job.status])}>{STATUS_LABEL[job.status]}</Badge>
                       <br />
@@ -157,6 +255,11 @@ export default function Schedule() {
                         {crew.map((u) => u.name.split(' ')[0]).join(', ') || 'Unassigned'}
                         {site ? ` • ${site.name}` : ''}
                       </span>
+                      {canCreate && job.status === 'upcoming' && (
+                        <button className="btn btn-outline btn-xs reschedule-btn" onClick={(e) => { e.stopPropagation(); setRescheduleJob(job); }}>
+                          Reschedule
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -168,27 +271,47 @@ export default function Schedule() {
 
       {view === 'Week' && (
         <div className="week-grid">
-          {weekJobs.map(({ date, jobs }) => (
-            <div key={date.toISOString()} className={`week-col ${sameDay(date, new Date()) ? 'today' : ''}`}>
-              <div className="week-col-head">
-                <div className="text-xs text-muted">{date.toLocaleDateString(undefined, { weekday: 'short' })}</div>
-                <div className="text-sm font-semi">{date.getDate()}</div>
+          {weekJobs.map(({ date, jobs }) => {
+            const dayIso = toIsoDay(date);
+            const isDropTarget = dropTargetDay === dayIso;
+            return (
+              <div key={date.toISOString()}
+                className={`week-col ${sameDay(date, new Date()) ? 'today' : ''} ${isDropTarget ? 'drag-over' : ''}`}
+                onDragOver={(e) => onColDragOver(e, dayIso)}
+                onDragLeave={onColDragLeave}
+                onDrop={(e) => onColDrop(e, date)}
+              >
+                <div className="week-col-head">
+                  <div className="text-xs text-muted">{date.toLocaleDateString(undefined, { weekday: 'short' })}</div>
+                  <div className="text-sm font-semi">{date.getDate()}</div>
+                </div>
+                <div className="week-col-body">
+                  {jobs.length === 0 ? (
+                    <div className="text-xs text-muted" style={{ padding: 6 }}>—</div>
+                  ) : jobs.map((j) => {
+                    const client = selectClientById(state, j.clientId);
+                    const hasConflict = weekConflictJobIds.has(j.id);
+                    return (
+                      <div key={j.id}
+                        className={`week-card ${j.status} ${draggingId === j.id ? 'is-dragging' : ''} clickable`}
+                        draggable={canCreate && j.status === 'upcoming'}
+                        onDragStart={(e) => onWeekDragStart(e, j)}
+                        onDragEnd={onWeekDragEnd}
+                        onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}
+                      >
+                        <div className="text-xs font-semi">
+                          {fmtTimeRange(j.startAt, j.endAt)}
+                          {j.seriesId && <Icon name="repeat" size={9} className="series-badge" />}
+                          {hasConflict && <Icon name="warning" size={9} className="conflict-dot" />}
+                        </div>
+                        <div className="text-sm">{client?.name || '—'}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="week-col-body">
-                {jobs.length === 0 ? (
-                  <div className="text-xs text-muted" style={{ padding: 6 }}>—</div>
-                ) : jobs.map((j) => {
-                  const client = selectClientById(state, j.clientId);
-                  return (
-                    <div key={j.id} className={`week-card ${j.status} clickable`} onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                      <div className="text-xs font-semi">{fmtTimeRange(j.startAt, j.endAt)}</div>
-                      <div className="text-sm">{client?.name || '—'}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -196,13 +319,20 @@ export default function Schedule() {
         <div className="month-grid">
           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => <div key={d} className="month-head">{d}</div>)}
           {monthGrid.map(({ date, sameMonth, jobs }) => (
-            <div key={date.toISOString()} className={`month-cell ${!sameMonth ? 'muted' : ''} ${sameDay(date, new Date()) ? 'today' : ''}`}>
+            <div key={date.toISOString()}
+              className={`month-cell ${!sameMonth ? 'muted' : ''} ${sameDay(date, new Date()) ? 'today' : ''}`}
+              onClick={() => monthCellClick(date)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="month-cell-date">{date.getDate()}</div>
               <div className="month-cell-jobs">
                 {jobs.slice(0, 3).map((j) => {
                   const client = selectClientById(state, j.clientId);
                   return (
-                    <div key={j.id} className={`month-job ${j.status} clickable`} onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
+                    <div key={j.id} className={`month-job ${j.status}`}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/schedule/${j.id}`, { state: nav }); }}
+                    >
+                      {j.seriesId && <Icon name="repeat" size={8} className="series-badge" />}
                       {client?.name || '—'}
                     </div>
                   );
@@ -215,6 +345,9 @@ export default function Schedule() {
       )}
 
       <NewJobModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      {rescheduleJob && (
+        <NewJobModal open={true} onClose={() => setRescheduleJob(null)} mode="edit" initialData={rescheduleJob} />
+      )}
     </>
   );
 }

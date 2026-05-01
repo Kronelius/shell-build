@@ -220,20 +220,27 @@ export default function Messaging() {
   // Keep activeId in sync with URL + visible-set membership.
   useEffect(() => {
     if (paramId && paramId !== activeId) setActiveId(paramId);
+    if (!paramId && activeId && window.matchMedia('(max-width: 768px)').matches) setActiveId(null);
   }, [paramId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!visibleConversations.length) return;
+    // On mobile, don't auto-select — user should see the inbox first and choose.
+    if (window.matchMedia('(max-width: 768px)').matches && !paramId) return;
     if (!activeId || !visibleConversations.find((c) => c.id === activeId)) {
       setActiveId(visibleConversations[0].id);
     }
-  }, [visibleConversations, activeId]);
+  }, [visibleConversations, activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If the user switches inbox, pick the first conversation in the new set
   // and clear any lingering bulk selection (selections don't cross inboxes).
   useEffect(() => {
     setSelectedIds(new Set());
     if (!visibleConversations.length) {
+      setActiveId(null);
+      return;
+    }
+    if (window.matchMedia('(max-width: 768px)').matches) {
       setActiveId(null);
       return;
     }
@@ -256,6 +263,11 @@ export default function Messaging() {
   const handleSelect = (id) => {
     setActiveId(id);
     navigate(`/messaging/${id}`);
+  };
+
+  const handleBackToInbox = () => {
+    setActiveId(null);
+    navigate('/messaging');
   };
 
   const handleSend = (text, opts) => {
@@ -425,7 +437,7 @@ export default function Messaging() {
           onNewConversation={() => setNewConvOpen(true)}
         />
         <div
-          className="msg-3pane"
+          className={`msg-3pane ${activeId ? 'has-active' : ''}`}
           ref={paneContainerRef}
           style={{ '--pane-left': `${panes.sizes.left}px`, '--pane-right': `${panes.sizes.right}px` }}
         >
@@ -470,6 +482,7 @@ export default function Messaging() {
             onSnooze={handleSnooze}
             onToggleStar={handleToggleStarActive}
             onToggleFollow={handleToggleFollow}
+            onBack={handleBackToInbox}
           />
           <div
             className={`msg-pane-handle msg-pane-handle-right ${panes.dragging === 'right' ? 'is-dragging' : ''}`}

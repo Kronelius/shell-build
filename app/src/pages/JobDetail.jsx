@@ -5,6 +5,7 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
   selectJobById, selectClientById, selectSiteById, selectServiceById, selectUsers, selectContactById,
+  selectSeriesJobs, selectSeriesMaster, selectCrewConflicts,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useToast } from '../components/Toast';
@@ -13,7 +14,9 @@ import Badge, { statusBadgeVariant } from '../components/Badge';
 import Avatar from '../components/Avatar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField from '../components/FormField';
+import Icon from '../components/Icon';
 import { fmtDateLong, fmtTimeRange, splitIso, composeIso } from '../lib/dates';
+import { describeRecurrence } from '../lib/recurrence';
 
 const STATUS_LABEL = { upcoming: 'Upcoming', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled' };
 
@@ -34,8 +37,20 @@ export default function JobDetail() {
   const siteContact = site?.siteContactId ? selectContactById(state, site.siteContactId) : null;
   const users = selectUsers(state);
 
+  const seriesJobs = job?.seriesId ? selectSeriesJobs(state, job.seriesId) : [];
+  const seriesMaster = job?.seriesId ? selectSeriesMaster(state, job.seriesId) : null;
+  const recurrenceDesc = seriesMaster?.recurrence ? describeRecurrence(seriesMaster.recurrence) : null;
+
+  const conflicts = useMemo(() => {
+    if (!job) return [];
+    return selectCrewConflicts(state, job.crewIds, job.startAt, job.endAt, job.id);
+  }, [state, job]);
+
   const [editing, setEditing] = useState(false);
+  const [editScope, setEditScope] = useState('single');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteScope, setDeleteScope] = useState('single');
+  const [showSeriesChoice, setShowSeriesChoice] = useState(null);
 
   const initial = useMemo(() => {
     if (!job) return null;
@@ -60,23 +75,43 @@ export default function JobDetail() {
   const crew = (currentForm.crewIds || []).map((id) => users.find((u) => u.id === id)).filter(Boolean);
   const clientSites = state.sites.filter((s) => s.clientId === currentForm.clientId);
 
+  const handleEditClick = () => {
+    if (job.seriesId && seriesJobs.length > 1) {
+      setShowSeriesChoice('edit');
+    } else {
+      setEditScope('single');
+      setEditing(true);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (job.seriesId && seriesJobs.length > 1) {
+      setShowSeriesChoice('delete');
+    } else {
+      setDeleteScope('single');
+      setConfirmDelete(true);
+    }
+  };
+
   const save = () => {
     const startAt = composeIso(currentForm.date, currentForm.startTime);
     const endAt = composeIso(currentForm.date, currentForm.endTime);
-    dispatch({
-      type: ACTIONS.UPDATE_JOB,
-      id: job.id,
-      patch: {
-        startAt, endAt,
-        clientId: currentForm.clientId,
-        siteId: currentForm.siteId || null,
-        serviceId: currentForm.serviceId,
-        crewIds: currentForm.crewIds,
-        notes: currentForm.notes,
-      },
-    });
+    const patch = {
+      startAt, endAt,
+      clientId: currentForm.clientId,
+      siteId: currentForm.siteId || null,
+      serviceId: currentForm.serviceId,
+      crewIds: currentForm.crewIds,
+      notes: currentForm.notes,
+    };
+    if (editScope === 'future' && job.seriesId) {
+      dispatch({ type: ACTIONS.UPDATE_JOB_SERIES, seriesId: job.seriesId, fromDate: job.startAt, patch: { crewIds: currentForm.crewIds, notes: currentForm.notes, serviceId: currentForm.serviceId, siteId: currentForm.siteId || null } });
+      toast.success('Updated all future jobs in series');
+    } else {
+      dispatch({ type: ACTIONS.UPDATE_JOB, id: job.id, patch });
+      toast.success('Job updated');
+    }
     setEditing(false);
-    toast.success('Job updated');
   };
 
   const transition = (status) => {
@@ -85,9 +120,15 @@ export default function JobDetail() {
   };
 
   const del = () => {
-    dispatch({ type: ACTIONS.DELETE_JOB, id: job.id });
-    toast.success('Job deleted');
-    navigate('/schedule');
+    if (deleteScope === 'future' && job.seriesId) {
+      dispatch({ type: ACTIONS.DELETE_JOB_SERIES, seriesId: job.seriesId, fromDate: job.startAt });
+      toast.success('Deleted future jobs in series');
+      navigate('/schedule');
+    } else {
+      dispatch({ type: ACTIONS.DELETE_JOB, id: job.id });
+      toast.success('Job deleted');
+      navigate('/schedule');
+    }
   };
 
   return (
@@ -109,11 +150,35 @@ export default function JobDetail() {
             {canTransition && job.status !== 'cancelled' && (
               <button className="btn btn-outline btn-sm" onClick={() => transition('cancelled')}>Cancel Job</button>
             )}
-            {canEdit && !editing && <button className="btn btn-outline btn-sm" onClick={() => setEditing(true)}>Edit</button>}
-            {canEdit && <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
+            {canEdit && !editing && <button className="btn btn-outline btn-sm" onClick={handleEditClick}>Edit</button>}
+            {canEdit && <button className="btn btn-danger btn-sm" onClick={handleDeleteClick}>Delete</button>}
           </div>
         }
       />
+
+      {job.seriesId && recurrenceDesc && (
+        <div className="series-info-bar">
+          <Icon name="repeat" size={14} />
+          <span>{recurrenceDesc} — {seriesJobs.length} job{seriesJobs.length !== 1 ? 's' : ''} in series</span>
+        </div>
+      )}
+
+      {conflicts.length > 0 && !editing && (
+        <div className="conflict-warning" style={{ marginBottom: 12 }}>
+          <Icon name="warning" size={14} />
+          <div>
+            <strong>Scheduling conflict</strong>
+            {conflicts.map((c, i) => {
+              const cl = selectClientById(state, c.job.clientId);
+              return (
+                <div key={i} className="text-xs">
+                  {c.userName} overlaps with {cl?.name || 'another job'} {fmtTimeRange(c.job.startAt, c.job.endAt)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="detail-grid">
         <div className="card detail-card">
@@ -156,6 +221,12 @@ export default function JobDetail() {
             </dl>
           ) : (
             <div>
+              {editScope === 'future' && (
+                <div className="series-info-bar" style={{ marginBottom: 12 }}>
+                  <Icon name="repeat" size={14} />
+                  <span>Editing all future jobs in this series. Date/time changes apply only to this job.</span>
+                </div>
+              )}
               <FormField
                 label="Client" as="select" name="clientId" required
                 value={currentForm.clientId}
@@ -211,11 +282,36 @@ export default function JobDetail() {
         </div>
       </div>
 
+      {/* Series scope choice for edit */}
+      <ConfirmDialog
+        open={showSeriesChoice === 'edit'}
+        title="Edit recurring job"
+        message="Do you want to edit just this job, or this and all future jobs in the series?"
+        confirmLabel="Edit all future"
+        cancelLabel="Just this one"
+        onConfirm={() => { setEditScope('future'); setEditing(true); setShowSeriesChoice(null); }}
+        onClose={() => { setEditScope('single'); setEditing(true); setShowSeriesChoice(null); }}
+      />
+
+      {/* Series scope choice for delete */}
+      <ConfirmDialog
+        open={showSeriesChoice === 'delete'}
+        title="Delete recurring job"
+        message="Do you want to delete just this job, or this and all future jobs in the series?"
+        confirmLabel="Delete all future"
+        cancelLabel="Just this one"
+        variant="danger"
+        onConfirm={() => { setDeleteScope('future'); setShowSeriesChoice(null); setConfirmDelete(true); }}
+        onClose={() => { setDeleteScope('single'); setShowSeriesChoice(null); setConfirmDelete(true); }}
+      />
+
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this job?"
-        message="This can't be undone. Related data (client, invoices) is untouched."
-        confirmLabel="Delete Job"
+        title={deleteScope === 'future' ? 'Delete future jobs in series?' : 'Delete this job?'}
+        message={deleteScope === 'future'
+          ? `This will remove all upcoming jobs in this series from ${fmtDateLong(job.startAt)} onward. Completed jobs are preserved.`
+          : "This can't be undone. Related data (client, invoices) is untouched."}
+        confirmLabel={deleteScope === 'future' ? 'Delete Future Jobs' : 'Delete Job'}
         variant="danger"
         onConfirm={del}
         onClose={() => setConfirmDelete(false)}
