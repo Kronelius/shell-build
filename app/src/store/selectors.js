@@ -148,6 +148,42 @@ export const selectActivitiesForContact = (s, contactId) =>
     .filter((a) => a.contactId === contactId)
     .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
 
+// ---------- Integrations ----------
+export const selectIntegrations = (s) => s.company?.integrations || {};
+export const selectTwilioIntegration = (s) => s.company?.integrations?.twilio || null;
+export const selectTwilioConnected = (s) =>
+  Boolean(s.company?.integrations?.twilio?.connected);
+export const selectTwilioPhone = (s) =>
+  s.company?.integrations?.twilio?.phoneNumber || null;
+export const selectA2P = (s) => s.company?.integrations?.twilio?.a2p || null;
+// Sending real SMS requires both: the Twilio account is connected AND A2P 10DLC is approved.
+// The UI uses this to gate the SMS composer + show clear blockers when ungated.
+export const selectIsTwilioSendReady = (s) => {
+  const tw = s.company?.integrations?.twilio;
+  if (!tw?.connected) return false;
+  if (!tw.phoneNumber) return false;
+  if (tw.a2p?.status !== 'approved') return false;
+  return true;
+};
+// Reasons an outbound send would be blocked, in display order. Empty array = ready.
+export const selectTwilioBlockers = (s) => {
+  const tw = s.company?.integrations?.twilio;
+  const blockers = [];
+  if (!tw?.connected) blockers.push({ key: 'not_connected', label: 'Twilio account not connected' });
+  if (tw?.connected && !tw.phoneNumber) blockers.push({ key: 'no_number', label: 'No phone number provisioned' });
+  if (tw?.connected && tw.a2p?.status !== 'approved') {
+    const status = tw.a2p?.status || 'not_started';
+    const map = {
+      not_started: 'A2P 10DLC registration not started',
+      pending: 'A2P 10DLC pending carrier approval',
+      rejected: 'A2P 10DLC was rejected — resubmit required',
+      suspended: 'A2P 10DLC registration suspended',
+    };
+    blockers.push({ key: `a2p_${status}`, label: map[status] || 'A2P not approved' });
+  }
+  return blockers;
+};
+
 // Merge explicit contact activities with synthesized events from related records (invoices, jobs, messages).
 // Used by the ContactDetail Activity timeline.
 export function selectSynthesizedActivityForContact(s, contactId) {

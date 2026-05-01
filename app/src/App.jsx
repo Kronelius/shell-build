@@ -4,6 +4,7 @@ import { StoreProvider } from './store';
 import { ToastProvider } from './components/Toast';
 import RequirePerm from './components/RequirePerm';
 import NotFound from './components/NotFound';
+import TwilioInboundListener from './components/TwilioInboundListener';
 
 import Dashboard from './pages/Dashboard';
 import Schedule from './pages/Schedule';
@@ -25,11 +26,13 @@ import SettingsTeamDetail from './pages/settings/TeamDetail';
 import SettingsRoles from './pages/settings/Roles';
 import SettingsNotifications from './pages/settings/Notifications';
 import SettingsAccount from './pages/settings/Account';
+import SettingsIntegrations from './pages/settings/Integrations';
 
 export default function App() {
   return (
     <StoreProvider>
       <ToastProvider>
+        <TwilioInboundListener />
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
@@ -64,6 +67,7 @@ export default function App() {
                 <Route path="roles" element={<RequirePerm perm="settings.roles.edit"><SettingsRoles /></RequirePerm>} />
                 <Route path="notifications" element={<RequirePerm perm="reminders.edit"><SettingsNotifications /></RequirePerm>} />
                 <Route path="account" element={<RequirePerm perm="settings.account"><SettingsAccount /></RequirePerm>} />
+                <Route path="integrations" element={<RequirePerm perm="integrations.view"><SettingsIntegrations /></RequirePerm>} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

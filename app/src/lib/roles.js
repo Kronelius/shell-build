@@ -56,6 +56,9 @@ export const PERMISSIONS = {
   'settings.team.edit':      { label: 'Invite / edit team',       defaultRoles: ['owner', 'admin'] },
   'settings.roles.edit':     { label: 'Edit role permissions',    defaultRoles: ['owner'] },
   'settings.account':        { label: 'Edit own account',         defaultRoles: ['owner', 'admin', 'crew'] },
+  // ---------- Integrations ----------
+  'integrations.view':       { label: 'View integrations',           defaultRoles: ['owner', 'admin'] },
+  'integrations.manage':     { label: 'Connect / manage integrations', defaultRoles: ['owner'] },
   // ---------- Super Admin gates ----------
   'staff.assignRoles':       { label: 'Assign roles to staff',       defaultRoles: ['owner'] },
   'staff.editOverrides':     { label: 'Grant / revoke per-user perms', defaultRoles: ['owner'] },

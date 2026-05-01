@@ -1,7 +1,6 @@
-// v7: reminderEvents gain an optional `readAt` field for the Delivery Inbox.
-// Existing v6 caches would default to unread on all rows, which is acceptable,
-// but bump the key anyway so seeded rows show the realistic pre-read mix.
-const STORAGE_KEY = 'pp.store.v7';
+// v8: company.integrations.twilio added (connection state + A2P 10DLC tracking).
+// Bump in lockstep with INITIAL_STATE.version so v7 caches force a fresh reseed.
+const STORAGE_KEY = 'pp.store.v8';
 
 export function loadState() {
   try {

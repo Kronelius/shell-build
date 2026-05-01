@@ -46,6 +46,33 @@ const company = {
   email: 'hello@acmecleaning.co',
   businessHours: 'Mon–Fri 7:00 AM – 6:00 PM',
   taxRate: 0,
+  // v8: integrations live on the company record so they ride along the deployment.
+  // The shell ships disconnected; per-deployment ops fill in real credentials.
+  integrations: {
+    twilio: {
+      connected: false,
+      accountSidLast4: null, // never store full SID/token in localStorage; backend env vars hold the real secrets
+      phoneNumber: null,
+      phoneNumberFriendlyName: null,
+      connectedAt: null,
+      lastError: null,
+      // Webhook URL the deployment must register with Twilio for inbound SMS routing.
+      // Filled in by backend deployment; displayed read-only in Integrations settings.
+      inboundWebhookUrl: null,
+      a2p: {
+        status: 'not_started', // not_started | pending | approved | rejected | suspended
+        brandName: null,
+        ein: null,
+        businessAddress: null,
+        useCase: null, // e.g. 'customer_care' | 'marketing' | 'mixed'
+        sampleMessages: [],
+        submittedAt: null,
+        approvedAt: null,
+        rejectionReason: null,
+        notes: '',
+      },
+    },
+  },
 };
 
 const users = [
@@ -481,7 +508,7 @@ const pipelineStages = [
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 7,
+  version: 8,
   company,
   currentUserId,
   users,

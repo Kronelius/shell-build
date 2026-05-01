@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    // Honor PORT env var (set by Claude Preview runtime when autoPort is on);
+    // fall back to 5173 for plain `npm run dev`.
+    port: Number(process.env.PORT) || 5173,
     strictPort: false,
   },
 })

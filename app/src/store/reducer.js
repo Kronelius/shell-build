@@ -120,6 +120,19 @@ export const ACTIONS = {
   UPDATE_PIPELINE_STAGE: 'UPDATE_PIPELINE_STAGE',
   DELETE_PIPELINE_STAGE: 'DELETE_PIPELINE_STAGE',
   REORDER_PIPELINE_STAGES: 'REORDER_PIPELINE_STAGES',
+
+  // Integrations / Twilio (v8)
+  CONNECT_TWILIO: 'CONNECT_TWILIO',
+  DISCONNECT_TWILIO: 'DISCONNECT_TWILIO',
+  UPDATE_TWILIO_NUMBER: 'UPDATE_TWILIO_NUMBER',
+  UPDATE_TWILIO_WEBHOOK: 'UPDATE_TWILIO_WEBHOOK',
+  UPDATE_TWILIO_ERROR: 'UPDATE_TWILIO_ERROR',
+  SUBMIT_A2P: 'SUBMIT_A2P',
+  UPDATE_A2P_STATUS: 'UPDATE_A2P_STATUS',
+  RESET_A2P: 'RESET_A2P',
+  // Inbound/outbound SMS plumbing — adds delivery state to messages and routes inbound to threads.
+  RECEIVE_SMS: 'RECEIVE_SMS',
+  SET_MESSAGE_DELIVERY: 'SET_MESSAGE_DELIVERY',
 };
 
 function replaceById(list, id, patch) {
@@ -637,6 +650,230 @@ export function reducer(state, action) {
       // Preserve anything not listed (shouldn't happen in practice, but defensive).
       const leftover = existing.filter((s) => !ids.includes(s.id));
       return { ...state, pipelineStages: [...ordered, ...leftover] };
+    }
+
+    // ---------- Integrations / Twilio ----------
+    case ACTIONS.CONNECT_TWILIO: {
+      const tw = state.company.integrations?.twilio || {};
+      const next = {
+        ...tw,
+        connected: true,
+        accountSidLast4: action.accountSidLast4 || null,
+        phoneNumber: action.phoneNumber || null,
+        phoneNumberFriendlyName: action.phoneNumberFriendlyName || null,
+        connectedAt: nowIso(),
+        lastError: null,
+      };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.DISCONNECT_TWILIO: {
+      const tw = state.company.integrations?.twilio || {};
+      const next = {
+        ...tw,
+        connected: false,
+        accountSidLast4: null,
+        phoneNumber: null,
+        phoneNumberFriendlyName: null,
+        connectedAt: null,
+        lastError: null,
+      };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.UPDATE_TWILIO_NUMBER: {
+      const tw = state.company.integrations?.twilio || {};
+      const next = {
+        ...tw,
+        phoneNumber: action.phoneNumber || null,
+        phoneNumberFriendlyName: action.friendlyName || null,
+      };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.UPDATE_TWILIO_WEBHOOK: {
+      const tw = state.company.integrations?.twilio || {};
+      const next = { ...tw, inboundWebhookUrl: action.url || null };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.UPDATE_TWILIO_ERROR: {
+      const tw = state.company.integrations?.twilio || {};
+      const next = { ...tw, lastError: action.error || null };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.SUBMIT_A2P: {
+      const tw = state.company.integrations?.twilio || {};
+      const a2p = tw.a2p || {};
+      const next = {
+        ...tw,
+        a2p: {
+          ...a2p,
+          ...action.patch,
+          status: 'pending',
+          submittedAt: nowIso(),
+          rejectionReason: null,
+        },
+      };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.UPDATE_A2P_STATUS: {
+      const tw = state.company.integrations?.twilio || {};
+      const a2p = tw.a2p || {};
+      const patch = { status: action.status };
+      if (action.status === 'approved') {
+        patch.approvedAt = nowIso();
+        patch.rejectionReason = null;
+      }
+      if (action.status === 'rejected') {
+        patch.rejectionReason = action.rejectionReason || 'Not specified';
+      }
+      const next = { ...tw, a2p: { ...a2p, ...patch } };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+    case ACTIONS.RESET_A2P: {
+      const tw = state.company.integrations?.twilio || {};
+      const next = {
+        ...tw,
+        a2p: {
+          status: 'not_started',
+          brandName: null,
+          ein: null,
+          businessAddress: null,
+          useCase: null,
+          sampleMessages: [],
+          submittedAt: null,
+          approvedAt: null,
+          rejectionReason: null,
+          notes: '',
+        },
+      };
+      return {
+        ...state,
+        company: {
+          ...state.company,
+          integrations: { ...(state.company.integrations || {}), twilio: next },
+        },
+      };
+    }
+
+    // ---------- Inbound SMS routing ----------
+    // Inbound SMS arrives via the deployment webhook. We try to match the from-number
+    // to an existing contact's phone field; if no match, the conversation is created
+    // unlinked (contactId: null) and surfaces as "needs linkage" in the inbox.
+    case ACTIONS.RECEIVE_SMS: {
+      const now = nowIso();
+      const fromPhone = (action.fromPhone || '').trim();
+      if (!fromPhone) return state;
+
+      // Find existing contact by phone match (loose normalize: strip non-digits, compare last 10).
+      const normalize = (p) => (p || '').replace(/\D+/g, '').slice(-10);
+      const fromNorm = normalize(fromPhone);
+      const matchContact = fromNorm
+        ? (state.contacts || []).find((c) => normalize(c.phone) === fromNorm)
+        : null;
+
+      // Find existing open SMS conversation for this contact OR by phone-only thread title.
+      const existing = state.conversations.find((c) => {
+        if (c.archived) return false;
+        if (c.channel !== 'sms') return false;
+        if (matchContact && c.contactId === matchContact.id) return true;
+        if (!matchContact && c.title === fromPhone) return true;
+        return false;
+      });
+
+      let convId;
+      let conversations;
+      if (existing) {
+        convId = existing.id;
+        conversations = replaceById(state.conversations, existing.id, { lastMessageAt: now });
+      } else {
+        convId = newId('cv');
+        const newConv = {
+          id: convId,
+          channel: 'sms',
+          archived: false,
+          createdAt: now,
+          lastMessageAt: now,
+          contactId: matchContact?.id || null,
+          clientId: matchContact?.companyId || null,
+          title: matchContact ? null : fromPhone, // unlinked threads carry the raw number as title
+          assignedUserId: null,
+          status: 'open',
+          snoozedUntil: null,
+          starred: false,
+          followedUserIds: [],
+        };
+        conversations = [...state.conversations, newConv];
+      }
+
+      const message = {
+        id: newId('m'),
+        conversationId: convId,
+        direction: 'in',
+        text: action.body || '',
+        sentAt: now,
+        readAt: null,
+        authorUserId: null,
+        snippetId: null,
+        deliveryStatus: 'received',
+        twilioMessageSid: action.messageSid || null,
+        fromPhone,
+        toPhone: action.toPhone || null,
+      };
+
+      return {
+        ...state,
+        conversations,
+        messages: [...state.messages, message],
+      };
+    }
+
+    case ACTIONS.SET_MESSAGE_DELIVERY: {
+      // Update delivery status on an outbound message after the adapter resolves
+      // (queued → sent → delivered / failed).
+      const patch = { deliveryStatus: action.status };
+      if (action.twilioMessageSid) patch.twilioMessageSid = action.twilioMessageSid;
+      if (action.failureReason) patch.failureReason = action.failureReason;
+      return { ...state, messages: replaceById(state.messages, action.id, patch) };
     }
 
     default:

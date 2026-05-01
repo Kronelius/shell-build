@@ -23,8 +23,10 @@ import { usePermission } from '../hooks/usePermission';
 import {
   selectContactById, selectConversationById, selectMessagesForConversation,
   selectUnreadForConversation, selectConversationsForInbox, selectUnreadCountForInbox,
-  selectEffectiveStatus,
+  selectEffectiveStatus, selectIsTwilioSendReady, selectTwilioPhone, selectTwilioBlockers,
 } from '../store/selectors';
+import { sendSMS, subscribeToDelivery } from '../lib/twilio';
+import { useToast } from '../components/Toast';
 
 const DATE_WINDOW_MS = {
   '24h': 24 * 60 * 60 * 1000,
@@ -180,6 +182,13 @@ export default function Messaging() {
   const canAssign = usePermission('messaging.assign');
   const canBulk = usePermission('messaging.bulkActions');
 
+  const toast = useToast();
+
+  // Twilio readiness — used to gate outbound SMS in handleSend.
+  const sendReady = selectIsTwilioSendReady(state);
+  const blockers = selectTwilioBlockers(state);
+  const twilioPhone = selectTwilioPhone(state);
+
   const [selectedInbox, setSelectedInbox] = useState('my');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState('');
@@ -252,16 +261,85 @@ export default function Messaging() {
   const handleSend = (text, opts) => {
     if (!activeConversation) return;
     const direction = opts?.channel === 'internal' ? 'internal' : 'out';
+    const isSMS = activeConversation.channel === 'sms' && direction === 'out';
+
+    // Optimistically insert the outbound message so the UI updates immediately.
+    // For SMS we'll also kick off the Twilio adapter and patch deliveryStatus as it cycles.
+    const messageId = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     dispatch({
       type: ACTIONS.ADD_MESSAGE,
       message: {
+        id: messageId,
         conversationId: activeConversation.id,
         direction,
         text,
         authorUserId: currentUser?.id || null,
         snippetId: opts?.snippetId || null,
+        // SMS-only: track delivery state. Email/internal pass through as before.
+        ...(isSMS ? { deliveryStatus: 'queued' } : {}),
       },
     });
+
+    if (!isSMS) return;
+
+    // Gate: must be Twilio-ready (connected + number + A2P approved).
+    if (!sendReady) {
+      const reasons = blockers.map((b) => b.label).join('; ') || 'SMS sending is not configured';
+      dispatch({
+        type: ACTIONS.SET_MESSAGE_DELIVERY,
+        id: messageId,
+        status: 'failed',
+        failureReason: reasons,
+      });
+      toast.error(`SMS not sent: ${reasons}`);
+      return;
+    }
+
+    // Resolve "to" — prefer linked contact's phone, fall back to thread title (raw number).
+    const toPhone = activeContact?.phone || activeConversation.title || null;
+    if (!toPhone) {
+      dispatch({
+        type: ACTIONS.SET_MESSAGE_DELIVERY,
+        id: messageId,
+        status: 'failed',
+        failureReason: 'No recipient phone number on this thread',
+      });
+      toast.error('SMS not sent: no recipient phone number on this thread.');
+      return;
+    }
+
+    sendSMS({ from: twilioPhone, to: toPhone, body: text })
+      .then((result) => {
+        dispatch({
+          type: ACTIONS.SET_MESSAGE_DELIVERY,
+          id: messageId,
+          status: result.status, // 'queued' initially
+          twilioMessageSid: result.sid,
+        });
+        const unsubscribe = subscribeToDelivery(result.sid, (update) => {
+          dispatch({
+            type: ACTIONS.SET_MESSAGE_DELIVERY,
+            id: messageId,
+            status: update.status,
+            ...(update.failureReason ? { failureReason: update.failureReason } : {}),
+          });
+          if (update.status === 'delivered' || update.status === 'failed') {
+            unsubscribe();
+            if (update.status === 'failed') {
+              toast.error(`SMS failed: ${update.failureReason || 'Unknown error'}`);
+            }
+          }
+        });
+      })
+      .catch((err) => {
+        dispatch({
+          type: ACTIONS.SET_MESSAGE_DELIVERY,
+          id: messageId,
+          status: 'failed',
+          failureReason: err.message || 'Send error',
+        });
+        toast.error(`SMS not sent: ${err.message || 'Unknown error'}`);
+      });
   };
 
   const handleArchiveToggle = () => {
