@@ -1,6 +1,8 @@
-# PolishPoint — Session Handoff
+# Session Handoff
 
-**Last session end:** all Phase 2 items from the audit are complete plus a lot of messaging/pipeline/contact polish. Work is **uncommitted** on `main` (23 files changed, +1453/-661 lines, 1 new file, 1 deleted). Build is clean; HMR works. Pickup point: a pending **"What next?"** decision (see bottom).
+**Last session end:** Twilio SMS + A2P 10DLC module shipped — the largest open Core item is now complete. Full adapter pattern in `lib/twilio.js`; production deployments wire by setting `VITE_TWILIO_BACKEND_URL`. Manually verified end-to-end in dev: connect → A2P submit → super-admin approve → outbound test SMS (queued → sent → delivered) → simulate inbound → thread routing → outbound reply from Messaging composer. **Work is uncommitted on `main`.**
+
+Current branch: `main`, latest commit `e378cd2`. Working tree dirty (Twilio module + scope-realignment doc edits).
 
 ---
 
@@ -10,132 +12,134 @@ Per `CLAUDE.md`:
 1. `git rev-parse --is-inside-work-tree && git remote -v` — verify clone + origin.
 2. `git fetch` — compare local HEAD vs `origin/main`. Report sync status.
 3. If behind + clean → offer fast-forward. If diverged → flag; don't auto-merge.
-4. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Storage key was bumped `v4 → v5`** — if the app shows stale data, hard reload (Ctrl+Shift+R) to force a fresh reseed.
+4. Read [`SHELL_ROADMAP.md`](SHELL_ROADMAP.md) — find the next `[ ]` in the **CORE** section and its Definition of Done.
+5. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Current storage key: `'pp.store.v8'` / seed version 8.** Hard reload (Ctrl+Shift+R) if app shows stale data.
 
 ---
 
 ## What shipped this session
 
-### Phase 2 completion (4/4)
-1. **Invoices — billing-contact picker** (`CreateInvoiceModal.jsx`, `InvoiceDetail.jsx`). Auto-fills from client's `primaryContactId`; scoped to account contacts; link to `/contacts/:id` on the Summary card.
-2. **Jobs — site-contact display** (`AddSiteModal.jsx`, `ClientDetail.jsx`, `JobDetail.jsx`). `siteContactId` edited on the **site record** (source of truth), **displayed** on JobDetail (read-only, derived) and on the site cards under ClientDetail → Sites.
-3. **Messaging — contact linkage** (`ConversationContextPanel.jsx`, `Messaging.jsx`, `NewConversationModal.jsx`). Unlinked threads get a prominent picker; `UPDATE_CONVERSATION` dispatches contactId changes. NewConversationModal dedupes: if contact already has an active thread → "Open existing thread" button instead of spawning a duplicate.
-4. **Dashboard — Follow-ups card** (`Dashboard.jsx` + new selectors `selectStaleLeads` + `selectUnansweredThreads`). Top of right column. Merges stale leads (7d threshold) + unanswered open threads (24h), oldest-first, capped at 5. Scoped: crew see own-only; admins see org-wide + unassigned queue.
+### Twilio SMS + A2P 10DLC (Core deliverable)
 
-### Messaging polish (user-driven, mid-session)
-- **Thread-row redesign**: right-rail with three dedicated slots (star / timestamp / status+unread). Fixes the overlap where `position:absolute` star fought the flex timestamp.
-- **Pinned section**: starred threads pull to top under a PINNED header with count chip. "Starred only" filter → "Pinned only"; star aria-label → Pin/Unpin.
-- **Removed from rows**: channel chips (SMS/Email) and assignee avatars. Channel now lives in middle-panel header only; assignee in the context panel only.
-- **Context panel Details card — inline editing**: every field (email/phone/title/dept/address/assigned-user/visibility/stage/deal-value/close-date) edits in place with transparent-until-focused inputs. Dirty-tracking triggers a Save/Discard row. Client-side email-uniqueness check with error toast. `key={contact.id}` on the card for remount-based form reset (avoids `setState-in-effect`).
-- **Context panel tabs**: `Contact | History | Activities | Notes` (keys: `contact / history / activities / notes`). "History" = synthesized timeline (was "Activities"). "Activities" = invoices + jobs (was "Related"). Notes tab is new: compose box with ⌘+Enter to append; history rendered below.
-- **Context head overflow menu** (kebab + expand): Change contact / Unlink conversation moved from Details-card footer into a small popover menu at top-right of the context panel. Rationale: these are conversation-scoped actions, not contact-scoped.
-- **Contact focus modal** (`ContactFocusModal.jsx` — NEW file): expand button opens ContactDetail in a backdrop-blurred modal at ~66vw, Esc/click-out to close. `ContactDetail.jsx` was refactored to accept `contactId` prop + `embedded` flag for this.
-- **"Message" button in contact profile** now dedupes — navigates to existing thread if one exists instead of always opening NewConversationModal.
+**State (v7 → v8):**
+- `company.integrations.twilio` added: `connected`, `accountSidLast4` (never full SID/token in localStorage), `phoneNumber`, `phoneNumberFriendlyName`, `connectedAt`, `lastError`, `inboundWebhookUrl`, `a2p { status, brandName, ein, businessAddress, useCase, sampleMessages, submittedAt, approvedAt, rejectionReason, notes }`.
+- `messages` extended with optional `deliveryStatus` (`queued|sent|delivered|failed|received`), `twilioMessageSid`, `failureReason`, `fromPhone`, `toPhone` for SMS.
+- `STORAGE_KEY` bumped `pp.store.v7` → `pp.store.v8`.
 
-### Pipeline polish
-- **Uniform card footprint** (`height: 124px`, ellipsis on overflow, always-rendered slots for tag / value / owner / close-date).
-- **Drop-slot indicator** (animated accent bar) that snaps between cards based on mouse-Y vs card midpoint.
-- **Reorder-within-stage**: `SET_CONTACT_STAGE` extended with optional `insertBeforeId`; stage-change activity only logs when stage actually changed.
+**Reducer actions (`store/reducer.js`):**
+- `CONNECT_TWILIO`, `DISCONNECT_TWILIO`, `UPDATE_TWILIO_NUMBER`, `UPDATE_TWILIO_WEBHOOK`, `UPDATE_TWILIO_ERROR`
+- `SUBMIT_A2P`, `UPDATE_A2P_STATUS`, `RESET_A2P`
+- `RECEIVE_SMS` (matches phone → existing thread OR creates unlinked thread with phone-as-title)
+- `SET_MESSAGE_DELIVERY` (patches a single message's delivery state)
 
-### Removed: message folders
-User call — "get rid of Folders." Full removal: deleted `FolderManager.jsx`, dropped `FoldersCard` / `FolderDots`, removed 4 reducer actions, 3 selectors, `folderIds` on conversations, `messageFolders` collection, `messaging.manageFolders` permission, ~130 lines of CSS. Seed version bumped `4 → 5`. **Snippet folders kept** — different feature (template grouping).
+**Selectors (`store/selectors.js`):**
+- `selectIntegrations`, `selectTwilioIntegration`, `selectTwilioConnected`, `selectTwilioPhone`, `selectA2P`
+- `selectIsTwilioSendReady` — gate for outbound (connected + number + A2P approved)
+- `selectTwilioBlockers` — ordered list of blockers shown in the UI when sending isn't ready
 
-### Misc
-- `"Owner"` label in the context panel Details card → renamed **"Assigned user"** (scoped to messaging surface only — `Clients.jsx` / `ContactDetail.jsx` still say "Owner").
+**Permissions (`lib/roles.js`):**
+- `integrations.view` (owner, admin)
+- `integrations.manage` (owner only)
+
+**Adapter (`lib/twilio.js`):**
+- `connectTwilio({ accountSid, authToken })` → `{ ok, accountSidLast4, availableNumbers[] }`
+- `provisionNumber({ phoneNumber, friendlyName })` → `{ ok, phoneNumber, friendlyName, inboundWebhookUrl }`
+- `disconnectTwilio()`
+- `sendSMS({ from, to, body })` → `{ sid, status: 'queued' }`
+- `subscribeToDelivery(sid, onUpdate)` → unsubscribe fn (cycles 'sent' → 'delivered'/'failed')
+- `subscribeToInbound(onMessage)` → unsubscribe (no-op in stub; SSE in prod)
+- `simulateInbound({ fromPhone, toPhone, body })` — dev-only helper
+- `submitA2P(payload)` → `{ ok, status: 'pending' }`
+- Branches on `import.meta.env.VITE_TWILIO_BACKEND_URL`. Stub mode includes ~8% random failure rate to exercise failure UI.
+
+**UI:**
+- `pages/settings/Integrations.jsx` — five cards: Twilio connection, A2P registration (with super-admin override buttons), inbound webhook URL (copy-to-clipboard), test SMS, simulate inbound (dev-only — auto-hidden when backend env var is set).
+- `components/ConnectTwilioModal.jsx` — 2-step credentials entry → number selection.
+- `components/A2PRegistrationModal.jsx` — brand + EIN + address + use case + 1-5 sample messages + internal notes.
+- `components/TwilioInboundListener.jsx` — mounted in `App.jsx`, subscribes to inbound stream and dispatches `RECEIVE_SMS`.
+- `pages/Messaging.jsx` `handleSend` rewired: SMS-channel outbound goes through `sendSMS`, optimistically adds the message with `deliveryStatus: 'queued'`, then patches via `SET_MESSAGE_DELIVERY` as the adapter resolves. Failure cases set `deliveryStatus: 'failed'` and toast the reason.
+
+**Routing/nav:**
+- `pages/settings/SettingsLayout.jsx` — added Integrations entry (gated by `integrations.view`).
+- `App.jsx` — added `/settings/integrations` route + mounted `<TwilioInboundListener />`.
+
+**Vite config (`app/vite.config.js`):**
+- Server now honors `process.env.PORT` (set by Claude Preview runtime when autoPort is on); falls back to 5173 for plain `npm run dev`.
+
+**Doc updates from earlier this session:**
+- `SHELL_ROADMAP.md` — restructured for Core-only focus; 5 add-on packages tagged `[Sold separately]`; Twilio module now `[x]`.
+- `CLAUDE.md` — added build-depth expectation, deployment model section, "Rainier purchased Core only" callout.
+- New memories: `build-depth.md`, `deployment-model.md`.
+
+---
+
+## Remaining Core items (in priority order)
+
+| Item | Status | Effort |
+|---|---|---|
+| Operations Dashboard polish + mobile audit | `[~]` | Light |
+| Scheduling RRULE / conflict-detection audit | `[~]` | Light–medium |
+| Reminders — confirm 3 templates wired (24h / day-of / confirmation) | `[~]` | Light |
+| Messaging mobile audit | `[~]` | Light |
+| Migration tooling (CSV import for contacts/clients) | `[ ]` | Medium |
+| Permission default audit (admin sees no financials) | `[ ]` | Trivial |
+| Role label naming decision | `[ ]` | Trivial |
+
+**Suggested next pickup:** the Reminders audit — small scope, but unblocks the verification that the existing `reminderTemplates` (24h / day-of / booking-confirmation / post-service) are all firing and visible in the Delivery Inbox.
 
 ---
 
 ## Patterns to preserve (copy these for future work)
 
-- **Inline editable cards with dirty-track Save bar**: `buildForm(entity)` snapshot → compare against form state → Save row renders only when dirty. Save dispatches per-field with the correct action (not blanket UPDATE_X). Reference: `ContactLinkCard` in `ConversationContextPanel.jsx`.
-- **Per-field dispatch on save**: `UPDATE_CONTACT` for generic patches; `ASSIGN_CONTACT_OWNER` for owner (matches existing flows); `SET_CONTACT_STAGE` for stage (preserves activity log). Same shape should apply to any future inline-edit card.
-- **Client-side uniqueness check before dispatch**: the reducer silently drops dup emails. Check with a selector, show toast, return early. Apply anywhere the reducer silently rejects.
+- **Adapter pattern for external services**: `lib/twilio.js` is the model. Branch on env var; provide a fully-shaped stub for dev that simulates timings + failure modes. Production swap is just env var configuration. Apply the same shape for QuickBooks, Gusto, Stripe Connect when they sell.
+- **Optimistic dispatch + status patching**: `handleSend` in `Messaging.jsx` adds the message immediately with `deliveryStatus: 'queued'` then patches via `SET_MESSAGE_DELIVERY` as the adapter resolves. UI updates feel instant; failures still surface clearly.
+- **Send-readiness blockers selector**: `selectTwilioBlockers` returns an ordered list of human-readable blocker reasons. UI cards show every blocker explicitly rather than just disabling the send button silently.
+- **Two-step modal flow**: `ConnectTwilioModal` uses local `step` state to walk credentials → number selection. Pattern reusable for other multi-stage integration flows.
+- **Inline editable cards with dirty-track Save bar**: `buildForm(entity)` snapshot → compare against form state → Save row renders only when dirty. Reference: `ContactLinkCard` in `ConversationContextPanel.jsx`.
+- **Per-field dispatch on save**: `UPDATE_CONTACT` for generic patches; `ASSIGN_CONTACT_OWNER` for owner; `SET_CONTACT_STAGE` for stage. Same shape applies to any future inline-edit card.
+- **Client-side uniqueness check before dispatch**: the reducer silently drops dup emails. Check with a selector, show toast, return early.
 - **`key={entity.id}` for form reset**: avoids `setState-in-effect`. Caller mounts the card with entity-id as key; switching entities remounts with a fresh form — no `useEffect` needed.
-- **Storage-key bump on seed-shape change**: bump both `INITIAL_STATE.version` in `seed.js` AND `STORAGE_KEY` in `persist.js` in lockstep whenever the reducer/seed shape changes. Current values: v5 / `'pp.store.v5'`.
-- **Permission gating**: `canEditAll || entity.ownerUserId === currentUser?.id` — "edit all OR own." Matches existing `contacts.edit` pattern.
-- **Dedupe before create**: any "new X" flow targeting an identity (contact, thread-with-a-contact, etc.) should check for existing active records first. Precedent: `NewConversationModal` + ContactDetail's Message button.
-- **Embeddable page components**: add `contactId` prop + `embedded` boolean so page components can render inside modals without router chrome. Precedent: `ContactDetail.jsx`.
-- **Design tokens**: no hardcoded colors. Token → alias → recipe. See `app/src/STYLING.md`. The few `rgba(...)` I used this session are soft-tint backgrounds for icon badges — acceptable but prefer tokens where possible.
+- **Storage-key bump on seed-shape change**: bump both `INITIAL_STATE.version` in `seed.js` AND `STORAGE_KEY` in `persist.js` in lockstep. Currently v8 / `'pp.store.v8'`.
+- **Permission gating**: `canEditAll || entity.ownerUserId === currentUser?.id` — "edit all OR own."
+- **Dedupe before create**: any "new X" flow targeting an identity should check for existing active records first.
+- **Embeddable page components**: `contactId` prop + `embedded` boolean lets page components render inside modals.
+- **Design tokens**: no hardcoded colors. Token → alias → recipe. See `app/src/STYLING.md`.
 
 ---
 
 ## Gotchas / known issues
 
-- **Pre-existing lint errors** (NOT from this session — don't fix unless asked):
-  - `ContactDetail.jsx`: hooks-after-early-return (`useMemo` called after `if (!contact) return`). React compiler flags it; runtime is fine.
-  - `Messaging.jsx`: three `setState-in-effect` warnings in URL/inbox sync effects.
-  - `MessagingHeader.jsx` + `PipelineBoard.jsx`: Fast-refresh warnings for non-component exports (`EMPTY_FILTERS`, `PIPELINE_STAGES`). Design-intentional.
-- **Contact owner vs conversation assignee**: different fields (`contact.ownerUserId` vs `conversation.assignedUserId`) but the messaging context panel labels both "Assigned user". User is aware; **don't conflate them in the data model.**
-- **Snippet folders ≠ message folders**: snippets still use `selectSnippetFolders` and `folderId` (singular). That's intentional. Don't rip this out when touching folder references.
-- **`messaging.manageFolders` permission was deleted** — when building the Roles editor, confirm the catalog still renders correctly without it (if the UI reads permissions dynamically, it will).
+- **Pre-existing lint errors** (don't fix unless asked):
+  - `ContactDetail.jsx`: hooks-after-early-return — runtime is fine.
+  - `Messaging.jsx`: three `setState-in-effect` warnings in URL/inbox sync effects (pre-existing; the new SMS wiring did not add any).
+  - `MessagingHeader.jsx` + `PipelineBoard.jsx`: Fast-refresh warnings for non-component exports. Design-intentional.
+- **Contact owner vs conversation assignee**: different fields (`contact.ownerUserId` vs `conversation.assignedUserId`). Don't conflate them in the data model.
+- **Snippet folders ≠ message folders**: snippets still use `selectSnippetFolders` and `folderId` (singular). Intentional — message folders were removed in v5.
 - **LF/CRLF noise**: Windows machine, git converts line endings on commit. Harmless.
+- **Twilio stub failure rate**: ~8% of stubbed outbound sends fail (in `lib/twilio.js` `STUB_FAILURE_RATE`). This is intentional — exercises the failure UI path. Real production never sees this.
+- **localStorage size**: each Twilio integration adds ~2KB to the persisted state. Negligible, noted for future audit.
+- **Message id collision risk**: optimistic outbound message ids are `m_${Date.now()}_${randomBase36}`; reducer's `newId('m')` uses a different id generator. They won't collide.
 
 ---
 
-## Remaining punch list
+## What's NOT in scope
 
-### Phase 2 (DONE)
-- ✅ Invoices billing-contact picker
-- ✅ Jobs site-contact display
-- ✅ Messaging contact linkage + focus modal
-- ✅ Dashboard Follow-ups card
+- **Inventory Management ($400 add-on)** — keys, supplies tracking. **Don't build.**
+- **Employee Management System ($800)** — time-off, time tracking, document storage, training, GPS clock-in, e-sign onboarding, supervisor inspections, promotion workflow, Gusto. **Don't build.**
+- **Field Ops ($600)** — checklists, before/after photos, offline mode, job verification. **Don't build.**
+- **Invoice & Payment Routing ($400)** — Stripe Connect, recurring billing, tipping, customizable templates, automated invoice reminders. **Don't build.**
+- **QuickBooks Integration ($300)** — bidirectional sync. **Don't build.**
+- **3-page branded website** — separate repo, already shipped.
+- **Sequences engine, Quotes module, Lifecycle email engine, Operational KPI cards** — speculation that wasn't promised.
 
-### Beyond Phase 2 (not started)
-- **A. Team → Add User modal** — `Settings/Team.jsx` has no add-user flow. **User-recommended next step.** Small scope.
-- **B. Roles editor** — `/settings/roles` is likely a read-only matrix. Should be editable inline; `state.permissions` already supports it. Medium.
-- **C. Pipeline bulk actions + stage CRUD** — no multi-select, no reassign/archive across cards, stages hardcoded in `PIPELINE_STAGES`. Medium.
-- **D. Reminders delivery inbox** — per-event read/unread + retry + delivery dashboard. Medium.
-
-### Deferred (not yet scoped)
-Quoting/Estimates, Time tracking, Files/Documents, Reports & Analytics, Payment gateway UI, real Email/SMS integration shape.
-
----
-
-## Uncommitted files (23 total)
-
-```
-M  app/src/components/AddSiteModal.jsx
-M  app/src/components/ConversationContextPanel.jsx   ← biggest diff
-M  app/src/components/ConversationThreadList.jsx
-M  app/src/components/CreateInvoiceModal.jsx
-D  app/src/components/FolderManager.jsx              ← deleted
-M  app/src/components/Icon.jsx                       (+ expand icon)
-M  app/src/components/MessagingHeader.jsx
-M  app/src/components/NewConversationModal.jsx
-M  app/src/components/PipelineBoard.jsx
-M  app/src/components/PipelineCard.jsx
-M  app/src/data/seed.js                              (version: 4 → 5)
-M  app/src/index.css                                 (+~340 net)
-M  app/src/lib/roles.js                              (-messaging.manageFolders)
-M  app/src/pages/ClientDetail.jsx
-M  app/src/pages/ContactDetail.jsx                   (+ embedded/contactId props)
-M  app/src/pages/Dashboard.jsx                       (+ Follow-ups card)
-M  app/src/pages/InvoiceDetail.jsx
-M  app/src/pages/JobDetail.jsx
-M  app/src/pages/Messaging.jsx
-M  app/src/store/persist.js                          (STORAGE_KEY: v4 → v5)
-M  app/src/store/reducer.js                          (-4 folder actions, +insertBeforeId)
-M  app/src/store/selectors.js                        (+2 follow-up selectors)
-?? app/src/components/ContactFocusModal.jsx          ← new file
-```
-
-**No commits yet.** If you want to commit in logical chunks:
-1. Phase 2 four items
-2. Messaging UI rework (thread rows + context panel + notes tab + pinned section + focus modal)
-3. Pipeline polish (uniform cards + drop indicator + reorder)
-4. Folders removal
-5. Dashboard follow-ups
-
-(Or one big commit — whatever the user prefers.)
+If any of these get requested mid-session, **stop and confirm a sale** before building.
 
 ---
 
 ## Suggested next-session opener
 
-> "Continue the PolishPoint build. Read `HANDOFF.md` at the repo root for context. Start with item **A (Team → Add User modal)**."
+> "Continue Core completion for Rainier. Read `HANDOFF.md` and `SHELL_ROADMAP.md`. Audit Reminders — confirm the 24h / day-of / confirmation templates are all wired and firing into the delivery inbox. Then move to Scheduling RRULE/conflict audit."
 
-Alternative if commits come first:
+Or, if commits come first:
 
-> "Read `HANDOFF.md`. Before anything else, review the uncommitted work and commit it in logical chunks."
-
-That's it. `CLAUDE.md` + memory files still apply — this doc is only session continuity.
+> "Read `HANDOFF.md`. Before anything else, review the uncommitted work and commit it in logical chunks: (1) doc realignment + memories, (2) Twilio module."

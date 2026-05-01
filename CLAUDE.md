@@ -1,28 +1,55 @@
 # PolishPoint Platform — Build Notes
 
+## Doc set (read in this order at session start)
+
+1. **`CLAUDE.md`** (this file) — stable project context, conventions, file map. Auto-loaded.
+2. **`HANDOFF.md`** — session-to-session continuity: what just shipped, open issues, suggested next pickup.
+3. **`SHELL_ROADMAP.md`** — living roadmap with sprints + per-module Definition of Done checklists. Source of truth for what's done / in progress / pending.
+
 ## Session Start Checklist (do this FIRST, every session)
 Before responding to any request in this folder:
 1. **Verify a proper git clone exists.** Run `git rev-parse --is-inside-work-tree` and `git remote -v`. If either fails or no `origin` remote is set, STOP and tell the user — do not proceed with work until the clone is sound.
 2. **Sync with GitHub.** Run `git fetch` and compare local `HEAD` to `origin/<current-branch>`. Report the result (up-to-date, ahead, behind, or diverged).
 3. **If behind and the working tree is clean**, offer to fast-forward before continuing. If ahead or diverged, flag it — don't auto-push or auto-merge.
-4. Only after reporting sync status should you start on the user's actual request.
+4. **Read `HANDOFF.md`** for session continuity (what just shipped, what's next, gotchas).
+5. **Read `SHELL_ROADMAP.md`** to know the active roadmap state — find the next `[ ]` and read its Definition of Done before starting.
+6. Only after reporting sync status + reading both docs should you start on the user's actual request.
+
+## Session End / As Work Lands
+- **Tick off DoD items** in `SHELL_ROADMAP.md` (`[ ]` → `[x]`) the moment a piece ships — don't batch.
+- **Bump seed version + storage key in lockstep** when state shape changes: `INITIAL_STATE.version` in `seed.js` AND `STORAGE_KEY` in `persist.js`. Currently on **v7** / `'pp.store.v7'`.
+- **At session end, refresh `HANDOFF.md`** with:
+  - What shipped this session (entities, files touched, biggest diffs)
+  - Open issues / partial work / blockers
+  - Suggested next pickup point (usually the next `[ ]` in SHELL_ROADMAP)
+- **Commit in logical chunks when the user asks** (don't auto-commit).
 
 ## Project status
 
-This is **not a wireframe or demo** anymore. We are actively building out the full PolishPoint platform. The primary product lives in `app/` — a React + Vite SPA with a real data model, router, state store, and permission system. Every shell feature is being wired for genuine use. Client data in seed files is still representative ("Acme Cleaning Co."), but the framework, routing, permissions, and persistence are all production-shaped.
+This is the **master shell build** — a reusable foundation we deploy to every client. Rainier Facility Solutions is the proving ground; the framework is generic. The primary product lives in `app/` — a React + Vite SPA with a real data model, router, state store, and permission system. Client data in seed files is representative ("Acme Cleaning Co.") on purpose — every name/value is genericized so the shell clones cleanly.
 
-### Active build targets
-- **CRM** (built — Phase 1 live, GHL-shaped navigation):
-  - **`Contacts`** sidebar entry → `/contacts` → `pages/Clients.jsx`. Two sub-tabs: **Contacts** (people, email = source of truth) and **Accounts** (companies). No Pipeline tab inside — Pipeline is its own top-level nav.
-  - **`Pipeline`** sidebar entry → `/pipeline` → `pages/Pipeline.jsx`. Dedicated Kanban board, same pattern as GHL's Opportunities: Contacts and Pipeline are siblings, not nested.
-  - Tagging system, per-contact visibility (`org` / `team` / `private`), owner assignment, bulk actions.
-  - `ContactDetail` page with Overview, Activity (synthesized timeline), Related, Notes.
-  - Email uniqueness enforced on add/update.
-- **Staff & permissions** (built — Phase 1 live):
-  - `owner` role relabeled "Super Admin" in UI (no schema migration).
-  - Per-user permission overrides (grant/revoke) editable by Super Admin in Settings → Team → member detail.
-  - 10 new permission keys covering contacts, tags, pipeline, staff role-assignment.
-- **Next up (Phase 2)**: billing-contact picker on Invoices, site-contact on Jobs, contact linkage on Messaging threads, Dashboard "follow-ups" card.
+**Rainier purchased Core only ($1,000).** All build effort goes to finishing Core for Rainier delivery. Add-on packages (IPR, QuickBooks, Inventory Management, EMS, Field Ops) are listed in `SHELL_ROADMAP.md` for shell continuity but are **not built unless sold**.
+
+**Out of scope here:** the 3-page branded website is built and live in a separate repo.
+
+### Active roadmap
+
+The active build plan lives in [`SHELL_ROADMAP.md`](SHELL_ROADMAP.md) — read it at session start. It is the source of truth for what's done, in progress, and pending. **Update it as items land** (flip `[ ]` → `[x]`).
+
+Current focus: the **CORE** section of the roadmap. Everything below the CORE section is unsold and frozen.
+
+### Build depth expectation
+
+When implementing a roadmap item that's IN scope (Core for Rainier), build it **production-shaped, not placeholder-shaped**. A module is not done until every surface in its Definition of Done is built, wired, and verified. Default to extensive — entity + reducer + selectors + every UI surface + permissions + activity logging + edge cases + storage-key bump — in one pass.
+
+**Do NOT speculatively build unsold add-on items.** If an unsold module gets requested, push back: confirm it's been sold before starting.
+
+### Deployment model (post-shell)
+
+Once shell Core is complete:
+1. Commit finished shell to `Kronelius/shell-build` as the canonical baseline.
+2. For each new client: create a repo under the **client's GitHub credentials** (e.g. `RainierFacilitySolutions/app`), push shell as initial commit, add **Kronelius as collaborator** with admin/write access for ongoing maintenance.
+3. Per-client work is config + data only (theme, services, users, content, migrations) — never code forks. Bug fixes and feature backports flow shell → client repos as PRs from Kronelius.
 
 ## Primary files
 
@@ -30,7 +57,7 @@ This is **not a wireframe or demo** anymore. We are actively building out the fu
 |---|---|
 | `app/` | React + Vite SPA — the real product. `npm --prefix app run dev` serves it on port 5173. |
 | `app/src/App.jsx` | Router. All routes are guarded by `<RequirePerm>`. |
-| `app/src/store/` | Context + reducer store. `reducer.js` is the complete action surface; `selectors.js` is the read-only surface; `persist.js` handles localStorage with version-gated reseeds (`pp.store.v2`). |
+| `app/src/store/` | Context + reducer store. `reducer.js` is the complete action surface; `selectors.js` is the read-only surface; `persist.js` handles localStorage with version-gated reseeds (currently `pp.store.v7`). |
 | `app/src/data/seed.js` | INITIAL_STATE — company, users, services, clients, contacts, tags, invoices, jobs, etc. Bumps `version` when schema changes to force a fresh reseed. |
 | `app/src/lib/roles.js` | Role labels, permission keys, `can(user, permKey, permissions, overrides)` checker. |
 | `app/src/hooks/usePermission.js` | Hooks that wire `can()` to current user + overrides. |
