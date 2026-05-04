@@ -313,25 +313,42 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             {invoices.length === 0 ? (
               <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No invoices where this contact is billing-lead.</span></div>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Status</th><th></th></tr></thead>
-                  <tbody>
-                    {invoices.map((inv) => {
-                      const st = deriveInvoiceStatus(inv);
-                      return (
-                        <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                          <td className="name">{inv.id}</td>
-                          <td>{fmtDate(inv.issueDate)}</td>
-                          <td className="money">{money(invoiceTotal(inv))}</td>
-                          <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
-                          <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                      {invoices.map((inv) => {
+                        const st = deriveInvoiceStatus(inv);
+                        return (
+                          <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
+                            <td className="name">{inv.id}</td>
+                            <td>{fmtDate(inv.issueDate)}</td>
+                            <td className="money">{money(invoiceTotal(inv))}</td>
+                            <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
+                            <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mobile-card-list" style={{ padding: '0 12px 12px' }}>
+                  {invoices.map((inv) => {
+                    const st = deriveInvoiceStatus(inv);
+                    return (
+                      <div key={inv.id} className="mobile-card" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
+                        <div className="mc-name" style={{ gridColumn: '1 / span 3' }}>{inv.id}</div>
+                        <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
+                        <div className="mc-sub" style={{ gridColumn: '1 / span 3' }}>{fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}</div>
+                        <div className="mc-meta">
+                          <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 
@@ -343,23 +360,42 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             {relatedJobs.length === 0 ? (
               <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No jobs linked.</span></div>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Date</th><th>Service</th><th>Status</th><th></th></tr></thead>
-                  <tbody>
-                    {relatedJobs.slice(0, 10).map((j) => (
-                      <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                        <td>{fmtDate(j.startAt)}</td>
-                        <td>{state.services.find((s) => s.id === j.serviceId)?.name || '—'}</td>
-                        <td><Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
-                          {j.status.replace('_', ' ')}
-                        </Badge></td>
-                        <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Date</th><th>Service</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                      {relatedJobs.slice(0, 10).map((j) => (
+                        <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
+                          <td>{fmtDate(j.startAt)}</td>
+                          <td>{state.services.find((s) => s.id === j.serviceId)?.name || '—'}</td>
+                          <td><Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
+                            {j.status.replace('_', ' ')}
+                          </Badge></td>
+                          <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mobile-card-list" style={{ padding: '0 12px 12px' }}>
+                  {relatedJobs.slice(0, 10).map((j) => {
+                    const serviceName = state.services.find((s) => s.id === j.serviceId)?.name || '—';
+                    return (
+                      <div key={j.id} className="mobile-card" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
+                        <div className="mc-name" style={{ gridColumn: '1 / span 3' }}>{fmtDate(j.startAt)}</div>
+                        <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
+                        <div className="mc-sub" style={{ gridColumn: '1 / span 3' }}>{serviceName}</div>
+                        <div className="mc-meta">
+                          <Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
+                            {j.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 

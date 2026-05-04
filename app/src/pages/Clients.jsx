@@ -200,7 +200,7 @@ export default function Clients() {
             <FormField label="Tag" as="select" value={cTag} onChange={(e) => setParam('tag', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All tags' }, ...allTags.map((t) => ({ value: t.id, label: t.label }))]} />
             <FormField label="Company" as="select" value={cCompany} onChange={(e) => setParam('company', e.target.value, 'all')}
-              options={[{ value: 'all', label: 'All companies' }, { value: 'unattached', label: 'Unattached' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} />
+              options={[{ value: 'all', label: 'All companies' }, { value: 'unattached', label: 'Unattached' }, ...clients.filter((c) => c.status !== 'inactive').map((c) => ({ value: c.id, label: c.name }))]} />
             <FormField label="Visibility" as="select" value={cVisibility} onChange={(e) => setParam('visibility', e.target.value, 'all')}
               options={VISIBILITIES.map((v) => ({ value: v, label: v === 'all' ? 'All visibility' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
           </div>
@@ -234,87 +234,139 @@ export default function Clients() {
               <EmptyState title="No matches" message="Try clearing filters or changing search." />
             )
           ) : (
-            <div className="card">
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 36 }}>
-                        <input
-                          type="checkbox"
-                          aria-label="Select all"
-                          checked={selectedIds.size > 0 && selectedIds.size === filteredContacts.length}
-                          onChange={toggleSelectAll}
-                        />
-                      </th>
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Lifecycle</th>
-                      <th>Owner</th>
-                      <th>Tags</th>
-                      <th>Updated</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredContacts.map((c) => {
-                      const owner = c.ownerUserId ? selectUserById(state, c.ownerUserId) : null;
-                      const company = c.companyId ? selectClientById(state, c.companyId) : null;
-                      const companyLabel = company?.name || c.customFields?.company || '—';
-                      return (
-                        <tr key={c.id} className="clickable">
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${c.firstName} ${c.lastName}`}
-                              checked={selectedIds.has(c.id)}
-                              onChange={() => toggleSelected(c.id)}
-                            />
-                          </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
-                            <div className="flex-row" style={{ gap: 8 }}>
-                              <Avatar initials={`${(c.firstName[0] || '').toUpperCase()}${(c.lastName[0] || '').toUpperCase()}`} variant={(c.id.length % 5) + 1} size="sm" />
-                              <div>
-                                <div className="name">{c.firstName} {c.lastName}</div>
-                                <div className="text-xs text-muted">{c.email}</div>
+            <>
+              <div className="card">
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 36 }}>
+                          <input
+                            type="checkbox"
+                            aria-label="Select all"
+                            checked={selectedIds.size > 0 && selectedIds.size === filteredContacts.length}
+                            onChange={toggleSelectAll}
+                          />
+                        </th>
+                        <th>Name</th>
+                        <th>Company</th>
+                        <th>Lifecycle</th>
+                        <th>Owner</th>
+                        <th>Tags</th>
+                        <th>Updated</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredContacts.map((c) => {
+                        const owner = c.ownerUserId ? selectUserById(state, c.ownerUserId) : null;
+                        const company = c.companyId ? selectClientById(state, c.companyId) : null;
+                        const companyLabel = company?.name || c.customFields?.company || '—';
+                        return (
+                          <tr key={c.id} className="clickable">
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${c.firstName} ${c.lastName}`}
+                                checked={selectedIds.has(c.id)}
+                                onChange={() => toggleSelected(c.id)}
+                              />
+                            </td>
+                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
+                              <div className="flex-row" style={{ gap: 8 }}>
+                                <Avatar initials={`${(c.firstName[0] || '').toUpperCase()}${(c.lastName[0] || '').toUpperCase()}`} variant={(c.id.length % 5) + 1} size="sm" />
+                                <div>
+                                  <div className="name">{c.firstName} {c.lastName}</div>
+                                  <div className="text-xs text-muted">{c.email}</div>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
-                            <div>{companyLabel}</div>
-                            <div className="text-xs text-muted">{c.title || '—'}</div>
-                          </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
-                            <Badge variant={LIFECYCLE_VARIANTS[c.lifecycle] || 'slate'}>
-                              {c.lifecycle.charAt(0).toUpperCase() + c.lifecycle.slice(1)}
-                            </Badge>
-                          </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
-                            {owner ? (
-                              <div className="flex-row" style={{ gap: 6 }}>
-                                <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
-                                <span className="text-xs">{owner.name}</span>
+                            </td>
+                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
+                              <div>{companyLabel}</div>
+                              <div className="text-xs text-muted">{c.title || '—'}</div>
+                            </td>
+                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
+                              <Badge variant={LIFECYCLE_VARIANTS[c.lifecycle] || 'slate'}>
+                                {c.lifecycle.charAt(0).toUpperCase() + c.lifecycle.slice(1)}
+                              </Badge>
+                            </td>
+                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
+                              {owner ? (
+                                <div className="flex-row" style={{ gap: 6 }}>
+                                  <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
+                                  <span className="text-xs">{owner.name}</span>
+                                </div>
+                              ) : <span className="text-muted text-xs">Unassigned</span>}
+                            </td>
+                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
+                              <div className="flex-row" style={{ gap: 4 }}>
+                                {(c.tagIds || []).slice(0, 3).map((tid) => {
+                                  const t = selectTagById(state, tid);
+                                  return t ? <TagChip key={tid} tag={t} size="xs" /> : null;
+                                })}
+                                {(c.tagIds || []).length > 3 && <span className="text-xs text-muted">+{(c.tagIds || []).length - 3}</span>}
                               </div>
-                            ) : <span className="text-muted text-xs">Unassigned</span>}
-                          </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
-                            <div className="flex-row" style={{ gap: 4 }}>
-                              {(c.tagIds || []).slice(0, 3).map((tid) => {
-                                const t = selectTagById(state, tid);
-                                return t ? <TagChip key={tid} tag={t} size="xs" /> : null;
-                              })}
-                              {(c.tagIds || []).length > 3 && <span className="text-xs text-muted">+{(c.tagIds || []).length - 3}</span>}
-                            </div>
-                          </td>
-                          <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })} className="text-xs text-muted">{fmtRelative(c.updatedAt)}</td>
-                          <td className="text-right" onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}><Icon name="chevronRight" size={14} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })} className="text-xs text-muted">{fmtRelative(c.updatedAt)}</td>
+                            <td className="text-right" onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}><Icon name="chevronRight" size={14} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              <div className="mobile-card-list">
+                {filteredContacts.map((c) => {
+                  const company = c.companyId ? selectClientById(state, c.companyId) : null;
+                  const companyLabel = company?.name || c.customFields?.company || null;
+                  const tagIds = (c.tagIds || []).slice(0, 2);
+                  const extraTagCount = (c.tagIds || []).length - tagIds.length;
+                  return (
+                    <div
+                      key={c.id}
+                      className="mobile-card"
+                      onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mc-check"
+                        aria-label={`Select ${c.firstName} ${c.lastName}`}
+                        checked={selectedIds.has(c.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleSelected(c.id)}
+                      />
+                      <div className="mc-avatar">
+                        <Avatar
+                          initials={`${(c.firstName[0] || '').toUpperCase()}${(c.lastName[0] || '').toUpperCase()}`}
+                          variant={(c.id.length % 5) + 1}
+                          size="sm"
+                        />
+                      </div>
+                      <div className="mc-name">{c.firstName} {c.lastName}</div>
+                      <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
+                      <div className="mc-sub">
+                        {companyLabel ? `${c.email} · ${companyLabel}` : c.email}
+                      </div>
+                      <div className="mc-meta">
+                        <Badge variant={LIFECYCLE_VARIANTS[c.lifecycle] || 'slate'}>
+                          {c.lifecycle.charAt(0).toUpperCase() + c.lifecycle.slice(1)}
+                        </Badge>
+                        {tagIds.map((tid) => {
+                          const t = selectTagById(state, tid);
+                          return t ? <TagChip key={tid} tag={t} size="xs" /> : null;
+                        })}
+                        {extraTagCount > 0 && (
+                          <span className="text-xs text-muted">+{extraTagCount}</span>
+                        )}
+                        <span className="mc-ago">{fmtRelative(c.updatedAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           <AddContactModal open={addContactOpen} onClose={() => setAddContactOpen(false)} />
@@ -346,44 +398,79 @@ export default function Clients() {
               <EmptyState title="No matches" message="Try clearing filters or changing search." />
             )
           ) : (
-            <div className="card">
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Account</th>
-                      <th>Primary contact</th>
-                      <th>Service</th>
-                      <th>Frequency</th>
-                      <th>Last Service</th>
-                      <th>Revenue</th>
-                      <th>Status</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredClients.map((c) => {
-                      const primary = c.primaryContactId ? allContacts.find((ct) => ct.id === c.primaryContactId) : null;
-                      const primaryLabel = primary ? `${primary.firstName} ${primary.lastName}` : (c.primaryContact || '—');
-                      return (
-                        <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`, { state: nav })}>
-                          <td className="name">{c.name}</td>
-                          <td>{primaryLabel}</td>
-                          <td>{selectServiceById(state, c.serviceId)?.name || '—'}</td>
-                          <td>{frequencies.find((f) => f.id === c.frequencyId)?.label || '—'}</td>
-                          <td>{c.lastServiceAt ? fmtDate(c.lastServiceAt) : '—'}</td>
-                          <td className="money">{money(c.revenue || 0)}</td>
-                          <td><Badge variant={statusBadgeVariant(c.status === 'active' ? 'Active' : 'Inactive')}>
-                            {c.status === 'active' ? 'Active' : 'Inactive'}
-                          </Badge></td>
-                          <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <>
+              <div className="card">
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Account</th>
+                        <th>Primary contact</th>
+                        <th>Service</th>
+                        <th>Frequency</th>
+                        <th>Last Service</th>
+                        <th>Revenue</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredClients.map((c) => {
+                        const primary = c.primaryContactId ? allContacts.find((ct) => ct.id === c.primaryContactId) : null;
+                        const primaryLabel = primary ? `${primary.firstName} ${primary.lastName}` : (c.primaryContact || '—');
+                        return (
+                          <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`, { state: nav })}>
+                            <td className="name">{c.name}</td>
+                            <td>{primaryLabel}</td>
+                            <td>{selectServiceById(state, c.serviceId)?.name || '—'}</td>
+                            <td>{frequencies.find((f) => f.id === c.frequencyId)?.label || '—'}</td>
+                            <td>{c.lastServiceAt ? fmtDate(c.lastServiceAt) : '—'}</td>
+                            <td className="money">{money(c.revenue || 0)}</td>
+                            <td><Badge variant={statusBadgeVariant(c.status === 'active' ? 'Active' : 'Inactive')}>
+                              {c.status === 'active' ? 'Active' : 'Inactive'}
+                            </Badge></td>
+                            <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+
+              <div className="mobile-card-list">
+                {filteredClients.map((c) => {
+                  const primary = c.primaryContactId ? allContacts.find((ct) => ct.id === c.primaryContactId) : null;
+                  const primaryLabel = primary ? `${primary.firstName} ${primary.lastName}` : (c.primaryContact || '—');
+                  const serviceName = selectServiceById(state, c.serviceId)?.name;
+                  const freqLabel = frequencies.find((f) => f.id === c.frequencyId)?.label;
+                  const initials = c.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+                  return (
+                    <div
+                      key={c.id}
+                      className="mobile-card"
+                      onClick={() => navigate(`/clients/${c.id}`, { state: nav })}
+                    >
+                      <div className="mc-avatar" style={{ gridColumn: 1, gridRow: '1 / span 2' }}>
+                        <Avatar initials={initials} variant={(c.id.length % 5) + 1} size="sm" />
+                      </div>
+                      <div className="mc-name" style={{ gridColumn: '2 / span 2' }}>{c.name}</div>
+                      <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
+                      <div className="mc-sub" style={{ gridColumn: '2 / span 2' }}>
+                        {primaryLabel}{serviceName ? ` · ${serviceName}` : ''}
+                      </div>
+                      <div className="mc-meta">
+                        <Badge variant={statusBadgeVariant(c.status === 'active' ? 'Active' : 'Inactive')}>
+                          {c.status === 'active' ? 'Active' : 'Inactive'}
+                        </Badge>
+                        {freqLabel && <span className="text-xs text-muted">{freqLabel}</span>}
+                        <span className="mc-ago">{money(c.revenue || 0)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           <AddClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} />
