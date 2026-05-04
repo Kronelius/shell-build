@@ -133,6 +133,32 @@ Per-client config tweak — belongs in the Rainier repo, not shell.
 
 Decision: **keep the schema** (`owner / admin / crew`) and rely on `ROLE_LABELS` for UI display ("Super Admin / Admin / Crew"). Documented in `roles.js`. Renaming the schema would touch every reducer/selector/permission check for zero user-visible benefit. If a client wants different labels, update `ROLE_LABELS` only.
 
+## `[x]` Permission defaults audit + Roles editor discoverability `[Core]`
+
+Friday meeting follow-up. Tightened 5 default permissions and restructured the Roles editor so an Owner can land on it cold and configure permission levels for the other two roles in 30 seconds.
+
+**5 default flips** (in `app/src/lib/roles.js`):
+- `pipeline.view`: removed from crew (sales pipeline is office-tier)
+- `messaging.startConversation`: removed from crew (crew can still reply via `messaging.use`; outbound to clients is a liability)
+- `messaging.internalComment`: granted to crew (internal notes are exactly what crew should post)
+- `settings.services`: removed from admin (service catalog = pricing; owner-only by default)
+- `integrations.view`: removed from admin (reduces blast radius if admin compromised)
+
+**Roles editor restructure** (`app/src/pages/settings/Roles.jsx`):
+- 8 grouped tables (Schedule & Jobs / Clients & Sites / Contacts & Pipeline / Invoices & Reminders / Messaging / Settings / Integrations / Super Admin Only) instead of one flat 39-row table
+- "Sensitive" pill on 8 high-impact keys (clients.archive, contacts.delete, invoices.edit, invoices.recordPayment, integrations.manage, settings.roles.edit, staff.assignRoles, staff.editOverrides) with warning-toned toast on grant
+- Precedence callout above the matrix ("per-user revoke → per-user grant → role default")
+- "Reset all to defaults" escape hatch in the page header
+- "Other" fallback section catches any new permission keys added to roles.js without grouping
+
+**Discoverability**:
+- Settings sidebar relabeled "Roles" → "Roles & Permissions"
+- Cross-link from Team page header: "Edit role defaults →" (gated on `settings.roles.edit`)
+
+**Schema bump**: `pp.store.v9` → `pp.store.v10`; `INITIAL_STATE.version` 9 → 10.
+
+Per-user override system at `/settings/team/[user]` was confirmed already production-shaped — no changes needed there.
+
 ---
 
 # Done (recent shell work — for reference)

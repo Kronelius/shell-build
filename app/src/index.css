@@ -914,6 +914,15 @@ tr.clickable:hover { background: var(--inset-bg); }
   width: 18px; height: 18px; margin: 0 auto;
   accent-color: var(--primary);
 }
+.perm-group-head {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light);
+}
+.perm-sensitive-pill {
+  display: inline-block; font-size: 10px; font-weight: 600; line-height: 1;
+  padding: 3px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;
+  background: var(--badge-amber-bg, #fef3c7); color: var(--badge-amber-text, #92400e);
+}
 
 /* Invoice totals block */
 .invoice-totals {

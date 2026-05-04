@@ -15,6 +15,7 @@ export default function SettingsTeam() {
   const state = useStore();
   const nav = useFromHere();
   const canEdit = usePermission('settings.team.edit');
+  const canEditRoles = usePermission('settings.roles.edit');
   const users = selectUsers(state);
   const overrides = selectUserPermissionOverrides(state);
   const hasOverride = (userId) => overrides.some((o) => o.userId === userId && ((o.grants?.length || 0) + (o.revokes?.length || 0) > 0));
@@ -28,11 +29,16 @@ export default function SettingsTeam() {
           <h1 className="page-head-title">Team</h1>
           <p className="page-head-subtitle">Everyone who can log in. Click a name to edit.</p>
         </div>
-        {canEdit && (
-          <button className="btn btn-primary btn-sm" onClick={() => setInviteOpen(true)}>
-            <Icon name="plus" size={14} /> Invite Member
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {canEditRoles && (
+            <Link to="/settings/roles" className="text-sm text-muted">Edit role defaults →</Link>
+          )}
+          {canEdit && (
+            <button className="btn btn-primary btn-sm" onClick={() => setInviteOpen(true)}>
+              <Icon name="plus" size={14} /> Invite Member
+            </button>
+          )}
+        </div>
       </div>
 
       {users.length === 0 ? (

@@ -531,7 +531,7 @@ const pipelineStages = [
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 9,
+  version: 10,
   company,
   currentUserId,
   users,

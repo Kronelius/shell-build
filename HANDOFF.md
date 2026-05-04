@@ -1,8 +1,79 @@
 # Session Handoff
 
-**Last session end:** **All Core shell items are complete.** Final session shipped: mobile audit + responsive fixes across every page, Messaging single-pane mobile pattern with back button, CSV import for contacts/accounts, role-label naming decision documented. The shell is ready to clone to a Rainier-credentialed repo for per-client customization.
+**Last session end:** **Permission defaults audit + Roles editor discoverability shipped** (Friday meeting follow-up). Tightened 5 default permissions, restructured the Roles editor into 8 grouped tables with sensitive-pills + precedence callout + reset button, relabeled the sidebar "Roles" → "Roles & Permissions", added Team-page cross-link, bumped storage v9 → v10. The shell is now ready to clone to a Rainier-credentialed repo.
 
-Current branch: `main`, latest commit `ea18942`. Working tree dirty (Scheduling + mobile + CSV import work all uncommitted).
+Current branch: `main`, working tree clean.
+
+---
+
+## What shipped this session
+
+### Permission defaults audit (5 flips in `app/src/lib/roles.js`)
+
+The audit asked: are the current defaults sensible for a cleaning company? Conclusion was mostly yes, but 5 specific flips:
+
+| Key | Before | After | Why |
+|---|---|---|---|
+| `pipeline.view` | owner+admin+crew | owner+admin | Sales pipeline is office-tier; field crew has no business reason to see deal stages. |
+| `messaging.startConversation` | owner+admin+crew | owner+admin | Crew can still **reply** via `messaging.use`. Outbound to clients from the field is a liability. Owner re-grants per trusted senior tech via override. |
+| `messaging.internalComment` | owner+admin | owner+admin+crew | Internal notes ("done", "running late", "client wasn't home") are exactly what crew should post. Not visible to clients. |
+| `settings.services` | owner+admin | owner | Service catalog = pricing. Owner-only by default; office manager gets it via override if they own pricing. |
+| `integrations.view` | owner+admin | owner | Reduces blast radius if an admin account is compromised. Still grantable per-user. |
+
+### Roles editor restructure (`app/src/pages/settings/Roles.jsx`)
+
+Was a flat 39-row table. Now:
+
+- **8 grouped tables** — Schedule & Jobs / Clients & Sites / Contacts & Pipeline / Invoices & Reminders / Messaging / Settings / Integrations / Super Admin Only.
+- **"Sensitive" pill** (amber, uppercase, badge-style) on 8 high-impact keys: `clients.archive`, `contacts.delete`, `invoices.edit`, `invoices.recordPayment`, `integrations.manage`, `settings.roles.edit`, `staff.assignRoles`, `staff.editOverrides`. When granted to a non-owner role, toast renders in error tone (no `warn` variant in Toast component; `error` is the closest "attention" tone).
+- **Precedence callout** above the matrix: "For each user we check, in order: per-user revoke → per-user grant → role default below."
+- **"Reset all to defaults"** button (header, secondary style). Dispatches `UPDATE_PERMISSION` for any key whose roles diverge from `PERMISSIONS[id].defaultRoles`. Toasts "Reset N permission(s)" or "Already at defaults".
+- **"Other" fallback section** — renders any permission keys present in store but not in `PERM_GROUPS`. Guards against silent invisibility if someone adds a key to `roles.js` and forgets to group it.
+
+### Discoverability touches
+
+- `app/src/pages/settings/SettingsLayout.jsx` — sidebar item relabeled `Roles` → `Roles & Permissions`. Same icon, same gate.
+- `app/src/pages/settings/Team.jsx` — added "Edit role defaults →" cross-link in the page header (right of subtitle, left of "Invite Member"). Gated on `settings.roles.edit`.
+
+### Storage / seed bump
+
+- `app/src/data/seed.js` — `version: 9` → `version: 10`
+- `app/src/store/persist.js` — `STORAGE_KEY: 'pp.store.v9'` → `'pp.store.v10'`
+- Existing dev installs reseed on next load. Old `v9` localStorage key is left in place as a recovery breadcrumb (not auto-removed).
+
+### CSS additions (`app/src/index.css`)
+
+- `.perm-group-head` — h3 inside the grouped permission cards (border-bottom separator).
+- `.perm-sensitive-pill` — small amber uppercase pill. Falls back to `#fef3c7` / `#92400e` if `--badge-amber-bg` / `--badge-amber-text` tokens don't resolve.
+
+### Verified end-to-end
+
+- Storage migrates `v9` → `v10` on next load (confirmed via Claude Preview).
+- All 5 default flips persist correctly in the new v10 store.
+- `can()` resolves the new defaults correctly per role:
+  - **Owner**: full access (pipeline, messaging, settings, integrations all true)
+  - **Admin**: pipeline + messaging unchanged; `settings.services` and `integrations.view` now denied
+  - **Crew**: `pipeline.view` and `messaging.startConversation` denied; `messaging.internalComment` granted
+- Roles editor renders all 8 grouped tables, all 8 sensitive pills, precedence callout, reset button.
+- Reset button works: mutate a permission → click reset → permission returns to default + toast appears.
+- Team page shows "Edit role defaults →" cross-link in section-head.
+
+---
+
+## Files touched this session
+
+- `app/src/lib/roles.js` — 5 default array flips
+- `app/src/pages/settings/Roles.jsx` — full restructure (PERM_GROUPS, DANGER_KEYS, callout, grouped tables, sensitive pill, reset button, smarter toast)
+- `app/src/pages/settings/SettingsLayout.jsx` — sidebar label
+- `app/src/pages/settings/Team.jsx` — cross-link in section-head
+- `app/src/data/seed.js` — version 9 → 10
+- `app/src/store/persist.js` — STORAGE_KEY v9 → v10 + bump comment
+- `app/src/index.css` — `.perm-group-head` + `.perm-sensitive-pill`
+- `SHELL_ROADMAP.md` — added `[x]` Permission defaults audit + Roles editor discoverability item
+
+---
+
+---
 
 ---
 
@@ -13,13 +84,13 @@ Per `CLAUDE.md`:
 2. `git fetch` — compare local HEAD vs `origin/main`. Report sync status.
 3. If behind + clean → offer fast-forward. If diverged → flag; don't auto-merge.
 4. Read [`SHELL_ROADMAP.md`](SHELL_ROADMAP.md) — Core is complete; the only remaining work is **deployment** (clone to Rainier repo) and per-client tweaks.
-5. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Storage key: `'pp.store.v9'` / seed version 9.**
+5. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Storage key: `'pp.store.v10'` / seed version 10.**
 
 ---
 
-## What shipped this session
+## Prior session reference (already committed in `237db27`)
 
-### 1. Scheduling & Calendar (Core deliverable, this push)
+### 1. Scheduling & Calendar (Core deliverable)
 
 Built RRULE recurrence, conflict detection, drag-drop reschedule, series management, month-click-to-day, schema bump v8 → v9. See prior HANDOFF entries for full module details. Bug fix: `monthCellClick` was racing two `setSearchParams` calls — fixed to atomic single update.
 
@@ -162,6 +233,6 @@ If any of these get requested mid-session, **stop and confirm a sale** before bu
 
 ## Suggested next-session opener
 
-Working tree is dirty — Scheduling + mobile + CSV import work all uncommitted. **Commit the shell baseline first**, then the next session is the deployment step:
+Working tree clean (this session's permission audit committed and pushed). Next session is the deployment step:
 
-> "All Core shell items are complete. Per `CLAUDE.md` deployment model: tag the shell-build baseline, then create `RainierFacilitySolutions/app` repo (under Rainier's GitHub credentials), push the shell as initial commit, add Kronelius as collaborator. Then begin Rainier-specific config: theme tokens, user seeds (Heather/Lauren admins, Kyle/Steve super admins, cleaner roster), service catalog (residential/commercial/specialized), admin permission default tweak (hide financials per Q24), Rainier-specific dashboard cards. The CSV import is in place — Rainier's existing contact migration from GHL goes through that ($200 add-on)."
+> "All Core shell items are complete. Per `CLAUDE.md` deployment model: tag the shell-build baseline, then create `RainierFacilitySolutions/app` repo (under Rainier's GitHub credentials), push the shell as initial commit, add Kronelius as collaborator. Then begin Rainier-specific config: theme tokens, user seeds (Heather/Lauren admins, Kyle/Steve super admins, cleaner roster), service catalog (residential/commercial/specialized), Rainier-specific dashboard cards. The CSV import is in place — Rainier's existing contact migration from GHL goes through that ($200 add-on). The Q24 'hide financials from admin' tweak now needs less work since shell already locked `settings.services` and `integrations.view` to owner-only."

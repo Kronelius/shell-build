@@ -1,6 +1,7 @@
-// v9: job recurrence (seriesId + recurrence rule) + conflict detection.
-// Bump in lockstep with INITIAL_STATE.version so v8 caches force a fresh reseed.
-const STORAGE_KEY = 'pp.store.v9';
+// v10: tightened default permissions (5 flips: pipeline.view, messaging.startConversation,
+// messaging.internalComment, settings.services, integrations.view) + grouped Roles editor.
+// Bump in lockstep with INITIAL_STATE.version so v9 caches force a fresh reseed.
+const STORAGE_KEY = 'pp.store.v10';
 
 export function loadState() {
   try {

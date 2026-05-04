@@ -42,7 +42,7 @@ export const PERMISSIONS = {
   'contacts.delete':         { label: 'Delete / archive contacts',        defaultRoles: ['owner', 'admin'] },
   'contacts.assignOwner':    { label: 'Assign contact owner',             defaultRoles: ['owner', 'admin'] },
   'tags.manage':             { label: 'Create / edit tags',               defaultRoles: ['owner', 'admin'] },
-  'pipeline.view':           { label: 'View sales pipeline',              defaultRoles: ['owner', 'admin', 'crew'] },
+  'pipeline.view':           { label: 'View sales pipeline',              defaultRoles: ['owner', 'admin'] },
   'pipeline.edit':           { label: 'Move deals in pipeline',           defaultRoles: ['owner', 'admin'] },
   // ---------- Invoices / Reminders / Messaging ----------
   'invoices.view':           { label: 'View Invoices',            defaultRoles: ['owner', 'admin'] },
@@ -51,20 +51,20 @@ export const PERMISSIONS = {
   'reminders.view':          { label: 'View Reminders',           defaultRoles: ['owner', 'admin'] },
   'reminders.edit':          { label: 'Edit reminder templates',  defaultRoles: ['owner', 'admin'] },
   'messaging.use':               { label: 'Use Messaging',              defaultRoles: ['owner', 'admin', 'crew'] },
-  'messaging.startConversation': { label: 'Start new conversations',     defaultRoles: ['owner', 'admin', 'crew'] },
-  'messaging.internalComment':   { label: 'Post internal comments',      defaultRoles: ['owner', 'admin'] },
+  'messaging.startConversation': { label: 'Start new conversations',     defaultRoles: ['owner', 'admin'] },
+  'messaging.internalComment':   { label: 'Post internal comments',      defaultRoles: ['owner', 'admin', 'crew'] },
   'messaging.manageSnippets':    { label: 'Manage message snippets',     defaultRoles: ['owner', 'admin'] },
   'messaging.assign':            { label: 'Assign conversations',        defaultRoles: ['owner', 'admin'] },
   'messaging.bulkActions':       { label: 'Run bulk conversation actions', defaultRoles: ['owner', 'admin'] },
   // ---------- Settings ----------
   'settings.company':        { label: 'Edit company settings',    defaultRoles: ['owner', 'admin'] },
-  'settings.services':       { label: 'Edit services / frequencies', defaultRoles: ['owner', 'admin'] },
+  'settings.services':       { label: 'Edit services / frequencies', defaultRoles: ['owner'] },
   'settings.team.view':      { label: 'View team',                defaultRoles: ['owner', 'admin'] },
   'settings.team.edit':      { label: 'Invite / edit team',       defaultRoles: ['owner', 'admin'] },
   'settings.roles.edit':     { label: 'Edit role permissions',    defaultRoles: ['owner'] },
   'settings.account':        { label: 'Edit own account',         defaultRoles: ['owner', 'admin', 'crew'] },
   // ---------- Integrations ----------
-  'integrations.view':       { label: 'View integrations',           defaultRoles: ['owner', 'admin'] },
+  'integrations.view':       { label: 'View integrations',           defaultRoles: ['owner'] },
   'integrations.manage':     { label: 'Connect / manage integrations', defaultRoles: ['owner'] },
   // ---------- Super Admin gates ----------
   'staff.assignRoles':       { label: 'Assign roles to staff',       defaultRoles: ['owner'] },
