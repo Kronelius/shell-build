@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mobile Mockups Catalog — Rainier / Shell</title>
+<style>
+  :root{
+    --bg:#f8fafc; --surface:#ffffff; --ink:#0f172a; --ink-2:#475569; --ink-3:#94a3b8;
+    --line:#e2e8f0; --line-2:#cbd5e1;
+    --primary:#212269; --primary-400:#5859AB; --primary-50:#EFEFFA; --primary-100:#D2D3EE;
+    --green-bg:#ECF7EF; --green-fg:#3A8053; --green-line:#CCE9D5;
+    --amber-bg:#fffbeb; --amber-fg:#92400e; --amber-line:#fde68a;
+    --red-bg:#fef2f2;   --red-fg:#991b1b;   --red-line:#fecaca;
+    --blue-bg:#EFEFFA;  --blue-fg:#1A1B54;  --blue-line:#D2D3EE;
+    --slate-bg:#f1f5f9; --slate-fg:#334155; --slate-line:#cbd5e1;
+    --purple-bg:#faf5ff;--purple-fg:#6d28d9;--purple-line:#e9d5ff;
+    --shadow: 0 4px 14px rgba(33,34,105,0.10), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(33,34,105,0.16);
+    --shadow-soft: 0 2px 8px rgba(33,34,105,0.08), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(33,34,105,0.10);
+    --shadow-lg: 0 10px 30px rgba(33,34,105,0.18);
+    --r-card:20px; --r-pill:999px; --r-md:10px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#e2e8f0;font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .header{max-width:1200px;margin:30px auto 0;padding:0 24px}
+  .header h1{margin:0 0 6px;font-size:24px;color:#0f172a}
+  .header p{margin:0;color:#475569;font-size:13px;line-height:1.55}
+  .header .meta{margin-top:10px;font-size:12px;color:#64748b}
+  .header .meta code{background:#0f172a;color:#f1f5f9;padding:2px 6px;border-radius:6px;font-size:11px}
+
+  .section{max-width:1200px;margin:32px auto 0;padding:0 24px}
+  .section-head{margin-bottom:14px;padding:14px 18px;background:#fff;border-radius:14px;border:1px solid var(--line);display:flex;align-items:flex-start;gap:14px}
+  .section-num{width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0}
+  .section-text h2{margin:0 0 4px;font-size:16px;color:#0f172a;font-weight:700}
+  .section-text p{margin:0;font-size:12px;color:#475569;line-height:1.5}
+  .section-text code{background:#f1f5f9;color:#0f172a;padding:1px 5px;border-radius:4px;font-size:11px;border:1px solid var(--line)}
+
+  .row{display:flex;gap:24px;justify-content:flex-start;align-items:flex-start;flex-wrap:wrap}
+
+  .device{width:375px;height:760px;background:var(--bg);border-radius:32px;border:7px solid #0f172a;overflow:hidden;position:relative;box-shadow:var(--shadow-lg);flex-shrink:0}
+  .device-label{text-align:center;font-size:11px;color:#64748b;margin-top:8px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+
+  /* ── chrome ── */
+  .topbar{position:absolute;top:0;left:0;right:0;height:52px;background:#0f172a;color:#fff;display:flex;align-items:center;gap:12px;padding:0 16px;z-index:10}
+  .topbar .back{width:24px;height:24px;display:grid;place-items:center;color:#cbd5e1}
+  .topbar h2{margin:0;font-size:14px;font-weight:600;color:#fff;letter-spacing:.01em;flex:1}
+  .topbar .more{width:24px;height:24px;color:#cbd5e1;display:grid;place-items:center}
+  .scroll{position:absolute;top:52px;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden;padding:14px 14px 80px}
+
+  /* ── page head ── */
+  .head{margin-bottom:14px}
+  .head h1{margin:0 0 4px;font-size:22px;font-weight:700}
+  .head p{margin:0 0 12px;font-size:12px;color:var(--ink-2);line-height:1.4}
+  .head-actions{display:flex;gap:8px}
+  .btn{flex:1;font-family:inherit;border:none;font-size:13px;font-weight:600;border-radius:var(--r-md);padding:10px 12px;cursor:pointer;letter-spacing:.01em}
+  .btn-primary{background:linear-gradient(135deg,var(--primary-400),var(--primary));color:#fff;box-shadow:0 4px 14px rgba(33,34,105,.28)}
+  .btn-outline{background:#fff;color:var(--primary);border:1px solid var(--blue-line)}
+
+  /* ── filter row ── */
+  .filter-row{display:flex;gap:8px;margin-bottom:12px}
+  .search{flex:1;background:#fff;border-radius:var(--r-md);box-shadow:var(--shadow);padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-3)}
+  .filter-pill{background:#fff;border-radius:var(--r-md);box-shadow:var(--shadow);padding:0 14px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--primary)}
+  .filter-pill .count{background:var(--primary);color:#fff;font-size:11px;padding:0 6px;border-radius:999px;min-width:18px;text-align:center;line-height:18px;font-weight:700}
+
+  /* ── badges + pills ── */
+  .badge{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-pill);line-height:1.2;display:inline-block}
+  .b-green{background:var(--green-bg);color:var(--green-fg);border:1px solid var(--green-line)}
+  .b-amber{background:var(--amber-bg);color:var(--amber-fg);border:1px solid var(--amber-line)}
+  .b-red  {background:var(--red-bg);  color:var(--red-fg);  border:1px solid var(--red-line)}
+  .b-blue {background:var(--blue-bg); color:var(--blue-fg); border:1px solid var(--blue-line)}
+  .b-slate{background:var(--slate-bg);color:var(--slate-fg);border:1px solid var(--slate-line)}
+  .b-purple{background:var(--purple-bg);color:var(--purple-fg);border:1px solid var(--purple-line)}
+  .tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:var(--r-pill);background:var(--slate-bg);color:var(--ink-2)}
+  .ago{margin-left:auto;font-size:11px;color:var(--ink-3);font-weight:500}
+
+  /* ── avatars ── */
+  .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;letter-spacing:.02em;flex-shrink:0}
+  .av-sm{width:24px;height:24px;font-size:10px}
+  .av-1{background:var(--primary)}
+  .av-2{background:#5DB87F}
+  .av-3{background:#a78bfa}
+  .av-4{background:#C2410C}
+  .av-5{background:#0d9488}
+
+  /* ── generic card ── */
+  .list{display:flex;flex-direction:column;gap:10px}
+  .card{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:12px 14px;cursor:pointer}
+
+  /* ── INVOICE card ── */
+  .inv-card{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+  .inv-card .num{grid-column:1;grid-row:1;font-size:13px;font-weight:700;color:var(--primary);letter-spacing:.02em}
+  .inv-card .total{grid-column:3;grid-row:1;font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .inv-card .client{grid-column:1 / span 2;grid-row:2;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .inv-card .balance{grid-column:3;grid-row:2;font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums;text-align:right}
+  .inv-card .meta{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;padding-top:8px;border-top:1px dashed var(--line)}
+
+  /* ── REMINDER card ── */
+  .rem-card{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:flex-start}
+  .rem-card .channel{grid-column:1;grid-row:1 / span 2;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--blue-bg);color:var(--primary)}
+  .rem-card .channel.email{background:var(--purple-bg);color:var(--purple-fg)}
+  .rem-card .tpl{grid-column:2;grid-row:1;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rem-card .status{grid-column:3;grid-row:1;align-self:flex-start}
+  .rem-card .target{grid-column:2 / span 2;grid-row:2;font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rem-card .meta{grid-column:1 / -1;grid-row:3;display:flex;gap:8px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:11px;color:var(--ink-3)}
+  .rem-card .meta .retry{margin-left:auto;color:var(--primary);font-weight:600}
+
+  /* ── TEAM card ── */
+  .tm-card{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+  .tm-card .name{grid-column:2;grid-row:1;font-size:14px;font-weight:600;color:var(--ink)}
+  .tm-card .email{grid-column:2;grid-row:2;font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-card .chev{grid-column:3;grid-row:1 / span 2;color:var(--ink-3)}
+  .tm-card .meta{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);flex-wrap:wrap}
+  .role-pill{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:var(--r-pill);background:linear-gradient(135deg,var(--primary-400),var(--primary));color:#fff}
+  .role-pill.admin{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+  .role-pill.crew{background:linear-gradient(135deg,#94a3b8,#475569)}
+
+  /* ── ROLES accordion ── */
+  .role-accordion{display:flex;flex-direction:column;gap:8px}
+  .role-panel{background:#fff;border-radius:14px;box-shadow:var(--shadow-soft);overflow:hidden}
+  .role-panel-head{padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+  .role-panel-head .role-pill{padding:3px 8px;font-size:9px}
+  .role-panel-head .role-name{font-size:14px;font-weight:700;color:var(--ink)}
+  .role-panel-head .role-count{margin-left:auto;font-size:11px;color:var(--ink-3);font-weight:600}
+  .role-panel-head .chev{color:var(--ink-3);transition:transform .2s}
+  .role-panel.open .chev{transform:rotate(180deg)}
+  .role-panel-body{display:none;padding:0 14px 12px;border-top:1px solid var(--line)}
+  .role-panel.open .role-panel-body{display:block}
+  .perm-group{margin-top:10px}
+  .perm-group h4{margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+  .perm-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+  .perm-row:first-of-type{border-top:none}
+  .perm-row .name{font-size:13px;color:var(--ink);flex:1;min-width:0}
+  .perm-row .danger-pill{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r-pill);background:var(--amber-bg);color:var(--amber-fg);border:1px solid var(--amber-line)}
+  .toggle{width:36px;height:20px;border-radius:10px;background:var(--line-2);position:relative;flex-shrink:0;cursor:pointer;transition:background .15s}
+  .toggle::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s}
+  .toggle.on{background:var(--primary)}
+  .toggle.on::after{left:18px}
+
+  /* ── INVOICE LINE ITEMS stacked ── */
+  .li-item{background:#fff;border-radius:14px;box-shadow:var(--shadow-soft);padding:14px;margin-bottom:10px}
+  .li-item .li-desc{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:10px;display:flex;align-items:flex-start;gap:8px}
+  .li-item .li-del{margin-left:auto;width:24px;height:24px;border-radius:50%;background:var(--red-bg);color:var(--red-fg);display:grid;place-items:center;font-weight:700;cursor:pointer;flex-shrink:0}
+  .li-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .li-grid label{display:block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+  .li-grid .li-val{background:var(--slate-bg);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+  .li-grid .li-val.right{text-align:right}
+  .li-add{background:rgba(33,34,105,.06);border:1.5px dashed rgba(33,34,105,.25);color:var(--primary);border-radius:14px;padding:12px;text-align:center;font-size:13px;font-weight:600;cursor:pointer}
+  .li-totals{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px;margin-top:14px}
+  .li-totals .row-tot{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:var(--ink-2)}
+  .li-totals .row-tot.grand{padding-top:10px;border-top:2px solid var(--line);font-size:16px;font-weight:700;color:var(--ink);margin-top:6px}
+  .li-totals .row-tot .v{font-variant-numeric:tabular-nums}
+
+  /* ── MESSAGING list ── */
+  .msg-row{background:#fff;border-radius:14px;box-shadow:var(--shadow-soft);padding:12px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-bottom:8px;cursor:pointer;position:relative}
+  .msg-row.unread{box-shadow:var(--shadow);border-left:3px solid var(--primary)}
+  .msg-row .name{grid-column:2;grid-row:1;font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .msg-row.unread .name{font-weight:700}
+  .msg-row .ago{grid-column:3;grid-row:1;font-size:11px;color:var(--ink-3);font-weight:500;margin-left:0}
+  .msg-row .preview{grid-column:2 / span 2;grid-row:2;font-size:12px;color:var(--ink-2);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .msg-row.unread .preview{color:var(--ink)}
+  .msg-row .badge{margin-top:4px;align-self:flex-start}
+  .msg-row .meta-line{grid-column:2 / span 2;grid-row:3;display:flex;gap:6px;align-items:center;margin-top:6px}
+  .msg-row .channel-ic{font-size:10px;color:var(--ink-3);display:flex;align-items:center;gap:4px}
+  .msg-row .unread-dot{position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:var(--primary)}
+
+  .msg-tabs{display:flex;gap:0;background:rgba(33,34,105,.06);padding:4px;border-radius:var(--r-pill);margin-bottom:14px}
+  .msg-tab{flex:1;padding:6px;text-align:center;font-size:12px;font-weight:600;color:var(--ink-2);border-radius:var(--r-pill)}
+  .msg-tab.active{background:linear-gradient(180deg,var(--primary-400),var(--primary));color:#fff}
+
+  /* ── MESSAGING thread ── */
+  .thread-head{background:#fff;border-radius:14px;box-shadow:var(--shadow-soft);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+  .thread-head .info{flex:1;min-width:0}
+  .thread-head .info .name{font-size:14px;font-weight:600;color:var(--ink)}
+  .thread-head .info .sub{font-size:11px;color:var(--ink-3)}
+  .bubble{max-width:80%;padding:10px 13px;border-radius:16px;font-size:13px;line-height:1.4;margin-bottom:8px;clear:both}
+  .bubble.in {background:#fff;color:var(--ink);float:left;border-bottom-left-radius:6px;box-shadow:var(--shadow-soft)}
+  .bubble.out{background:linear-gradient(135deg,var(--primary-400),var(--primary));color:#fff;float:right;border-bottom-right-radius:6px}
+  .bubble-time{display:block;font-size:10px;color:var(--ink-3);margin-top:2px}
+  .bubble.out .bubble-time{color:rgba(255,255,255,.7)}
+  .clear{clear:both;height:1px}
+  .composer{position:absolute;left:10px;right:10px;bottom:10px;background:#fff;border-radius:24px;box-shadow:var(--shadow);padding:6px 6px 6px 14px;display:flex;align-items:center;gap:8px}
+  .composer input{flex:1;border:none;outline:none;font-family:inherit;font-size:13px;color:var(--ink);padding:8px 0;background:transparent}
+  .composer .send{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary-400),var(--primary));color:#fff;display:grid;place-items:center;cursor:pointer;flex-shrink:0;box-shadow:0 3px 10px rgba(33,34,105,.3)}
+
+  /* ── footer note ── */
+  .footnote{max-width:1200px;margin:40px auto;padding:0 24px;font-size:12px;color:#475569;line-height:1.6}
+  .footnote h2{font-size:15px;color:#0f172a;margin:0 0 8px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Mobile Mockups Catalog — Other Surfaces</h1>
+  <p>Companion to <code>/mobile-contacts-mockup.html</code>. Six additional patterns covering every other flagged page in <code>SHELL_MOBILE_RESPONSIVE.md</code>: Invoices list, Reminders inbox, Team members, Roles & Permissions, Invoice line items (modal), and Messaging (list + thread). All built to fit a 375px viewport with zero horizontal scroll.</p>
+  <div class="meta">Theme: Rainier Facility Solutions (navy). · Patterns map 1:1 to the §3 canonical recipes in the handoff doc.</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 1. INVOICES                                                 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num">1</div>
+    <div class="section-text">
+      <h2>Invoices list — <code>/invoices</code></h2>
+      <p>Replaces the 9-column desktop table (<code>Invoices.jsx:155–195</code>). Each card surfaces invoice #, total, client, due date, balance, and status. Tap → invoice detail. Filter pill collapses Status / Client / Date range. Bulk-select checkbox lives in the header (becomes per-card on long-press).</p>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+          <h2>Rainier Facility Solutions</h2>
+        </div>
+        <div class="scroll">
+          <div class="head">
+            <h1>Invoices</h1>
+            <p>Track billing, payments, and overdue balances.</p>
+            <div class="head-actions">
+              <button class="btn btn-outline">Export</button>
+              <button class="btn btn-primary">+ New Invoice</button>
+            </div>
+          </div>
+          <div class="filter-row">
+            <div class="search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Search invoices…
+            </div>
+            <div class="filter-pill">Filters <span class="count">1</span></div>
+          </div>
+
+          <div class="list">
+            <div class="card inv-card">
+              <div class="num">INV-1042</div>
+              <div class="total">$2,450.00</div>
+              <div class="client">Acme Cleaning Co.</div>
+              <div class="balance">Balance $2,450</div>
+              <div class="meta">
+                <span class="badge b-red">Overdue</span>
+                <span class="ago">Due Apr 28 · 5d ago</span>
+              </div>
+            </div>
+
+            <div class="card inv-card">
+              <div class="num">INV-1041</div>
+              <div class="total">$1,200.00</div>
+              <div class="client">Brightstar Coworking</div>
+              <div class="balance">Balance $0</div>
+              <div class="meta">
+                <span class="badge b-green">Paid</span>
+                <span class="ago">Apr 30</span>
+              </div>
+            </div>
+
+            <div class="card inv-card">
+              <div class="num">INV-1040</div>
+              <div class="total">$865.00</div>
+              <div class="client">Northpoint PM</div>
+              <div class="balance">Balance $865</div>
+              <div class="meta">
+                <span class="badge b-amber">Sent</span>
+                <span class="ago">Due May 15</span>
+              </div>
+            </div>
+
+            <div class="card inv-card">
+              <div class="num">INV-1039</div>
+              <div class="total">$3,200.00</div>
+              <div class="client">Summit Coworking</div>
+              <div class="balance">Balance $1,600</div>
+              <div class="meta">
+                <span class="badge b-blue">Partial</span>
+                <span class="ago">Due May 10</span>
+              </div>
+            </div>
+
+            <div class="card inv-card">
+              <div class="num">INV-1038</div>
+              <div class="total">$540.00</div>
+              <div class="client">Riverside Office Park</div>
+              <div class="balance">Balance $0</div>
+              <div class="meta">
+                <span class="badge b-green">Paid</span>
+                <span class="ago">Apr 22</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="device-label">Invoices list</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 2. INVOICE LINE ITEMS                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num">2</div>
+    <div class="section-text">
+      <h2>Invoice detail — line items (stacked) — <code>/invoices/:id</code></h2>
+      <p>Replaces the fixed-pixel table in <code>InvoiceDetail.jsx:209–263</code> and <code>CreateInvoiceModal.jsx:140–165</code>. Each line item becomes a self-contained card with a 3-column grid (Qty / Unit / Total). The Description gets full width on its own row. Add-line is a clear dashed CTA. Totals card pinned below.</p>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+          <h2>INV-1042 · Acme</h2>
+          <div class="more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg></div>
+        </div>
+        <div class="scroll">
+          <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px">
+            <span class="badge b-red">Overdue</span>
+            <span style="font-size:11px;color:var(--ink-3)">Due Apr 28 · 5d ago</span>
+          </div>
+
+          <h3 style="margin:0 0 10px;font-size:13px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em">Line items</h3>
+
+          <div class="li-item">
+            <div class="li-desc">
+              Standard cleaning — full office (3,200 sq ft)
+              <button class="li-del">×</button>
+            </div>
+            <div class="li-grid">
+              <div><label>Qty</label><div class="li-val">1</div></div>
+              <div><label>Unit price</label><div class="li-val right">$1,800.00</div></div>
+              <div><label>Total</label><div class="li-val right">$1,800.00</div></div>
+            </div>
+          </div>
+
+          <div class="li-item">
+            <div class="li-desc">
+              Deep carpet shampoo — conference room
+              <button class="li-del">×</button>
+            </div>
+            <div class="li-grid">
+              <div><label>Qty</label><div class="li-val">2</div></div>
+              <div><label>Unit price</label><div class="li-val right">$225.00</div></div>
+              <div><label>Total</label><div class="li-val right">$450.00</div></div>
+            </div>
+          </div>
+
+          <div class="li-item">
+            <div class="li-desc">
+              Window cleaning — interior + exterior
+              <button class="li-del">×</button>
+            </div>
+            <div class="li-grid">
+              <div><label>Qty</label><div class="li-val">1</div></div>
+              <div><label>Unit price</label><div class="li-val right">$200.00</div></div>
+              <div><label>Total</label><div class="li-val right">$200.00</div></div>
+            </div>
+          </div>
+
+          <div class="li-add">+ Add line item</div>
+
+          <div class="li-totals">
+            <div class="row-tot"><span>Subtotal</span><span class="v">$2,450.00</span></div>
+            <div class="row-tot"><span>Tax (0%)</span><span class="v">$0.00</span></div>
+            <div class="row-tot grand"><span>Total</span><span class="v">$2,450.00</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="device-label">Line items — stacked</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 3. REMINDERS INBOX                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num">3</div>
+    <div class="section-text">
+      <h2>Reminders delivery inbox — <code>/reminders</code></h2>
+      <p>Replaces the 6-column inbox table (<code>Reminders.jsx:276–330</code>). Channel icon (SMS / email) on the left as a colored square; template name + recipient stacked on the right; sent timestamp + delivery status under a divider. Failed deliveries get a red badge with a Retry action inline.</p>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+          <h2>Rainier Facility Solutions</h2>
+        </div>
+        <div class="scroll">
+          <div class="head">
+            <h1>Reminders</h1>
+            <p>Automated client reminders: status, retries, failures.</p>
+            <div class="head-actions">
+              <button class="btn btn-outline">Templates</button>
+              <button class="btn btn-primary">Send test</button>
+            </div>
+          </div>
+          <div class="filter-row">
+            <div class="search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Search by client / template…
+            </div>
+            <div class="filter-pill">Filters</div>
+          </div>
+
+          <div class="list">
+            <div class="card rem-card">
+              <div class="channel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+              </div>
+              <div class="tpl">24-hour reminder</div>
+              <div class="status"><span class="badge b-green">Delivered</span></div>
+              <div class="target">Jane Doe · (425) 555-0144</div>
+              <div class="meta">
+                <span>Sent 2h ago</span>
+                <span>·</span>
+                <span>Job #J-204</span>
+              </div>
+            </div>
+
+            <div class="card rem-card">
+              <div class="channel email">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+              </div>
+              <div class="tpl">Booking confirmation</div>
+              <div class="status"><span class="badge b-green">Delivered</span></div>
+              <div class="target">marcus@brightstar.io</div>
+              <div class="meta">
+                <span>Sent 5h ago</span>
+                <span>·</span>
+                <span>Job #J-203</span>
+              </div>
+            </div>
+
+            <div class="card rem-card">
+              <div class="channel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+              </div>
+              <div class="tpl">Day-of reminder</div>
+              <div class="status"><span class="badge b-red">Failed</span></div>
+              <div class="target">Steve Hammond · (206) 555-0182</div>
+              <div class="meta">
+                <span>Carrier rejected — invalid number</span>
+                <span class="retry">Retry →</span>
+              </div>
+            </div>
+
+            <div class="card rem-card">
+              <div class="channel email">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+              </div>
+              <div class="tpl">Post-service follow-up</div>
+              <div class="status"><span class="badge b-amber">Pending</span></div>
+              <div class="target">lauren@summitcoworking.co</div>
+              <div class="meta">
+                <span>Queued 1m ago</span>
+              </div>
+            </div>
+
+            <div class="card rem-card">
+              <div class="channel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+              </div>
+              <div class="tpl">24-hour reminder</div>
+              <div class="status"><span class="badge b-green">Delivered</span></div>
+              <div class="target">Lauren Pham · (425) 555-0167</div>
+              <div class="meta">
+                <span>Sent 1d ago</span>
+                <span>·</span>
+                <span>Job #J-201</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="device-label">Reminders inbox</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 4. TEAM                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num">4</div>
+    <div class="section-text">
+      <h2>Team members — <code>/settings/team</code></h2>
+      <p>Replaces the 6-column team table (<code>settings/Team.jsx:48–79</code>). Avatar + name + email on top, role pill + access status badge on the meta strip. Tap → TeamDetail (per-user permission overrides). The "Edit role defaults" link moves to a row at the top of the list.</p>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+          <h2>Team</h2>
+        </div>
+        <div class="scroll">
+          <div class="head">
+            <h1>Team</h1>
+            <p>Manage staff accounts, roles, and per-user permissions.</p>
+            <div class="head-actions">
+              <button class="btn btn-outline">Edit role defaults →</button>
+              <button class="btn btn-primary">+ Invite</button>
+            </div>
+          </div>
+
+          <div class="list">
+            <div class="card tm-card">
+              <div class="av av-1">KB</div>
+              <div class="name">Kyler Brock</div>
+              <div class="email">kyler@rainierfs.com</div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+              <div class="meta">
+                <span class="role-pill">Super Admin</span>
+                <span class="badge b-green">Active</span>
+              </div>
+            </div>
+
+            <div class="card tm-card">
+              <div class="av av-2">SH</div>
+              <div class="name">Steve Hammond</div>
+              <div class="email">steve@rainierfs.com</div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+              <div class="meta">
+                <span class="role-pill admin">Admin</span>
+                <span class="badge b-green">Active</span>
+                <span class="tag">2 overrides</span>
+              </div>
+            </div>
+
+            <div class="card tm-card">
+              <div class="av av-3">HM</div>
+              <div class="name">Heather Maddox</div>
+              <div class="email">heather@rainierfs.com</div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+              <div class="meta">
+                <span class="role-pill admin">Admin</span>
+                <span class="badge b-green">Active</span>
+              </div>
+            </div>
+
+            <div class="card tm-card">
+              <div class="av av-4">LP</div>
+              <div class="name">Lauren Pham</div>
+              <div class="email">lauren@rainierfs.com</div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+              <div class="meta">
+                <span class="role-pill crew">Crew</span>
+                <span class="badge b-green">Active</span>
+                <span class="tag">1 override</span>
+              </div>
+            </div>
+
+            <div class="card tm-card">
+              <div class="av av-5">TG</div>
+              <div class="name">Tom Garrison</div>
+              <div class="email">tom@rainierfs.com</div>
+              <div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+              <div class="meta">
+                <span class="role-pill crew">Crew</span>
+                <span class="badge b-slate">Pending invite</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="device-label">Team list</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 5. ROLES & PERMISSIONS                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num">5</div>
+    <div class="section-text">
+      <h2>Roles &amp; Permissions accordion — <code>/settings/roles</code></h2>
+      <p>Replaces the N-column matrix table at <code>settings/Roles.jsx:98–108</code>. Three accordion panels (one per role); inside each, the existing 8 grouped permission tables become flat lists with a per-row toggle. Sensitive permissions keep their amber pill. Precedence callout stays at the top. "Reset all to defaults" button moves to the page head.</p>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+          <h2>Roles &amp; Permissions</h2>
+        </div>
+        <div class="scroll">
+          <div class="head">
+            <h1>Roles &amp; Permissions</h1>
+            <p>For each user we check, in order: per-user revoke → per-user grant → role default below.</p>
+            <div class="head-actions">
+              <button class="btn btn-outline">Reset to defaults</button>
+            </div>
+          </div>
+
+          <div class="role-accordion">
+            <div class="role-panel">
+              <div class="role-panel-head">
+                <span class="role-pill">Super Admin</span>
+                <span class="role-name">Owner</span>
+                <span class="role-count">39/39</span>
+                <div class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+              </div>
+            </div>
+
+            <div class="role-panel open">
+              <div class="role-panel-head">
+                <span class="role-pill admin">Admin</span>
+                <span class="role-name">Office manager</span>
+                <span class="role-count">28/39</span>
+                <div class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+              </div>
+              <div class="role-panel-body">
+                <div class="perm-group">
+                  <h4>Schedule &amp; Jobs</h4>
+                  <div class="perm-row">
+                    <span class="name">View schedule</span>
+                    <div class="toggle on"></div>
+                  </div>
+                  <div class="perm-row">
+                    <span class="name">Edit jobs</span>
+                    <div class="toggle on"></div>
+                  </div>
+                  <div class="perm-row">
+                    <span class="name">Reschedule any job</span>
+                    <div class="toggle on"></div>
+                  </div>
+                </div>
+
+                <div class="perm-group">
+                  <h4>Clients &amp; Sites</h4>
+                  <div class="perm-row">
+                    <span class="name">View all clients</span>
+                    <div class="toggle on"></div>
+                  </div>
+                  <div class="perm-row">
+                    <span class="name">Edit clients</span>
+                    <div class="toggle on"></div>
+                  </div>
+                  <div class="perm-row">
+                    <span class="name">Archive client</span>
+                    <span class="danger-pill">Sensitive</span>
+                    <div class="toggle"></div>
+                  </div>
+                </div>
+
+                <div class="perm-group">
+                  <h4>Invoices &amp; Reminders</h4>
+                  <div class="perm-row">
+                    <span class="name">View invoices</span>
+                    <div class="toggle on"></div>
+                  </div>
+                  <div class="perm-row">
+                    <span class="name">Edit invoices</span>
+                    <span class="danger-pill">Sensitive</span>
+                    <div class="toggle on"></div>
+                  </div>
+                  <div class="perm-row">
+                    <span class="name">Record payment</span>
+                    <span class="danger-pill">Sensitive</span>
+                    <div class="toggle on"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="role-panel">
+              <div class="role-panel-head">
+                <span class="role-pill crew">Crew</span>
+                <span class="role-name">Field staff</span>
+                <span class="role-count">14/39</span>
+                <div class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="device-label">Roles &amp; Permissions accordion</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 6. MESSAGING (list + thread)                                -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num">6</div>
+    <div class="section-text">
+      <h2>Messaging — list view + thread view (<code>/messaging</code>)</h2>
+      <p>Replaces the 3-pane <code>340 + 480 + 320 = 1140px</code> grid (<code>index.css:1681 .msg-3pane</code>) with a route-based view swap on mobile: list at <code>/messaging</code>, thread at <code>/messaging/:id</code>. Back arrow in the topbar returns to the list. Composer pinned to the bottom with safe-area padding. Tabs at the top of the list mirror the existing All / Unread / Snoozed filters.</p>
+    </div>
+  </div>
+  <div class="row">
+
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></div>
+          <h2>Inbox</h2>
+        </div>
+        <div class="scroll">
+          <div class="head">
+            <h1>Messaging</h1>
+            <div class="head-actions">
+              <button class="btn btn-outline">Snippets</button>
+              <button class="btn btn-primary">+ New</button>
+            </div>
+          </div>
+
+          <div class="msg-tabs">
+            <div class="msg-tab active">All</div>
+            <div class="msg-tab">Unread <span style="background:rgba(255,255,255,.2);padding:0 6px;border-radius:8px;margin-left:4px">3</span></div>
+            <div class="msg-tab">Snoozed</div>
+          </div>
+
+          <div class="list">
+            <div class="msg-row unread">
+              <div class="av av-1 av-sm">JD</div>
+              <div class="name">Jane Doe</div>
+              <div class="ago">2m</div>
+              <div class="preview">Yes please — same time next week works perfectly. Should I email you the gate code or…</div>
+              <div class="meta-line">
+                <div class="channel-ic">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+                  SMS
+                </div>
+              </div>
+              <div class="unread-dot"></div>
+            </div>
+
+            <div class="msg-row unread">
+              <div class="av av-3 av-sm">MR</div>
+              <div class="name">Marcus Rivera</div>
+              <div class="ago">14m</div>
+              <div class="preview">Quote looks great. One question — does the deep-clean rate include the kitchen?</div>
+              <div class="meta-line">
+                <div class="channel-ic">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+                  Email
+                </div>
+              </div>
+              <div class="unread-dot"></div>
+            </div>
+
+            <div class="msg-row unread">
+              <div class="av av-2 av-sm">SH</div>
+              <div class="name">Steve Hammond</div>
+              <div class="ago">1h</div>
+              <div class="preview">Thanks for the heads up about Friday. We're all set on this end.</div>
+              <div class="meta-line">
+                <div class="channel-ic">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+                  SMS
+                </div>
+              </div>
+              <div class="unread-dot"></div>
+            </div>
+
+            <div class="msg-row">
+              <div class="av av-4 av-sm">LP</div>
+              <div class="name">Lauren Pham</div>
+              <div class="ago">3h</div>
+              <div class="preview">Got it — see you then. I'll leave the back door unlocked.</div>
+              <div class="meta-line">
+                <div class="channel-ic">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+                  SMS
+                </div>
+              </div>
+            </div>
+
+            <div class="msg-row">
+              <div class="av av-5 av-sm">RB</div>
+              <div class="name">Riverside Office Park</div>
+              <div class="ago">1d</div>
+              <div class="preview">You: Confirming we'll be there Tuesday at 8am. Crew of 3.</div>
+              <div class="meta-line">
+                <div class="channel-ic">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+                  Email
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="device-label">Messaging — list</div>
+    </div>
+
+    <div>
+      <div class="device">
+        <div class="topbar">
+          <div class="back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></div>
+          <h2>Jane Doe</h2>
+          <div class="more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg></div>
+        </div>
+        <div class="scroll" style="padding-bottom:80px">
+          <div class="thread-head">
+            <div class="av av-1">JD</div>
+            <div class="info">
+              <div class="name">Jane Doe</div>
+              <div class="sub">Acme Cleaning Co. · SMS · (425) 555-0144</div>
+            </div>
+          </div>
+
+          <div style="text-align:center;font-size:10px;color:var(--ink-3);margin:8px 0 12px">Today, 9:14 AM</div>
+
+          <div class="bubble out">Hi Jane — confirming your weekly visit Tuesday at 9 AM. Same crew as last week.<span class="bubble-time">9:14 AM ✓</span></div>
+          <div class="clear"></div>
+
+          <div class="bubble in">Sounds good! Will Tom be on the team again?<span class="bubble-time">9:32 AM</span></div>
+          <div class="clear"></div>
+
+          <div class="bubble out">Yes, Tom plus Lauren and Steve. Same kit too.<span class="bubble-time">9:34 AM ✓</span></div>
+          <div class="clear"></div>
+
+          <div class="bubble in">Yes please — same time next week works perfectly. Should I email you the gate code or text it?<span class="bubble-time">9:51 AM</span></div>
+          <div class="clear"></div>
+        </div>
+        <div class="composer">
+          <input placeholder="Type a message…" />
+          <div class="send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-8-8 18-2-7-8-3z"/></svg></div>
+        </div>
+      </div>
+      <div class="device-label">Messaging — thread</div>
+    </div>
+  </div>
+</div>
+
+<div class="footnote">
+  <h2>How these map to the audit</h2>
+  <ul style="margin:0;padding-left:18px;line-height:1.7">
+    <li><b>1 · Invoices list</b> — fixes audit row C4. Pattern reused: §3.3 card list.</li>
+    <li><b>2 · Invoice line items</b> — fixes C5 + C6. Pattern: stacked label/value (new pattern, document under §3.9).</li>
+    <li><b>3 · Reminders inbox</b> — fixes H5. Pattern: §3.3 card list with channel-icon variant.</li>
+    <li><b>4 · Team members</b> — fixes H6. Pattern: §3.3 card list with role-pill meta.</li>
+    <li><b>5 · Roles &amp; Permissions</b> — fixes H7. Pattern: accordion (new, document under §3.10).</li>
+    <li><b>6 · Messaging</b> — fixes C1. Pattern: route-based view swap; reuses existing routes <code>/messaging</code> and <code>/messaging/:id</code>.</li>
+  </ul>
+  <p style="margin-top:14px">Two new canonical patterns surface from these mockups (<b>stacked-rows for line items</b> and <b>role accordion</b>) — recommend appending §3.9 and §3.10 to <code>SHELL_MOBILE_RESPONSIVE.md</code> when these get implemented.</p>
+</div>
+
+</body>
+</html>

@@ -278,7 +278,101 @@ CSS:
 }
 ```
 
-### 3.8 Global guard (defense in depth)
+### 3.9 Stacked rows (form-shaped tables)
+
+Use this for tables that are really **forms** — invoice line items, payment rows, time entries, anything with editable numeric columns. Each row becomes a self-contained card with the description on its own line and a 3-column grid (or N-column, equal `1fr`) for the numeric fields.
+
+```css
+@media (max-width: 640px) {
+  .li-table { display: none; }   /* hide the table */
+  .li-stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .li-stack .li-item {
+    background: var(--card-bg);
+    border-radius: 14px;
+    box-shadow: var(--card-shadow-soft, var(--card-shadow));
+    padding: 14px;
+  }
+  .li-stack .li-desc {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .li-stack .li-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .li-stack .li-grid label {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+  }
+}
+```
+
+JSX side: render both `<table class="li-table">` and `<div class="li-stack">` with the same data; CSS swaps which is visible. The numeric inputs reuse the existing `FormField` styles inside the grid cells.
+
+### 3.10 Role accordion (matrix tables)
+
+Use this for the Roles & Permissions matrix and any future table where rows are records and columns are options to toggle (e.g. notification settings × channels). On desktop the matrix is dense; on mobile it becomes one accordion panel per column (role / channel / etc.) containing a flat list of rows with a per-row toggle.
+
+```css
+@media (max-width: 640px) {
+  .role-matrix-table { display: none; }
+  .role-accordion    { display: flex; flex-direction: column; gap: 8px; }
+
+  .role-panel {
+    background: var(--card-bg);
+    border-radius: 14px;
+    box-shadow: var(--card-shadow-soft, var(--card-shadow));
+    overflow: hidden;
+  }
+  .role-panel-head {
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .role-panel-head .role-name { flex: 1; font-weight: 700; }
+  .role-panel-head .role-count { color: var(--text-muted); font-weight: 600; font-size: 11px; }
+  .role-panel-head .chev { transition: transform .2s; }
+  .role-panel.open .chev { transform: rotate(180deg); }
+  .role-panel-body { display: none; padding: 0 14px 12px; border-top: 1px solid var(--card-border); }
+  .role-panel.open .role-panel-body { display: block; }
+
+  .perm-group { margin-top: 10px; }
+  .perm-group h4 {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin: 0 0 6px;
+  }
+  .perm-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-top: 1px solid var(--card-border);
+  }
+  .perm-row:first-of-type { border-top: none; }
+  .perm-row .name { flex: 1; min-width: 0; }
+  .perm-row .danger-pill {
+    font-size: 9px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; padding: 2px 6px; border-radius: 999px;
+    background: var(--badge-amber-bg); color: var(--badge-amber-text);
+    border: 1px solid var(--badge-amber-border);
+  }
+}
+```
+
+State: open/closed is local React state (`useState`). Default: first non-Owner role open, others collapsed. Sensitive permissions keep their existing amber pill from the desktop version. The "Reset all to defaults" button moves into the page head on mobile (use §3.1 stacking).
+
+### 3.11 Global guard (defense in depth)
 
 Add this once, at the top of `index.css`. Catches any future regression where a stray element pushes past the viewport.
 
@@ -296,7 +390,7 @@ The `* { min-width: 0 }` rule fixes the flexbox gotcha where `min-content` defau
 
 When porting back to the shell, walk this list. Each item should land in one PR or be explicitly deferred.
 
-- [ ] **Global** — apply §3.8 guard rules in `index.css`.
+- [ ] **Global** — apply §3.11 guard rules in `index.css`.
 - [ ] **Sidebar** — confirm §3.7 is present (already in this repo).
 - [ ] **Page head** — apply §3.1 to `.page-head`.
 - [ ] **Filter bar** — implement §3.2 + drawer modal variant.
@@ -306,11 +400,11 @@ When porting back to the shell, walk this list. Each item should land in one PR 
 - [ ] **`/contacts`** — Contacts table → card list (`ContactCardRow`).
 - [ ] **`/contacts` (Accounts tab)** — Accounts table → card list (`AccountCardRow`).
 - [ ] **`/invoices`** — Invoices list → card list (`InvoiceCardRow`).
-- [ ] **`/invoices/:id`** — Line-items + payments tables → stacked rows.
+- [ ] **`/invoices/:id`** — Line-items + payments tables → stacked rows (§3.9).
 - [ ] **`/reminders`** — Inbox table → card list.
 - [ ] **`/messaging`** — `.msg-3pane` 640px breakpoint + route-based view swap (list → thread).
 - [ ] **`/settings/team`** — Members table → card list.
-- [ ] **`/settings/roles`** — Permission matrix → accordion.
+- [ ] **`/settings/roles`** — Permission matrix → accordion (§3.10).
 - [ ] **`/settings/team/:id`** — Overrides table → card list.
 - [ ] **`/settings/services`** — Services + frequencies tables → card lists.
 - [ ] **`/clients/:id`** — Service history / sites / contacts tables → card lists.
@@ -321,11 +415,30 @@ When porting back to the shell, walk this list. Each item should land in one PR 
 
 ---
 
-## 5. The mobile Contacts redesign (reference)
+## 5. Mobile redesign mockups (reference)
 
-See [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html) — open directly in a browser, or visit `/mobile-contacts-mockup.html` while the dev server is running. Three states are shown side-by-side: default list, bulk selection (sticky bar), filter drawer open.
+Two visual reference files. Open directly in a browser, or visit them at the dev server URLs while it's running.
 
-**Card anatomy:**
+| File | Covers | URL |
+|---|---|---|
+| [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html) | Contacts list — 3 states (default, bulk selection with sticky bar, filter drawer open). The canonical card-list pattern. | `/mobile-contacts-mockup.html` |
+| [`app/public/mobile-mockups.html`](app/public/mobile-mockups.html) | Six additional patterns: Invoices list, Invoice line items (stacked rows §3.9), Reminders inbox, Team members, Roles & Permissions accordion (§3.10), Messaging list + thread (route-based view swap). | `/mobile-mockups.html` |
+
+### Mockup index
+
+| # | Surface | Audit row | Pattern |
+|---|---|---|---|
+| 0 | Contacts list | C2 | §3.3 card list (canonical reference) |
+| 1 | Invoices list | C4 | §3.3 card list with money + status meta |
+| 2 | Invoice line items | C5 / C6 | §3.9 stacked rows |
+| 3 | Reminders inbox | H5 | §3.3 card list with channel-icon variant |
+| 4 | Team members | H6 | §3.3 card list with role-pill meta |
+| 5 | Roles & Permissions | H7 | §3.10 role accordion |
+| 6 | Messaging | C1 | route-based view swap (`/messaging` → `/messaging/:id`) |
+
+### Contacts card anatomy
+
+The contacts mockup shows three states side-by-side: default list, bulk selection (sticky bar), filter drawer open. Card layout:
 
 ```
 ┌─────────────────────────────────────────┐
