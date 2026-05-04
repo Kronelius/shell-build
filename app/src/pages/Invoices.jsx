@@ -128,7 +128,7 @@ export default function Invoices() {
         <FormField label="Status" as="select" value={statusFilter} onChange={(e) => setParam('status', e.target.value, 'all')}
           options={[{ value: 'all', label: 'All statuses' }, { value: 'draft', label: 'Draft' }, { value: 'pending', label: 'Pending' }, { value: 'overdue', label: 'Overdue' }, { value: 'paid', label: 'Paid' }, { value: 'void', label: 'Void' }]} />
         <FormField label="Client" as="select" value={clientFilter} onChange={(e) => setParam('client', e.target.value, 'all')}
-          options={[{ value: 'all', label: 'All clients' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} />
+          options={[{ value: 'all', label: 'All clients' }, ...clients.filter((c) => c.status !== 'inactive').map((c) => ({ value: c.id, label: c.name }))]} />
         <FormField label="Date range" as="select" value={dateRange} onChange={(e) => setParam('range', e.target.value, '30')}
           options={[{ value: 'all', label: 'All time' }, { value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
       </div>

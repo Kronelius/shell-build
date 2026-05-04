@@ -22,6 +22,7 @@ import Messaging from './pages/Messaging';
 import SettingsLayout from './pages/settings/SettingsLayout';
 import SettingsCompany from './pages/settings/Company';
 import SettingsServices from './pages/settings/Services';
+import SettingsTags from './pages/settings/Tags';
 import SettingsTeam from './pages/settings/Team';
 import SettingsTeamDetail from './pages/settings/TeamDetail';
 import SettingsRoles from './pages/settings/Roles';
@@ -64,6 +65,7 @@ export default function App() {
                 <Route index element={<Navigate to="account" replace />} />
                 <Route path="company" element={<RequirePerm perm="settings.company"><SettingsCompany /></RequirePerm>} />
                 <Route path="services" element={<RequirePerm perm="settings.services"><SettingsServices /></RequirePerm>} />
+                <Route path="tags" element={<RequirePerm perm="tags.manage"><SettingsTags /></RequirePerm>} />
                 <Route path="team" element={<RequirePerm perm="settings.team.view"><SettingsTeam /></RequirePerm>} />
                 <Route path="team/:userId" element={<RequirePerm perm="settings.team.view"><SettingsTeamDetail /></RequirePerm>} />
                 <Route path="roles" element={<RequirePerm perm="settings.roles.edit"><SettingsRoles /></RequirePerm>} />

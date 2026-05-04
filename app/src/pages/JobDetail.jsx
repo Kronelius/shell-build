@@ -18,7 +18,7 @@ import Icon from '../components/Icon';
 import { fmtDateLong, fmtTimeRange, splitIso, composeIso } from '../lib/dates';
 import { describeRecurrence } from '../lib/recurrence';
 
-const STATUS_LABEL = { upcoming: 'Upcoming', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled' };
+const STATUS_LABEL = { upcoming: 'Upcoming', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled', missed: 'Missed' };
 
 export default function JobDetail() {
   const { jobId } = useParams();
@@ -150,6 +150,9 @@ export default function JobDetail() {
             {canTransition && job.status !== 'cancelled' && (
               <button className="btn btn-outline btn-sm" onClick={() => transition('cancelled')}>Cancel Job</button>
             )}
+            {canTransition && job.status !== 'missed' && job.status !== 'done' && (
+              <button className="btn btn-outline btn-sm" onClick={() => transition('missed')}>Mark Missed</button>
+            )}
             {canEdit && !editing && <button className="btn btn-outline btn-sm" onClick={handleEditClick}>Edit</button>}
             {canEdit && <button className="btn btn-danger btn-sm" onClick={handleDeleteClick}>Delete</button>}
           </div>
@@ -185,7 +188,7 @@ export default function JobDetail() {
           <h3 className="dash-card-title">Details</h3>
           {!editing ? (
             <dl className="detail-dl">
-              <div><dt>Client</dt><dd>{client ? <a className="link" href={`/clients/${client.id}`}>{client.name}</a> : '—'}</dd></div>
+              <div><dt>Client</dt><dd>{client ? <Link className="link" to={`/clients/${client.id}`} state={nav}>{client.name}</Link> : '—'}</dd></div>
               <div><dt>Site</dt><dd>{site?.name || '—'}{site?.address ? <div className="text-muted text-sm">{site.address}</div> : null}</dd></div>
               <div>
                 <dt>Site contact</dt>

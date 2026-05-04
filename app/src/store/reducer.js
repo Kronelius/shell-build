@@ -45,7 +45,6 @@ export const ACTIONS = {
   ASSIGN_CONTACT_OWNER: 'ASSIGN_CONTACT_OWNER',
   SET_CONTACT_VISIBILITY: 'SET_CONTACT_VISIBILITY',
   SET_CONTACT_STAGE: 'SET_CONTACT_STAGE',
-  SET_CONTACT_LIFECYCLE: 'SET_CONTACT_LIFECYCLE',
   APPEND_CONTACT_NOTE: 'APPEND_CONTACT_NOTE',
 
   // Tags
@@ -55,6 +54,7 @@ export const ACTIONS = {
 
   // Contact activities
   ADD_CONTACT_ACTIVITY: 'ADD_CONTACT_ACTIVITY',
+  UPDATE_CONTACT_ACTIVITY: 'UPDATE_CONTACT_ACTIVITY',
 
   // Per-user permission overrides
   SET_USER_PERMISSION_OVERRIDE: 'SET_USER_PERMISSION_OVERRIDE',
@@ -168,15 +168,28 @@ export function reducer(state, action) {
       return { ...state, services: [...state.services, { id: newId('svc'), defaultDurationMins: 60, ...action.service }] };
     case ACTIONS.UPDATE_SERVICE:
       return { ...state, services: replaceById(state.services, action.id, action.patch) };
-    case ACTIONS.DELETE_SERVICE:
-      return { ...state, services: removeById(state.services, action.id) };
+    case ACTIONS.DELETE_SERVICE: {
+      const id = action.id;
+      return {
+        ...state,
+        services: removeById(state.services, id),
+        clients: state.clients.map((c) => (c.serviceId === id ? { ...c, serviceId: null } : c)),
+        jobs: state.jobs.map((j) => (j.serviceId === id ? { ...j, serviceId: null } : j)),
+      };
+    }
 
     case ACTIONS.ADD_FREQUENCY:
       return { ...state, frequencies: [...state.frequencies, { id: newId('frq'), ...action.frequency }] };
     case ACTIONS.UPDATE_FREQUENCY:
       return { ...state, frequencies: replaceById(state.frequencies, action.id, action.patch) };
-    case ACTIONS.DELETE_FREQUENCY:
-      return { ...state, frequencies: removeById(state.frequencies, action.id) };
+    case ACTIONS.DELETE_FREQUENCY: {
+      const id = action.id;
+      return {
+        ...state,
+        frequencies: removeById(state.frequencies, id),
+        clients: state.clients.map((c) => (c.frequencyId === id ? { ...c, frequencyId: null } : c)),
+      };
+    }
 
     // ---------- Users ----------
     case ACTIONS.ADD_USER: {
@@ -185,12 +198,26 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_USER:
       return { ...state, users: replaceById(state.users, action.id, action.patch) };
-    case ACTIONS.DELETE_USER:
+    case ACTIONS.DELETE_USER: {
+      const id = action.id;
       return {
         ...state,
-        users: removeById(state.users, action.id),
-        userPermissionOverrides: (state.userPermissionOverrides || []).filter((o) => o.userId !== action.id),
+        users: removeById(state.users, id),
+        userPermissionOverrides: (state.userPermissionOverrides || []).filter((o) => o.userId !== id),
+        contacts: (state.contacts || []).map((c) => (c.ownerUserId === id ? { ...c, ownerUserId: null } : c)),
+        jobs: state.jobs.map((j) => (
+          (j.crewIds || []).includes(id) ? { ...j, crewIds: j.crewIds.filter((u) => u !== id) } : j
+        )),
+        conversations: state.conversations.map((cv) => {
+          const next = { ...cv };
+          if (next.assignedUserId === id) next.assignedUserId = null;
+          if ((next.followedUserIds || []).includes(id)) next.followedUserIds = next.followedUserIds.filter((u) => u !== id);
+          return next;
+        }),
+        messages: state.messages.map((m) => (m.authorUserId === id ? { ...m, authorUserId: null } : m)),
+        contactActivities: (state.contactActivities || []).map((a) => (a.authorUserId === id ? { ...a, authorUserId: null } : a)),
       };
+    }
 
     // ---------- Clients ----------
     case ACTIONS.ADD_CLIENT: {
@@ -335,8 +362,6 @@ export function reducer(state, action) {
         contactActivities: [...(state.contactActivities || []), ...activity],
       };
     }
-    case ACTIONS.SET_CONTACT_LIFECYCLE:
-      return { ...state, contacts: replaceById(state.contacts || [], action.id, { lifecycle: action.lifecycle, updatedAt: nowIso() }) };
     case ACTIONS.APPEND_CONTACT_NOTE: {
       const now = nowIso();
       const authorUserId = action.authorUserId || state.currentUserId;
@@ -382,8 +407,16 @@ export function reducer(state, action) {
 
     // ---------- Contact activities ----------
     case ACTIONS.ADD_CONTACT_ACTIVITY: {
-      const base = { id: newId('act'), occurredAt: nowIso(), authorUserId: state.currentUserId };
+      const base = { id: newId('act'), occurredAt: nowIso(), createdAt: nowIso(), authorUserId: state.currentUserId };
       return { ...state, contactActivities: [...(state.contactActivities || []), { ...base, ...action.activity }] };
+    }
+    case ACTIONS.UPDATE_CONTACT_ACTIVITY: {
+      return {
+        ...state,
+        contactActivities: (state.contactActivities || []).map((a) =>
+          a.id === action.id ? { ...a, ...action.patch } : a
+        ),
+      };
     }
 
     // ---------- Per-user permission overrides ----------
@@ -409,8 +442,15 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_SITE:
       return { ...state, sites: replaceById(state.sites, action.id, action.patch) };
-    case ACTIONS.DELETE_SITE:
-      return { ...state, sites: removeById(state.sites, action.id) };
+    case ACTIONS.DELETE_SITE: {
+      const id = action.id;
+      return {
+        ...state,
+        sites: removeById(state.sites, id),
+        jobs: state.jobs.map((j) => (j.siteId === id ? { ...j, siteId: null } : j)),
+        invoices: state.invoices.map((inv) => (inv.siteId === id ? { ...inv, siteId: null } : inv)),
+      };
+    }
 
     // ---------- Jobs ----------
     case ACTIONS.ADD_JOB: {
@@ -442,18 +482,38 @@ export function reducer(state, action) {
     }
     case ACTIONS.SET_JOB_STATUS:
       return { ...state, jobs: replaceById(state.jobs, action.id, { status: action.status }) };
-    case ACTIONS.DELETE_JOB:
-      return { ...state, jobs: removeById(state.jobs, action.id) };
-    case ACTIONS.DELETE_JOB_SERIES:
+    case ACTIONS.DELETE_JOB: {
+      const id = action.id;
       return {
         ...state,
-        jobs: state.jobs.filter((j) => {
-          if (j.seriesId !== action.seriesId) return true;
-          if (j.status !== 'upcoming') return true;
-          if (action.fromDate && j.startAt < action.fromDate) return true;
-          return false;
-        }),
+        jobs: removeById(state.jobs, id),
+        invoices: state.invoices.map((inv) => (
+          (inv.jobIds || []).includes(id) ? { ...inv, jobIds: inv.jobIds.filter((j) => j !== id) } : inv
+        )),
+        reminderEvents: (state.reminderEvents || []).filter((e) => e.jobId !== id),
       };
+    }
+    case ACTIONS.DELETE_JOB_SERIES: {
+      const removedIds = new Set(
+        state.jobs
+          .filter((j) => {
+            if (j.seriesId !== action.seriesId) return false;
+            if (j.status !== 'upcoming') return false;
+            if (action.fromDate && j.startAt < action.fromDate) return false;
+            return true;
+          })
+          .map((j) => j.id)
+      );
+      return {
+        ...state,
+        jobs: state.jobs.filter((j) => !removedIds.has(j.id)),
+        invoices: state.invoices.map((inv) => {
+          const ids = (inv.jobIds || []).filter((id) => !removedIds.has(id));
+          return ids.length === (inv.jobIds || []).length ? inv : { ...inv, jobIds: ids };
+        }),
+        reminderEvents: (state.reminderEvents || []).filter((e) => !removedIds.has(e.jobId)),
+      };
+    }
 
     // ---------- Invoices ----------
     case ACTIONS.ADD_INVOICE: {
