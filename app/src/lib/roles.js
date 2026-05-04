@@ -66,6 +66,15 @@ export const PERMISSIONS = {
   // ---------- Integrations ----------
   'integrations.view':       { label: 'View integrations',           defaultRoles: ['owner'] },
   'integrations.manage':     { label: 'Connect / manage integrations', defaultRoles: ['owner'] },
+  // ---------- Outreach (cold email module — v11) ----------
+  'outreach.view':           { label: 'View Outreach',                defaultRoles: ['owner', 'admin'] },
+  'outreach.edit':           { label: 'Create / edit campaigns',      defaultRoles: ['owner', 'admin'] },
+  'outreach.send':           { label: 'Activate / pause campaigns',   defaultRoles: ['owner', 'admin'] },
+  'outreach.replies':        { label: 'Triage outreach replies',      defaultRoles: ['owner', 'admin'] },
+  // ---------- Prospecting (Scrap.io scraper — v12) ----------
+  'prospecting.search':      { label: 'Run prospect searches',        defaultRoles: ['owner', 'admin'] },
+  'prospecting.enrich':      { label: 'Enrich decision makers',       defaultRoles: ['owner', 'admin'] },
+  'prospecting.save':        { label: 'Save prospects to CRM',        defaultRoles: ['owner', 'admin'] },
   // ---------- Super Admin gates ----------
   'staff.assignRoles':       { label: 'Assign roles to staff',       defaultRoles: ['owner'] },
   'staff.editOverrides':     { label: 'Grant / revoke per-user perms', defaultRoles: ['owner'] },

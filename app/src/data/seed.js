@@ -527,11 +527,372 @@ const pipelineStages = [
   { id: seedId('ps', 'lost'),      key: 'lost',      label: 'Lost' },
 ];
 
+// ---------- Outreach (cold email module — v11) ----------
+// Stub-data for the new Outreach module. Pre-populated so KPIs aren't all zeros
+// during demo. Real production wiring (mailbox connect, scheduled dispatch,
+// inbound webhook) is documented in components/OutreachDispatcher.jsx and
+// lib/outreach.js — both ship as adapters with stub implementations.
+//
+// Entity model (kept intentionally flat — same convention as the rest of the store):
+//   campaigns          — top-level campaign record (name, status, sequence ids, audience)
+//   campaignSteps      — per-step copy: subject, body, delayDays, channel, order
+//   campaignEnrollments— join row: contactId × campaignId × currentStepIndex × status
+//   campaignEvents     — sent/opened/clicked/replied/bounced/unsubscribed events
+//   outreachReplies    — inbound replies with AI classification + auto-actions taken
+//   outreachSettings   — mailbox config, sending caps, auto-routing rules
+const outreachSettings = {
+  // ---------- Instantly.ai integration (v13) ----------
+  // The user pastes their Instantly v2 API key here. When set, lib/outreach.js
+  // hits api.instantly.ai for real campaign / lead / mailbox / replies CRUD.
+  // When null, every code path falls back to a local simulation so the demo
+  // continues to work for client previews.
+  instantlyApiKey: null,           // raw key — null = stub mode
+  instantlyKeyValidatedAt: null,   // ISO timestamp of last successful validate
+  instantlyPlanTier: null,         // 'growth' | 'hypergrowth' | null — gates webhook UX
+  // Cached mailbox list pulled from GET /accounts. Refreshed on demand from
+  // the Settings tab + the New Campaign sender dropdown. Each entry:
+  //   { id, email, firstName, lastName, provider, status, warmupScore, dailyLimit, setupPending, createdAt }
+  instantlyMailboxes: [],
+  instantlyMailboxesFetchedAt: null,
+  // Default timezone for new campaigns (Instantly campaign_schedule wants IANA).
+  defaultTimezone: 'America/Los_Angeles',
+  // Pending OAuth session (set when user kicks off Connect Google / Microsoft).
+  // Cleared after pollOAuthSession returns success/error/expired.
+  pendingOAuth: null,              // { sessionId, provider, authUrl, expiresAt, startedAt } | null
+  // Legacy stub mailbox (kept so the existing mailbox UI keeps working when no
+  // Instantly key is configured — the new MailboxCard in Outreach.jsx branches
+  // on instantlyApiKey to decide which UI to render).
+  mailboxConnected: false,
+  mailboxProvider: null,           // 'google' | 'microsoft' | 'imap'
+  mailboxAddress: null,
+  mailboxConnectedAt: null,
+  // Anthropic API key — required for AI auto-routing fallback when Instantly's
+  // own classifications aren't available (Growth tier without webhooks). Also
+  // powers the Find Prospects → decision-maker enrichment Layer 1.
+  anthropicApiKey: null,           // raw key (sk-ant-...) — null = not configured
+  anthropicKeyValidatedAt: null,   // ISO timestamp of last successful validate
+  // Prospecting (v12) — separate vendor keys for the Find Prospects tab.
+  scrapioApiKey: null,             // Scrap.io key for Google Maps scraping
+  scrapioKeyValidatedAt: null,
+  perplexityApiKey: null,          // Perplexity Sonar — used as enrichment fallback
+  perplexityKeyValidatedAt: null,
+  // Business profile — anchors decision-maker enrichment to "who BUYS from you"
+  // instead of "who works at the prospect". Without this the enricher would
+  // pick whatever role exists at the prospect (Practice Manager at a dental
+  // office) — which is wrong if the user sells to Facilities Managers.
+  // targetRoles is priority-ordered: enricher tries role 1, falls back to 2, etc.
+  businessProfile: {
+    whatYouSell: 'Janitorial and commercial cleaning services',
+    targetRoles: ['Facilities Manager', 'Office Manager', 'Operations Director', 'Practice Manager', 'Owner'],
+    targetIndustries: ['Medical / Dental', 'Property Management', 'Office', 'Restaurants'],
+    excludedTitles: ['Receptionist', 'Administrative Assistant'],
+  },
+  // Sending caps & schedule (per Instantly-style safety limits).
+  dailyCap: 50,
+  sendingHoursStart: 9,            // 9am local
+  sendingHoursEnd: 17,             // 5pm local
+  sendingDays: [1, 2, 3, 4, 5],    // Mon–Fri
+  trackOpens: true,
+  trackClicks: true,
+  // ---------- AI auto-routing ----------
+  // Master toggle: when off, every reply lands in the inbox for manual triage
+  // and no rules below fire. When on, the per-classification rules apply.
+  autoRoutingEnabled: true,
+  autoRouting: {
+    // INTERESTED — move into the pipeline + tag.
+    interestedToPipeline: true,
+    interestedPipelineStageKey: 'qualified', // user-selectable; matches a pipelineStages.key
+    interestedTagId: tagId('hotlead'),
+    // NOT INTERESTED — tag for suppression.
+    notInterestedTagId: tagId('dnd'),
+    // UNSUBSCRIBE — archive the contact globally.
+    unsubscribeArchive: true,
+    // QUESTION — defer + route to owner for human reply.
+    questionAssignToOwner: true,
+  },
+};
+
+// Step templates — every campaign references these by id.
+// Token interpolation: {first_name} {last_name} {company} {sender_first_name} {sender_company}
+const campaignSteps = [
+  // Campaign A: SaaS-style 4-touch outbound to operations leaders
+  { id: seedId('cs', 'a-1'), campaignId: seedId('cmp', 'a'), order: 1, delayDays: 0,  channel: 'email',
+    subject: 'Quick question about cleaning ops at {company}',
+    body: "Hi {first_name},\n\nNoticed {company} runs multi-site facilities — curious how you're handling janitorial scheduling across locations today.\n\nWe help ops leads consolidate vendor coordination + service verification into one dashboard. Worth a 15-min look?\n\n— {sender_first_name}" },
+  { id: seedId('cs', 'a-2'), campaignId: seedId('cmp', 'a'), order: 2, delayDays: 3,  channel: 'email',
+    subject: 'Re: Quick question about cleaning ops at {company}',
+    body: "{first_name} — bumping this up. Most ops leaders we work with were juggling 3+ vendors over text/email before consolidating. Open to a quick chat?\n\n— {sender_first_name}" },
+  { id: seedId('cs', 'a-3'), campaignId: seedId('cmp', 'a'), order: 3, delayDays: 4,  channel: 'email',
+    subject: 'Thought you might find this useful, {first_name}',
+    body: "Quick case study from a similar 4-site operation — they cut vendor coordination time by ~6 hrs/week using {sender_company}.\n\nHappy to share if useful.\n\n— {sender_first_name}" },
+  { id: seedId('cs', 'a-4'), campaignId: seedId('cmp', 'a'), order: 4, delayDays: 5,  channel: 'email',
+    subject: 'Closing the loop',
+    body: "{first_name} — last note from me. If timing isn't right, totally understand. Happy to circle back next quarter.\n\n— {sender_first_name}" },
+
+  // Campaign B: Property managers (residential focus, 3-touch)
+  { id: seedId('cs', 'b-1'), campaignId: seedId('cmp', 'b'), order: 1, delayDays: 0, channel: 'email',
+    subject: 'Cleaning vendor coverage for {company}?',
+    body: "Hi {first_name},\n\nWe work with property managers running multi-unit residential — turnovers, common areas, after-incident deep cleans, the works.\n\nIf you're scoping coverage for next quarter, would love to put a quote in front of you.\n\n— {sender_first_name}" },
+  { id: seedId('cs', 'b-2'), campaignId: seedId('cmp', 'b'), order: 2, delayDays: 4, channel: 'email',
+    subject: 'Quick follow-up',
+    body: "{first_name} — wanted to make sure my note didn't get buried. Even a quick \"not now\" is helpful so I know when to circle back.\n\n— {sender_first_name}" },
+  { id: seedId('cs', 'b-3'), campaignId: seedId('cmp', 'b'), order: 3, delayDays: 6, channel: 'email',
+    subject: 'One last note',
+    body: "{first_name} — closing the loop here. If timing changes on cleaning vendor needs, you know where to find me.\n\n— {sender_first_name}" },
+
+  // Campaign C: Dental / medical office (single-touch warm intro — draft state)
+  { id: seedId('cs', 'c-1'), campaignId: seedId('cmp', 'c'), order: 1, delayDays: 0, channel: 'email',
+    subject: 'Janitorial for medical practices, {first_name}?',
+    body: "Hi {first_name},\n\nWe specialize in medical / dental office cleaning — bloodborne-pathogen training, proper PPE protocols, after-hours scheduling.\n\nWorth a 10-min call to see if we're a fit?\n\n— {sender_first_name}" },
+];
+
+const campaigns = [
+  {
+    id: seedId('cmp', 'a'),
+    name: 'Q2 Multi-Site Operations Leaders',
+    status: 'active',                 // draft | active | paused | completed
+    description: 'Outbound to facility/operations directors at multi-site commercial businesses (4+ locations).',
+    audienceFilter: 'commercial multi-site',
+    senderUserId: users[0].id,        // Alex Morgan
+    fromEmail: 'alex@acmecleaning.co',
+    createdAt: daysAgo(14),
+    activatedAt: daysAgo(13),
+    completedAt: null,
+    pausedAt: null,
+    pausedReason: null,
+  },
+  {
+    id: seedId('cmp', 'b'),
+    name: 'Property Manager Outreach (Spring)',
+    status: 'active',
+    description: 'Residential property managers — turnover + common-area cleaning.',
+    audienceFilter: 'residential property',
+    senderUserId: users[1].id,        // Jordan Tate
+    fromEmail: 'jordan@acmecleaning.co',
+    createdAt: daysAgo(8),
+    activatedAt: daysAgo(7),
+    completedAt: null,
+    pausedAt: null,
+    pausedReason: null,
+  },
+  {
+    id: seedId('cmp', 'c'),
+    name: 'Medical & Dental Practices',
+    status: 'draft',
+    description: 'Specialty pitch for medical/dental — pathogen training & after-hours work.',
+    audienceFilter: 'medical dental',
+    senderUserId: users[0].id,
+    fromEmail: 'alex@acmecleaning.co',
+    createdAt: daysAgo(2),
+    activatedAt: null,
+    completedAt: null,
+    pausedAt: null,
+    pausedReason: null,
+  },
+];
+
+// Enrollments — one row per (contact × campaign).
+// status: pending (waiting on next step) | active (in flight) | replied | unsubscribed | bounced | completed
+const campaignEnrollments = [
+  // Campaign A — 4 prospects in various stages
+  { id: seedId('cen', 'a-jamie'),  campaignId: campaigns[0].id, contactId: contacts[7].id,  currentStepIndex: 2, status: 'replied',     enrolledAt: daysAgo(13), lastSentAt: daysAgo(7),  nextSendAt: null },
+  { id: seedId('cen', 'a-robin'),  campaignId: campaigns[0].id, contactId: contacts[8].id,  currentStepIndex: 1, status: 'active',      enrolledAt: daysAgo(10), lastSentAt: daysAgo(7),  nextSendAt: daysFromNow(0) },
+  { id: seedId('cen', 'a-taylor'), campaignId: campaigns[0].id, contactId: contacts[9].id,  currentStepIndex: 3, status: 'active',      enrolledAt: daysAgo(13), lastSentAt: daysAgo(2),  nextSendAt: daysFromNow(3) },
+  { id: seedId('cen', 'a-morgan'), campaignId: campaigns[0].id, contactId: contacts[11].id, currentStepIndex: 2, status: 'replied',     enrolledAt: daysAgo(13), lastSentAt: daysAgo(8),  nextSendAt: null },
+
+  // Campaign B — 3 prospects
+  { id: seedId('cen', 'b-robin'),  campaignId: campaigns[1].id, contactId: contacts[8].id,  currentStepIndex: 0, status: 'active',      enrolledAt: daysAgo(7),  lastSentAt: daysAgo(7),  nextSendAt: daysFromNow(0) },
+  { id: seedId('cen', 'b-sam'),    campaignId: campaigns[1].id, contactId: contacts[12].id, currentStepIndex: 1, status: 'active',      enrolledAt: daysAgo(7),  lastSentAt: daysAgo(3),  nextSendAt: daysFromNow(2) },
+];
+
+// Events — sent/opened/clicked/replied per (enrollment, step). Drives KPI rollups.
+// Generated procedurally so the numbers feel realistic.
+const campaignEvents = (() => {
+  const evts = [];
+  let n = 0;
+  const push = (campaignId, contactId, stepIndex, type, daysAgoVal) => {
+    evts.push({
+      id: seedId('cev', `e${n++}`),
+      campaignId, contactId, stepIndex, type,
+      occurredAt: daysAgo(daysAgoVal),
+    });
+  };
+  // Campaign A: full funnel for 4 enrolled contacts
+  // Jamie — sent x3, opened x3, replied on step 2
+  push(campaigns[0].id, contacts[7].id, 0, 'sent',   13);
+  push(campaigns[0].id, contacts[7].id, 0, 'opened', 13);
+  push(campaigns[0].id, contacts[7].id, 1, 'sent',   10);
+  push(campaigns[0].id, contacts[7].id, 1, 'opened', 10);
+  push(campaigns[0].id, contacts[7].id, 2, 'sent',    7);
+  push(campaigns[0].id, contacts[7].id, 2, 'opened',  7);
+  push(campaigns[0].id, contacts[7].id, 2, 'clicked', 7);
+  push(campaigns[0].id, contacts[7].id, 2, 'replied', 6);
+  // Robin — sent x2, opened both
+  push(campaigns[0].id, contacts[8].id, 0, 'sent',   10);
+  push(campaigns[0].id, contacts[8].id, 0, 'opened', 10);
+  push(campaigns[0].id, contacts[8].id, 1, 'sent',    7);
+  push(campaigns[0].id, contacts[8].id, 1, 'opened',  7);
+  // Taylor — full sequence, no reply
+  push(campaigns[0].id, contacts[9].id, 0, 'sent',   13);
+  push(campaigns[0].id, contacts[9].id, 0, 'opened', 12);
+  push(campaigns[0].id, contacts[9].id, 1, 'sent',   10);
+  push(campaigns[0].id, contacts[9].id, 1, 'opened', 10);
+  push(campaigns[0].id, contacts[9].id, 2, 'sent',    6);
+  push(campaigns[0].id, contacts[9].id, 2, 'opened',  6);
+  push(campaigns[0].id, contacts[9].id, 3, 'sent',    2);
+  // Morgan — replied (negative) on step 2
+  push(campaigns[0].id, contacts[11].id, 0, 'sent',   13);
+  push(campaigns[0].id, contacts[11].id, 0, 'opened', 13);
+  push(campaigns[0].id, contacts[11].id, 1, 'sent',   10);
+  push(campaigns[0].id, contacts[11].id, 1, 'opened', 10);
+  push(campaigns[0].id, contacts[11].id, 2, 'sent',    8);
+  push(campaigns[0].id, contacts[11].id, 2, 'replied', 7);
+
+  // Campaign B
+  push(campaigns[1].id, contacts[8].id,  0, 'sent',    7);
+  push(campaigns[1].id, contacts[8].id,  0, 'opened',  6);
+  push(campaigns[1].id, contacts[12].id, 0, 'sent',    7);
+  push(campaigns[1].id, contacts[12].id, 0, 'opened',  7);
+  push(campaigns[1].id, contacts[12].id, 1, 'sent',    3);
+  push(campaigns[1].id, contacts[12].id, 1, 'opened',  3);
+  return evts;
+})();
+
+// Inbound replies with AI classification.
+// classification: interested | not_interested | question | out_of_office | unsubscribe | other
+// autoActions: array of strings recording what the dispatcher already did (idempotent log).
+const outreachReplies = [
+  {
+    id: seedId('orp', 'jamie'),
+    campaignId: campaigns[0].id,
+    contactId: contacts[7].id,
+    stepIndex: 2,
+    body: "Yes — definitely interested. We have 4 dental practices and our current cleaning vendor is a mess. When can we talk this week?",
+    receivedAt: daysAgo(6),
+    classification: 'interested',
+    classificationConfidence: 0.94,
+    classificationReasoning: 'Explicit affirmative ("Yes — definitely interested"), pain point named ("current vendor is a mess"), asked to schedule ("when can we talk").',
+    autoActions: [
+      'Tagged contact "Hot Lead"',
+      'Moved to Pipeline → Qualified',
+      'Paused remaining sequence steps',
+    ],
+    handledByUserId: null,
+    handledAt: null,
+  },
+  {
+    id: seedId('orp', 'morgan'),
+    campaignId: campaigns[0].id,
+    contactId: contacts[11].id,
+    stepIndex: 2,
+    body: "Please remove me from this list. Not interested.",
+    receivedAt: daysAgo(7),
+    classification: 'not_interested',
+    classificationConfidence: 0.97,
+    classificationReasoning: 'Explicit removal request and "not interested" statement.',
+    autoActions: [
+      'Tagged contact "Do Not Disturb"',
+      'Suppressed from all future campaigns',
+      'Paused remaining sequence steps',
+    ],
+    handledByUserId: null,
+    handledAt: null,
+  },
+  {
+    id: seedId('orp', 'kim'),
+    campaignId: campaigns[0].id,
+    contactId: contacts[4].id,
+    stepIndex: 0,
+    body: "I'm out of office until next Tuesday. Will reply when I'm back.",
+    receivedAt: hoursAgo(6),
+    classification: 'out_of_office',
+    classificationConfidence: 0.92,
+    classificationReasoning: 'Auto-reply pattern; dated return note.',
+    autoActions: [
+      'Paused next step until Wed',
+      'No tag changes',
+    ],
+    handledByUserId: null,
+    handledAt: null,
+  },
+  {
+    id: seedId('orp', 'lee'),
+    campaignId: campaigns[1].id,
+    contactId: contacts[5].id,
+    stepIndex: 0,
+    body: "What's the typical pricing for an 80-unit complex? Hard to evaluate without a ballpark.",
+    receivedAt: hoursAgo(20),
+    classification: 'question',
+    classificationConfidence: 0.88,
+    classificationReasoning: 'Direct ask for pricing — qualifying question, not commitment but high intent.',
+    autoActions: [
+      'Routed to Alex (campaign owner) for human reply',
+      'Paused next step until handled',
+    ],
+    handledByUserId: null,
+    handledAt: null,
+  },
+];
+
+// ---------- Prospecting (Scrap.io scraper — v12) ----------
+// Mirrors LeadStart's prospect_searches + prospect_results model. A search row
+// captures the query + lifecycle (queued / running / completed / failed). Each
+// search produces N result rows (one per business found). Decision-maker
+// enrichment is its own join table — a result can have 0 or 1 active run, and
+// successful runs populate decisionMaker fields back on the result for fast
+// rendering. Saving a result to CRM creates a contact in the existing entity
+// store (no parallel "prospects" silo).
+const prospectSearches = [
+  {
+    id: seedId('ps_s', 'q1'),
+    query: 'commercial cleaning',
+    location: 'Seattle, WA',
+    resultCap: 10,
+    status: 'completed',           // queued | running | completed | failed
+    progress: 100,
+    runByUserId: users[0].id,
+    createdAt: daysAgo(2),
+    completedAt: daysAgo(2),
+    failureReason: null,
+  },
+];
+
+const prospectResults = [
+  // Results for the seeded search above.
+  { id: seedId('ps_r', 'q1-a'), searchId: prospectSearches[0].id, businessName: 'Emerald Janitorial Services',  category: 'Commercial cleaning', address: '1402 4th Ave, Seattle WA 98101',  phone: '(206) 555-0410', website: 'emeraldjanitorial.com',   email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-b'), searchId: prospectSearches[0].id, businessName: 'Pacific Northwest Cleaners',   category: 'Janitorial',          address: '500 Stewart St, Seattle WA 98101', phone: '(206) 555-0411', website: 'pncleaners.com',          email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-c'), searchId: prospectSearches[0].id, businessName: 'Skyline Office Cleaning',      category: 'Commercial cleaning', address: '2100 Westlake Ave, Seattle WA 98121', phone: '(206) 555-0412', website: 'skylinecleaning.io', email: null,
+    // Pre-enriched example so the demo shows what a "found" decision maker looks like.
+    decisionMaker: { firstName: 'Morgan', lastName: 'Whittaker', title: 'Director of Operations', email: 'morgan@skylinecleaning.io', source: 'website', confidence: 0.91 },
+    savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-d'), searchId: prospectSearches[0].id, businessName: 'Cascadia Facility Services',   category: 'Facility services',   address: '3500 Stone Way N, Seattle WA 98103', phone: '(206) 555-0413', website: 'cascadiafacility.com',  email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-e'), searchId: prospectSearches[0].id, businessName: 'Rainier Building Maintenance', category: 'Building maintenance', address: '1100 Olive Way, Seattle WA 98101',  phone: '(206) 555-0414', website: 'rainierbm.com',           email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-f'), searchId: prospectSearches[0].id, businessName: 'Puget Sound Janitorial Co',    category: 'Janitorial',          address: '900 Madison St, Seattle WA 98104',  phone: '(206) 555-0415', website: 'pugetsoundjan.com',       email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-g'), searchId: prospectSearches[0].id, businessName: 'Evergreen Commercial Cleaning',category: 'Commercial cleaning', address: '2000 1st Ave, Seattle WA 98121',    phone: '(206) 555-0416', website: 'evergreencc.com',         email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+  { id: seedId('ps_r', 'q1-h'), searchId: prospectSearches[0].id, businessName: 'Aurora Facility Group',         category: 'Facility services',   address: '6500 Aurora Ave N, Seattle WA 98103', phone: '(206) 555-0417', website: 'aurorafacility.co',     email: null, decisionMaker: null, savedContactId: null, foundAt: daysAgo(2) },
+];
+
+// Decision-maker enrichment runs — one per "Find decision maker" click on a
+// result row. Layer 1 = website scrape (Claude); Layer 2 = Perplexity Sonar.
+// status: queued | running | completed | failed
+const decisionMakerRuns = [
+  {
+    id: seedId('dm_r', 'q1-c'),
+    resultId: prospectResults[2].id,            // Skyline (the pre-enriched example)
+    layer: 'website',                            // 'website' (Claude) | 'web_search' (Perplexity)
+    status: 'completed',
+    startedAt: daysAgo(2),
+    completedAt: daysAgo(2),
+    failureReason: null,
+    foundCandidateCount: 3,
+  },
+];
+
 // Current user is the owner by default. Store will expose a switcher.
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 10,
+  version: 13,
   company,
   currentUserId,
   users,
@@ -558,4 +919,15 @@ export const INITIAL_STATE = {
   // fields like assignedUserId/status/snoozedUntil/starred/followedUserIds remain on each conversation).
   // v6: pipelineStages moved from hardcoded const to state for user-editable CRUD.
   pipelineStages,
+  // v11: Outreach module (cold email)
+  outreachSettings,
+  campaigns,
+  campaignSteps,
+  campaignEnrollments,
+  campaignEvents,
+  outreachReplies,
+  // v12: Prospecting (Scrap.io scraper)
+  prospectSearches,
+  prospectResults,
+  decisionMakerRuns,
 };

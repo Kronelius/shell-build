@@ -470,3 +470,120 @@ export function selectUnreadCountForInbox(s, inbox, currentUser) {
   const convos = selectConversationsForInbox(s, inbox, currentUser);
   return convos.reduce((acc, c) => acc + selectUnreadForConversation(s, c.id), 0);
 }
+
+// ---------- Outreach (v11) ----------
+export const selectCampaigns = (s) => s.campaigns || [];
+export const selectCampaignById = (s, id) => (s.campaigns || []).find((c) => c.id === id) || null;
+export const selectCampaignSteps = (s) => s.campaignSteps || [];
+export const selectStepsForCampaign = (s, campaignId) =>
+  (s.campaignSteps || [])
+    .filter((step) => step.campaignId === campaignId)
+    .sort((a, b) => a.order - b.order);
+export const selectCampaignEnrollments = (s) => s.campaignEnrollments || [];
+export const selectEnrollmentsForCampaign = (s, campaignId) =>
+  (s.campaignEnrollments || []).filter((e) => e.campaignId === campaignId);
+export const selectEnrollmentsForContact = (s, contactId) =>
+  (s.campaignEnrollments || []).filter((e) => e.contactId === contactId);
+export const selectCampaignEvents = (s) => s.campaignEvents || [];
+export const selectEventsForCampaign = (s, campaignId) =>
+  (s.campaignEvents || []).filter((e) => e.campaignId === campaignId);
+export const selectOutreachReplies = (s) => s.outreachReplies || [];
+export const selectRepliesForCampaign = (s, campaignId) =>
+  (s.outreachReplies || []).filter((r) => r.campaignId === campaignId);
+export const selectReplyById = (s, id) => (s.outreachReplies || []).find((r) => r.id === id) || null;
+export const selectOutreachSettings = (s) => s.outreachSettings || {};
+
+// Aggregated KPI rollup for a single campaign.
+// Returns counts derived from events: enrolled / sent / opened / clicked / replied / bounced
+// + reply-classification breakdown for the AI section.
+export function selectCampaignKpis(s, campaignId) {
+  const enrollments = selectEnrollmentsForCampaign(s, campaignId);
+  const events      = selectEventsForCampaign(s, campaignId);
+  const replies     = selectRepliesForCampaign(s, campaignId);
+
+  const counts = { enrolled: enrollments.length, sent: 0, opened: 0, clicked: 0, replied: 0, bounced: 0, unsubscribed: 0 };
+  // Distinct (contactId, type) so a contact opening twice still counts as 1 unique.
+  const seen = new Set();
+  for (const e of events) {
+    const k = `${e.contactId}::${e.type}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    if (counts[e.type] !== undefined) counts[e.type] += 1;
+  }
+  // Replies counted from outreachReplies (more reliable than events).
+  counts.replied = replies.length;
+
+  // Classification breakdown
+  const classBreakdown = { interested: 0, not_interested: 0, question: 0, out_of_office: 0, unsubscribe: 0, other: 0 };
+  for (const r of replies) {
+    const k = r.classification || 'other';
+    if (classBreakdown[k] !== undefined) classBreakdown[k] += 1;
+    else classBreakdown.other += 1;
+  }
+
+  // Rates (guard divide-by-zero).
+  const safe = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
+  const rates = {
+    open: safe(counts.opened, counts.sent),
+    click: safe(counts.clicked, counts.sent),
+    reply: safe(counts.replied, counts.sent),
+    interested: safe(classBreakdown.interested, counts.replied),
+  };
+
+  return { counts, rates, classBreakdown };
+}
+
+// Aggregate KPIs across ALL campaigns — used by the Outreach hub overview.
+export function selectOutreachOverviewKpis(s) {
+  const campaigns = selectCampaigns(s);
+  const totals = { campaigns: campaigns.length, active: 0, enrolled: 0, sent: 0, opened: 0, replied: 0, interested: 0 };
+  for (const c of campaigns) {
+    if (c.status === 'active') totals.active += 1;
+    const k = selectCampaignKpis(s, c.id);
+    totals.enrolled    += k.counts.enrolled;
+    totals.sent        += k.counts.sent;
+    totals.opened      += k.counts.opened;
+    totals.replied     += k.counts.replied;
+    totals.interested  += k.classBreakdown.interested;
+  }
+  const safe = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
+  totals.rates = {
+    open:       safe(totals.opened,     totals.sent),
+    reply:      safe(totals.replied,    totals.sent),
+    interested: safe(totals.interested, totals.replied),
+  };
+  return totals;
+}
+
+// Replies that haven't been triaged by a human yet (regardless of auto-actions).
+export function selectUntriagedReplies(s) {
+  return (s.outreachReplies || []).filter((r) => !r.handledAt);
+}
+
+// ---------- Prospecting (v12) ----------
+export const selectProspectSearches = (s) => s.prospectSearches || [];
+export const selectProspectSearchById = (s, id) =>
+  (s.prospectSearches || []).find((x) => x.id === id) || null;
+export const selectProspectResults = (s) => s.prospectResults || [];
+export const selectResultsForSearch = (s, searchId) =>
+  (s.prospectResults || []).filter((r) => r.searchId === searchId);
+export const selectDecisionMakerRuns = (s) => s.decisionMakerRuns || [];
+export const selectActiveDmRunForResult = (s, resultId) => {
+  const runs = (s.decisionMakerRuns || []).filter((r) => r.resultId === resultId);
+  if (runs.length === 0) return null;
+  // Most recent run wins.
+  return runs.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0];
+};
+// Used by the hub KPI strip if we ever surface "X prospects scraped this week."
+export function selectProspectingTotals(s) {
+  const searches = selectProspectSearches(s);
+  const results  = selectProspectResults(s);
+  return {
+    searches: searches.length,
+    completed: searches.filter((x) => x.status === 'completed').length,
+    running: searches.filter((x) => x.status === 'running' || x.status === 'queued').length,
+    results: results.length,
+    enriched: results.filter((r) => r.decisionMaker).length,
+    saved: results.filter((r) => r.savedContactId).length,
+  };
+}

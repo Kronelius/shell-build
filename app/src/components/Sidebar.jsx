@@ -8,6 +8,7 @@ import UserSwitcher from './UserSwitcher';
 const NAV = [
   { to: '/',          label: 'Dashboard',  icon: 'dashboard', perm: 'dashboard.view', end: true },
   { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use'  },
+  { to: '/outreach',  label: 'Outreach',   icon: 'mail',      perm: 'outreach.view'  },
   { to: '/schedule',  label: 'Schedule',   icon: 'schedule',  perm: 'schedule.view'  },
   { to: '/contacts',  label: 'Contacts',   icon: 'clients',   perm: 'contacts.view'  },
   { to: '/pipeline',  label: 'Pipeline',   icon: 'chart',     perm: 'pipeline.view'  },

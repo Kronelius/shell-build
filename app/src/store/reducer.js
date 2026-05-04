@@ -162,6 +162,21 @@ export const ACTIONS = {
   UPDATE_OUTREACH_SETTINGS: 'UPDATE_OUTREACH_SETTINGS',
   CONNECT_MAILBOX: 'CONNECT_MAILBOX',
   DISCONNECT_MAILBOX: 'DISCONNECT_MAILBOX',
+
+  // ---------- Prospecting (Scrap.io scraper — v12) ----------
+  // Search lifecycle
+  ADD_PROSPECT_SEARCH: 'ADD_PROSPECT_SEARCH',         // payload: { search }
+  UPDATE_PROSPECT_SEARCH: 'UPDATE_PROSPECT_SEARCH',   // patch progress / status / completedAt
+  DELETE_PROSPECT_SEARCH: 'DELETE_PROSPECT_SEARCH',
+  // Result rows (one search → many results)
+  ADD_PROSPECT_RESULTS: 'ADD_PROSPECT_RESULTS',       // payload: { results: [] } — bulk add on completion
+  UPDATE_PROSPECT_RESULT: 'UPDATE_PROSPECT_RESULT',
+  // Decision-maker enrichment
+  START_DM_RUN: 'START_DM_RUN',                       // payload: { run } — status='running'
+  COMPLETE_DM_RUN: 'COMPLETE_DM_RUN',                 // payload: { id, decisionMaker, foundCandidateCount }
+  FAIL_DM_RUN: 'FAIL_DM_RUN',                         // payload: { id, failureReason }
+  // Save-to-CRM — links a prospectResult to a newly created contact id.
+  LINK_PROSPECT_TO_CONTACT: 'LINK_PROSPECT_TO_CONTACT', // payload: { resultId, contactId }
 };
 
 function replaceById(list, id, patch) {
@@ -1155,6 +1170,81 @@ export function reducer(state, action) {
           mailboxAddress: null,
           mailboxConnectedAt: null,
         },
+      };
+
+    // ---------- Prospecting (v12) ----------
+    case ACTIONS.ADD_PROSPECT_SEARCH: {
+      const base = {
+        id: newId('ps_s'),
+        query: '',
+        location: '',
+        resultCap: 25,
+        status: 'queued',
+        progress: 0,
+        runByUserId: state.currentUserId,
+        createdAt: nowIso(),
+        completedAt: null,
+        failureReason: null,
+      };
+      return { ...state, prospectSearches: [{ ...base, ...action.search }, ...(state.prospectSearches || [])] };
+    }
+    case ACTIONS.UPDATE_PROSPECT_SEARCH:
+      return { ...state, prospectSearches: replaceById(state.prospectSearches || [], action.id, action.patch) };
+    case ACTIONS.DELETE_PROSPECT_SEARCH: {
+      const id = action.id;
+      return {
+        ...state,
+        prospectSearches: (state.prospectSearches || []).filter((s) => s.id !== id),
+        prospectResults: (state.prospectResults || []).filter((r) => r.searchId !== id),
+        decisionMakerRuns: (state.decisionMakerRuns || []).filter((d) => {
+          const result = (state.prospectResults || []).find((r) => r.id === d.resultId);
+          return result && result.searchId !== id;
+        }),
+      };
+    }
+
+    case ACTIONS.ADD_PROSPECT_RESULTS:
+      return { ...state, prospectResults: [...(state.prospectResults || []), ...(action.results || [])] };
+    case ACTIONS.UPDATE_PROSPECT_RESULT:
+      return { ...state, prospectResults: replaceById(state.prospectResults || [], action.id, action.patch) };
+
+    case ACTIONS.START_DM_RUN: {
+      const base = {
+        id: newId('dm_r'),
+        layer: 'website',
+        status: 'running',
+        startedAt: nowIso(),
+        completedAt: null,
+        failureReason: null,
+        foundCandidateCount: 0,
+      };
+      return { ...state, decisionMakerRuns: [...(state.decisionMakerRuns || []), { ...base, ...action.run }] };
+    }
+    case ACTIONS.COMPLETE_DM_RUN: {
+      const now = nowIso();
+      const run = (state.decisionMakerRuns || []).find((r) => r.id === action.id);
+      if (!run) return state;
+      const runs = replaceById(state.decisionMakerRuns || [], action.id, {
+        status: 'completed', completedAt: now, foundCandidateCount: action.foundCandidateCount || 0,
+      });
+      // Patch the linked prospectResult so the table renders the decision maker without a join.
+      const results = action.decisionMaker
+        ? replaceById(state.prospectResults || [], run.resultId, { decisionMaker: action.decisionMaker, email: action.decisionMaker.email || null })
+        : (state.prospectResults || []);
+      return { ...state, decisionMakerRuns: runs, prospectResults: results };
+    }
+    case ACTIONS.FAIL_DM_RUN:
+      return {
+        ...state,
+        decisionMakerRuns: replaceById(state.decisionMakerRuns || [], action.id, {
+          status: 'failed', completedAt: nowIso(), failureReason: action.failureReason || 'Enrichment failed',
+        }),
+      };
+
+    case ACTIONS.LINK_PROSPECT_TO_CONTACT:
+      return {
+        ...state,
+        prospectResults: replaceById(state.prospectResults || [], action.resultId, { savedContactId: action.contactId }),
       };
 
     default:
