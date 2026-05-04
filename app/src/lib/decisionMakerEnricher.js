@@ -24,9 +24,73 @@
 
 import { pickFirstName, pickLastName } from './scrapio';
 
-// Fallback when no profile is configured — used so the demo still works, but
-// the UI should always pass a profile so this never fires in practice.
+// Fallback when no profile is configured — used so the simulation still works,
+// but the UI should always pass a profile so this never fires in practice.
 const DEFAULT_TARGET_ROLES = ['Owner', 'Operations Director', 'General Manager'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRODUCTION PROMPT — what Claude actually sees when an Anthropic key is
+// configured + the enricher hits api.anthropic.com directly.
+//
+// This function is the single source of truth for the prompt. The Step 3 UI
+// in the Outreach tab calls it to render a live preview so the user can see
+// exactly what runs against their businesses with their key.
+//
+// The prompt assumes Claude has the web_search tool enabled (or is given the
+// website HTML in a follow-up turn). Output is strict JSON so the dispatcher
+// can parse it without LLM-mistake handling. Model: claude-haiku-4-5 by
+// default — single-shot website reads don't need Sonnet/Opus capability.
+// ─────────────────────────────────────────────────────────────────────────────
+export function buildEnrichmentPrompt({
+  businessName, category, website, targetRoles, excludedTitles,
+}) {
+  const roles = Array.isArray(targetRoles) && targetRoles.length > 0
+    ? targetRoles
+    : DEFAULT_TARGET_ROLES;
+  const excluded = Array.isArray(excludedTitles) ? excludedTitles : [];
+  const rolesBlock = roles.map((r, i) => `  ${i + 1}. ${r}`).join('\n');
+  const excludedLine = excluded.length > 0 ? excluded.join(', ') : 'none';
+
+  return `You are a B2B sales research assistant. Identify the best decision-maker contact at this business so a salesperson can reach out.
+
+BUSINESS:
+- Name: ${businessName || '(not provided)'}
+- Category: ${category || '(not provided)'}
+- Website: ${website || '(not provided)'}
+
+TARGET ROLES (priority order — try to find #1 first, then #2, etc.):
+${rolesBlock}
+
+EXCLUDED TITLES (never return someone whose title contains any of these words):
+  ${excludedLine}
+
+INSTRUCTIONS:
+1. Use the web_search tool to read the business's About, Team, Leadership, Contact, and Staff pages.
+2. Find the person whose title most closely matches role #1 in the priority list. If nobody matches, try role #2, and so on.
+3. Skip anyone whose title contains an excluded word.
+4. Synthesize their work email if not stated outright (firstname@domain when in doubt — the most common B2B convention).
+5. Score your confidence 0.0–1.0 based on how clearly the person and role were identified.
+
+Return ONLY this JSON object — no prose, no markdown fences, no other text:
+
+{
+  "decisionMaker": {
+    "firstName": "...",
+    "lastName": "...",
+    "title": "...",
+    "email": "...",
+    "confidence": 0.0
+  },
+  "matchedRole": "the role from the target list that they fit",
+  "candidateCount": 0,
+  "reasoning": "one sentence explaining why this person was chosen"
+}
+
+If no suitable contact can be found on the website, return:
+
+{ "decisionMaker": null, "candidateCount": 0, "reasoning": "..." }
+`;
+}
 
 const ANTHROPIC_BACKEND  = import.meta.env?.VITE_ANTHROPIC_BACKEND_URL || null;
 const PERPLEXITY_BACKEND = import.meta.env?.VITE_PERPLEXITY_BACKEND_URL || null;

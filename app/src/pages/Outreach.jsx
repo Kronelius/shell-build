@@ -25,7 +25,7 @@ import {
   validateInstantlyKey, listMailboxes, initOAuth, pollOAuthSession, getMailboxByEmail,
 } from '../lib/outreach';
 import { runSearch, scrapioIsStub } from '../lib/scrapio';
-import { enrichDecisionMaker } from '../lib/decisionMakerEnricher';
+import { enrichDecisionMaker, buildEnrichmentPrompt } from '../lib/decisionMakerEnricher';
 import { newId } from '../lib/ids';
 import { fmtRelative } from '../lib/dates';
 
