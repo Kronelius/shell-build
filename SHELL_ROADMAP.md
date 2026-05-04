@@ -171,6 +171,71 @@ Friday meeting follow-up. Tightened 5 default permissions and restructured the R
 
 Per-user override system at `/settings/team/[user]` was confirmed already production-shaped — no changes needed there.
 
+## `[~]` Outreach (cold email + AI auto-routing) `[Shell]`
+
+New shell-tier module — every client clone ships with it. Cold email campaigns, AI-classified replies, auto-routing into the existing Pipeline + Tags + Contacts surfaces.
+
+**Architectural decision (locked):** the sending engine is **Instantly.ai** via their v2 REST API, not our own SMTP/IMAP plumbing. We built the whole module against `lib/outreach.js` as a pure Instantly client. When the user has no Instantly key configured, every code path falls back to a local stub so dev / demo / first-run experience still works end-to-end.
+
+**Why Instantly:** sequence sending, mailbox warmup, rotating senders, deliverability monitoring, AI reply classification, OAuth-managed Gmail/Microsoft connections — all of that is a built moat we'd never reproduce. Building on top of their API is faster, more reliable, and gives us the AI classification (`ai_interest_value`, `lead_interested` / `lead_not_interested` / etc.) for free. We bring the CRM, the audience picker, the auto-routing rules, and the local cache.
+
+**Surfaces shipped:**
+- `/outreach` — hub with KPI strip + 4 tabs (Campaigns / Replies / Find Prospects / Settings)
+- `/outreach/campaigns/:id` — per-campaign detail with Overview / Sequence / Audience / Replies tabs
+- `NewCampaignModal` 3-step wizard — basics (name + sender mailbox + per-campaign daily cap, hours, days, timezone) → audience (CRM contact picker with search + tag filter) → sequence template (3 starter templates: 4-touch cold, 3-touch warm, single-touch warm)
+- `OutreachDispatcher` mounted at app root — stub mode simulates local sends + reply routing every 10s; production mode polls `GET /api/v2/emails` every 90s for inbound replies (fallback for users without Hypergrowth-tier webhooks)
+- Settings tab: `InstantlyApiKeyCard` (validates against `GET /accounts?limit=1`, fetches mailbox list on success) + reworked `MailboxCard` (real OAuth via `POST /oauth/{provider}/init` → 2.5s session-status polling → mailbox list refresh on success) + Anthropic / Scrap.io / Perplexity vendor key cards + sending-caps card + auto-routing rules card
+
+**Data model (in `seed.js`, reducer, selectors):**
+- `campaigns` — top-level record (name, status, sender, schedule, instantlyCampaignId mirror)
+- `campaignSteps` — sequence steps (subject, body, delayDays, channel, order)
+- `campaignEnrollments` — join row (contactId × campaignId × currentStepIndex × status)
+- `campaignEvents` — per-event log (sent / opened / clicked / replied / bounced / unsubscribed)
+- `outreachReplies` — inbound replies with classification + autoActions[]
+- `outreachSettings` — Instantly key + cached mailboxes + plan tier + AI auto-routing rules
+
+**Auto-routing rules (`OutreachDispatcher.jsx`):**
+- `interested` → tag contact "Hot Lead", move to Pipeline (user-selectable stage), pause remaining sequence steps
+- `not_interested` → tag contact "Do Not Disturb", suppress from future campaigns, pause sequence
+- `unsubscribe` → archive contact globally, remove from all sequences
+- `out_of_office` → defer next step ~3 days
+- `question` → route to campaign owner for human reply, pause until handled
+- Master toggle: when off, every reply lands in inbox unrouted
+
+**Permissions** (added to `lib/roles.js`): `outreach.view` / `outreach.edit` / `outreach.send` / `outreach.replies` (all owner+admin by default).
+
+**Definition of Done:**
+- [x] Hub page + per-campaign detail
+- [x] NewCampaignModal 3-step wizard with sender = real Instantly mailbox dropdown + per-campaign schedule
+- [x] `lib/outreach.js` real Instantly v2 client (createCampaign, addLeads, activate/pause/delete, listMailboxes, OAuth init+poll, listEmails, markEmailRead, webhooks CRUD) with stub fallback
+- [x] OutreachDispatcher polls `/emails` in production mode, falls back to local sim in stub mode
+- [x] CampaignDetail activate/pause/delete go through Instantly when key configured
+- [x] Settings: Instantly API key card + real OAuth mailbox connect + cached mailbox list
+- [x] Auto-routing applies on inbound classifications (both Instantly's `ai_interest_value` 0–1 score and `i_status` integer enum mapped to our 6 classes)
+- [ ] Webhook UI for Hypergrowth users (`POST /webhooks` with `target_hook_url` pointing at deploy backend) — deferred until first paying customer
+- [ ] Analytics fetched from `GET /campaigns/:id/analytics/overview` instead of computed from local events — deferred
+- [ ] Per-step variant editor (Instantly supports `variants[]` per step for A/B) — deferred
+- [ ] Polling fallback for analytics + lead lifecycle — deferred
+
+## `[x]` Find Prospects (Scrap.io scraper + Claude/Perplexity decision-maker enrichment) `[Shell]`
+
+Sub-module of Outreach. Tab inside `/outreach` — pulls businesses from Google Maps via Scrap.io, then layers a 2-stage decision-maker enricher on top (Layer 1: Claude reads the business website; Layer 2 fallback: Perplexity Sonar web search). Saved prospects flow into the existing CRM as new contacts.
+
+**Surfaces shipped:**
+- Search form (query + location + result cap)
+- Search history right rail
+- Results table with bulk-select + per-row "Find decision maker" + bulk save-to-CRM
+- Settings entries for Scrap.io + Perplexity API keys + business profile (target roles + industries + excluded titles)
+
+**Data model:**
+- `prospectSearches` — query + status + progress
+- `prospectResults` — per-business row (name, address, phone, website, decisionMaker, savedContactId)
+- `decisionMakerRuns` — enrichment lifecycle (layer, status, foundCandidateCount)
+
+**Permissions:** `prospecting.search` / `prospecting.enrich` / `prospecting.save`.
+
+**Schema bump:** `pp.store.v10` → `pp.store.v13` over the course of building Outreach + Prospecting + Instantly integration. v11 = Outreach base, v12 = Prospecting, v13 = Instantly client + cached mailboxes + per-campaign schedule fields.
+
 ---
 
 # Done (recent shell work — for reference)
@@ -218,8 +283,9 @@ Listed here for shell-roadmap continuity only. When a client buys one of these, 
 
 These came up in the Rainier questionnaire but weren't in the scope email. Not promised, not sold. Don't build.
 
-- 7-day sales sequence automation (would be a future "Sales Automation" add-on)
 - Quotes / Estimates module (Rainier said quoting is "gut-call")
 - Generic client-onboarding workflow with department handoffs
-- Lifecycle email engine (welcome / first-clean recap)
+- Lifecycle email engine (welcome / first-clean recap) — *transactional / lifecycle is distinct from the cold-outbound Outreach module that ships in shell. If a client wants this, scope it as an add-on.*
 - Operational KPI cards (missed cleans / labor / complaints) — *unless rolled into Core dashboard for Rainier*
+
+(Note: the previously-flagged "7-day sales sequence automation" is now realized by the **Outreach** shell module above — built on Instantly.ai's API. It ships in every clone; per-client configuration is the user's Instantly API key plus connected mailboxes.)

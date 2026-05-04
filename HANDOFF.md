@@ -1,81 +1,120 @@
 # Session Handoff
 
-> **NEW (2026-05-03) — MOBILE RESPONSIVE MANDATE:** [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md) was added to the shell from the Rainier proving build. **Zero horizontal scroll on any viewport, anywhere in the app.** Read that doc before any UI / CSS / new-page work. It contains a full audit of known offenders, 8 canonical CSS recipes, a per-page rollout checklist, and a testing protocol. The audit applies to this shell baseline — every flagged page in the doc has the same offender here. Visual mockup at [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html). The Rainier session that produced this doc has only fixed the sidebar overflow leak so far; the per-page rollout (card lists for tables, etc.) is the next workstream that should backport here.
+> **NEW (2026-05-04) — OUTREACH MODULE SHIPPED, INSTANTLY-BACKED:** Cold-email module is live at `/outreach` with real Instantly.ai v2 API integration. `lib/outreach.js` is the entire client surface (createCampaign, addLeads, OAuth mailbox connect, listEmails polling, etc.) with stub fallback when no Instantly key is configured. NewCampaignModal is a 3-step wizard whose submit POSTs to Instantly and bulk-uploads selected CRM contacts as leads. Auto-routing of inbound replies into Pipeline + Tags is live. **Storage bumped v10 → v13** in three steps (v11 = Outreach base, v12 = Prospecting / Find Prospects with Scrap.io, v13 = real Instantly client + cached mailboxes + per-campaign schedule fields).
 
-**Last session end:** **Permission defaults audit + Roles editor discoverability shipped** (Friday meeting follow-up). Tightened 5 default permissions, restructured the Roles editor into 8 grouped tables with sensitive-pills + precedence callout + reset button, relabeled the sidebar "Roles" → "Roles & Permissions", added Team-page cross-link, bumped storage v9 → v10. The shell is now ready to clone to a Rainier-credentialed repo.
+> **CRITICAL FIX:** Prior commit `6e5f714` ("Data integrity sweep") modified `App.jsx` + `reducer.js` + `index.css` to reference Outreach files but did **not** commit the actual `Outreach.jsx` / `CampaignDetail.jsx` / `OutreachDispatcher.jsx` / `lib/outreach.js` / `lib/scrapio.js` / `lib/decisionMakerEnricher.js` / `lib/outreachClassifier.js` / `NewCampaignModal.jsx` files. **Origin/main was broken** for any fresh clone. This session ships the missing files and brings storage to v13.
 
-Current branch: `main`, working tree clean.
+> **MOBILE RESPONSIVE MANDATE (2026-05-03):** [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md) — zero horizontal scroll on any viewport. Per-page rollout checklist still pending. Read the doc before any UI/CSS work.
+
+**Last session end (2026-05-04):** Outreach module rebuilt as a real Instantly.ai integration (was previously a fully-local stub). Working tree currently in flux during commit chunks; once committed, branch will match `origin/main` after the three-chunk push.
 
 ---
 
-## What shipped this session
+## What shipped this session — Outreach + Instantly pivot
 
-### Permission defaults audit (5 flips in `app/src/lib/roles.js`)
+### Architectural decision: Instantly.ai is the sending engine
 
-The audit asked: are the current defaults sensible for a cleaning company? Conclusion was mostly yes, but 5 specific flips:
+The first cut of Outreach (built earlier and partially committed in `6e5f714`) had `lib/outreach.js` as a pure local stub — campaigns lived only in our React store, "sending" was simulated with timeouts. The user asked us to confirm whether Instantly's public API supports the "create-in-our-app, lives-in-Instantly" workflow before continuing. Audit (in [`developer.instantly.ai`](https://developer.instantly.ai/)) confirmed full coverage: campaign CRUD, bulk leads, OAuth mailbox connect, AI reply classification (`ai_interest_value` 0–1 + `i_status` enum + `lead_*` webhook events), polling fallback for users without Hypergrowth-tier webhooks. We pivoted before committing the broken-main fix so the integration ships against a real backend.
 
-| Key | Before | After | Why |
-|---|---|---|---|
-| `pipeline.view` | owner+admin+crew | owner+admin | Sales pipeline is office-tier; field crew has no business reason to see deal stages. |
-| `messaging.startConversation` | owner+admin+crew | owner+admin | Crew can still **reply** via `messaging.use`. Outbound to clients from the field is a liability. Owner re-grants per trusted senior tech via override. |
-| `messaging.internalComment` | owner+admin | owner+admin+crew | Internal notes ("done", "running late", "client wasn't home") are exactly what crew should post. Not visible to clients. |
-| `settings.services` | owner+admin | owner | Service catalog = pricing. Owner-only by default; office manager gets it via override if they own pricing. |
-| `integrations.view` | owner+admin | owner | Reduces blast radius if an admin account is compromised. Still grantable per-user. |
+### `lib/outreach.js` rewritten as a real Instantly v2 client
 
-### Roles editor restructure (`app/src/pages/settings/Roles.jsx`)
+Endpoints implemented (see `lib/outreach.js` for the full JSDoc):
 
-Was a flat 39-row table. Now:
+| Function | Endpoint |
+|---|---|
+| `validateInstantlyKey` | `GET /api/v2/accounts?limit=1` (cheapest probe — there is no `/me`) |
+| `listMailboxes` | `GET /api/v2/accounts` (mapped to a flat `{ id, email, provider, status, warmupScore, dailyLimit }` shape) |
+| `getMailboxByEmail` | `GET /api/v2/accounts/{email}` |
+| `initOAuth` | `POST /api/v2/oauth/{google\|microsoft}/init` (no body — returns `{ session_id, auth_url, expires_at }`) |
+| `pollOAuthSession` | `GET /api/v2/oauth/session/status/{sessionId}` |
+| `createCampaign` | `POST /api/v2/campaigns` |
+| `activateCampaign` | `POST /api/v2/campaigns/{id}/activate` (no body) |
+| `pauseCampaign` | `POST /api/v2/campaigns/{id}/pause` (no body — confirmed `/pause`, NOT `/stop`) |
+| `deleteCampaign` | `DELETE /api/v2/campaigns/{id}` |
+| `getCampaignAnalytics` | `GET /api/v2/campaigns/analytics/overview?id={id}` |
+| `addLeads` | `POST /api/v2/leads/add` (wrapper field is `leads`, `campaign_id` is top-level) |
+| `listEmails` | `GET /api/v2/emails?is_unread=true&email_type=received&limit=50&sort_order=desc` |
+| `markEmailRead` | `PATCH /api/v2/emails/{id}` with `{ is_unread: false }` |
+| `getUnreadCount` | `GET /api/v2/emails/unread/count` |
+| `listWebhookEventTypes` | `GET /api/v2/webhooks/event-types` |
+| `createWebhook` | `POST /api/v2/webhooks` |
+| `listWebhooks` | `GET /api/v2/webhooks` |
 
-- **8 grouped tables** — Schedule & Jobs / Clients & Sites / Contacts & Pipeline / Invoices & Reminders / Messaging / Settings / Integrations / Super Admin Only.
-- **"Sensitive" pill** (amber, uppercase, badge-style) on 8 high-impact keys: `clients.archive`, `contacts.delete`, `invoices.edit`, `invoices.recordPayment`, `integrations.manage`, `settings.roles.edit`, `staff.assignRoles`, `staff.editOverrides`. When granted to a non-owner role, toast renders in error tone (no `warn` variant in Toast component; `error` is the closest "attention" tone).
-- **Precedence callout** above the matrix: "For each user we check, in order: per-user revoke → per-user grant → role default below."
-- **"Reset all to defaults"** button (header, secondary style). Dispatches `UPDATE_PERMISSION` for any key whose roles diverge from `PERMISSIONS[id].defaultRoles`. Toasts "Reset N permission(s)" or "Already at defaults".
-- **"Other" fallback section** — renders any permission keys present in store but not in `PERM_GROUPS`. Guards against silent invisibility if someone adds a key to `roles.js` and forgets to group it.
+Helpers also exported: `buildCampaignBody({ localCampaign, localSteps, schedule, mailboxEmails })` translates our local entity shape to Instantly's nested `campaign_schedule.schedules[].timing/days/timezone` + `sequences[].steps[].variants[]` payload. `contactToLead(contact, companyName, senderCtx)` translates a CRM contact to an Instantly lead with `custom_variables`. `toInstantlyTokens(template)` rewrites `{first_name}` → `{{firstName}}` etc. `emailToReply(email)` translates an Instantly email row to our `outreachReplies` row shape (with classification mapping below). `classifyByIStatus(int)` and `INSTANTLY_CLASSIFICATION` map server-side classes to ours. `outreachIsStub(apiKey)` returns true when no key is configured — every component checks this to decide stub-vs-real flow. Stub fallbacks (`sendOutreachEmail`, `connectMailbox`, `simulateInboundReply`) preserved for dev mode.
 
-### Discoverability touches
+### Settings tab: real Instantly OAuth flow
 
-- `app/src/pages/settings/SettingsLayout.jsx` — sidebar item relabeled `Roles` → `Roles & Permissions`. Same icon, same gate.
-- `app/src/pages/settings/Team.jsx` — added "Edit role defaults →" cross-link in the page header (right of subtitle, left of "Invite Member"). Gated on `settings.roles.edit`.
+`Outreach.jsx` Settings tab now shows:
 
-### Storage / seed bump
+1. **`InstantlyApiKeyCard`** — paste-and-validate flow against `GET /accounts?limit=1`. On success: stores key + timestamp, immediately fetches mailbox list, surfaces "Connected · N mailboxes loaded" toast. On Disconnect: clears key + cached mailboxes + plan tier.
+2. **`MailboxCard`** — branched UI:
+   - **No Instantly key:** falls back to the legacy single-mailbox stub demo so dev experience continues.
+   - **With key:** lists cached mailboxes from `settings.instantlyMailboxes` with `email · provider · status · warmup score · daily cap`. Connect Google / Microsoft buttons trigger real OAuth — `initOAuth` returns `auth_url` (opened in new tab) + `sessionId`, then we poll `pollOAuthSession` every 2.5s for up to 5 min. On `success`: lookup the mailbox, refresh the cached list, success toast. On `error` / `expired` / `401`: cancel polling, surface the failure.
+3. Existing Anthropic / Scrap.io / Perplexity API key cards untouched.
+4. Existing SendingCapsCard + AutoRoutingCard untouched.
 
-- `app/src/data/seed.js` — `version: 9` → `version: 10`
-- `app/src/store/persist.js` — `STORAGE_KEY: 'pp.store.v9'` → `'pp.store.v10'`
-- Existing dev installs reseed on next load. Old `v9` localStorage key is left in place as a recovery breadcrumb (not auto-removed).
+### NewCampaignModal rewritten
+
+3-step wizard, but the model has shifted:
+
+- **Step 1 (Basics):** name + sender mailbox dropdown (sourced from `settings.instantlyMailboxes` in production, falls back to internal `users[]` in stub) + per-campaign schedule (daily cap + sending hours + sending days + IANA timezone). Defaults populate from `outreachSettings.dailyCap / sendingHoursStart / sendingHoursEnd / defaultTimezone`.
+- **Step 2 (Audience):** unchanged — CRM contact picker with search + tag filter.
+- **Step 3 (Sequence):** unchanged — pick from 3 starter templates (4-touch cold / 3-touch warm / single-touch warm).
+
+Submit handler:
+- **Production (Instantly key set):** `createCampaign(apiKey, body)` → captures returned campaign id → `addLeads(apiKey, { campaignId, leads })` → dispatches `ADD_CAMPAIGN` + `ADD_CAMPAIGN_STEP × N` + `ENROLL_CONTACTS` to local store using the Instantly id as our id. Surface "Campaign 'X' created in Instantly with N leads" toast. Navigate to `/outreach/campaigns/:id`.
+- **Stub:** same dispatches with a locally-minted id, no API call. Surface "(stub mode)" suffix in the toast.
+
+### CampaignDetail wired through the API
+
+`setStatus(next)` in CampaignDetail.jsx now calls `activateCampaign(apiKey, id)` or `pauseCampaign(apiKey, id)` before dispatching the local mirror. `removeCampaign()` calls `deleteCampaign(apiKey, id)`. All three short-circuit to local-only in stub mode.
+
+### OutreachDispatcher: poll mode
+
+Two modes now:
+- **Stub:** every 10s, walks active enrollments, simulates outbound sends through the stub adapter (existing behavior).
+- **Production:** every 90s, calls `listEmails(apiKey, { isUnread: true, emailType: 'received', limit: 50 })`. For each email not already in our `outreachReplies`, dispatches `RECEIVE_OUTREACH_REPLY` with the translated payload (classification mapped from `i_status` + `ai_interest_value`). Module-level `seenEmailIds` Set guards against re-ingest. Auto-routing logic untouched — same rules apply against the real classifications.
+
+### Storage / seed bumps
+
+- `app/src/data/seed.js` — `version: 10` → `version: 13` (consolidated three steps into one bump on this session). Added `outreachSettings.instantlyApiKey` + `instantlyKeyValidatedAt` + `instantlyPlanTier` + `instantlyMailboxes` + `instantlyMailboxesFetchedAt` + `defaultTimezone` + `pendingOAuth`.
+- `app/src/store/persist.js` — `STORAGE_KEY: 'pp.store.v10'` → `'pp.store.v13'` in lockstep.
+- Existing dev installs reseed on next load.
 
 ### CSS additions (`app/src/index.css`)
 
-- `.perm-group-head` — h3 inside the grouped permission cards (border-bottom separator).
-- `.perm-sensitive-pill` — small amber uppercase pill. Falls back to `#fef3c7` / `#92400e` if `--badge-amber-bg` / `--badge-amber-text` tokens don't resolve.
+- `.mailbox-list` + `.mailbox-row` + `.mailbox-row-main` — connected mailboxes list inside the new MailboxCard.
+- `.days-picker` + `.days-picker-day` + `.days-picker-day.on` — pill-style sending-day toggle in NewCampaignModal step 1.
+- (Existing Outreach-specific CSS — campaign-grid, reply-card, sequence-step, audience-list, template-card, wizard-step, prospecting-* — was already in the file from the prior commit.)
+
+### Roadmap + scope rework
+
+- `SHELL_ROADMAP.md` — added an `[~]` Outreach module section (with full DoD checklist, marked items `[x]` for what's done, `[ ]` for deferred items: webhook UI for Hypergrowth, analytics fetch, per-step variants, lead-lifecycle polling) and an `[x]` Find Prospects sub-module section. Removed "7-day sales sequence automation" from the Stretch / unsold list — the Outreach module IS that capability.
+- `CLAUDE.md` — updated Primary files table to include all new Outreach + Prospecting files, bumped storage version reference to v13, added an "Outreach module + Instantly.ai integration" section documenting the architectural rule (Instantly is the sending engine, our value-add is CRM + audience + auto-routing + cache).
 
 ### Verified end-to-end
 
-- Storage migrates `v9` → `v10` on next load (confirmed via Claude Preview).
-- All 5 default flips persist correctly in the new v10 store.
-- `can()` resolves the new defaults correctly per role:
-  - **Owner**: full access (pipeline, messaging, settings, integrations all true)
-  - **Admin**: pipeline + messaging unchanged; `settings.services` and `integrations.view` now denied
-  - **Crew**: `pipeline.view` and `messaging.startConversation` denied; `messaging.internalComment` granted
-- Roles editor renders all 8 grouped tables, all 8 sensitive pills, precedence callout, reset button.
-- Reset button works: mutate a permission → click reset → permission returns to default + toast appears.
-- Team page shows "Edit role defaults →" cross-link in section-head.
+- Settings tab renders all cards: InstantlyApiKeyCard at top, branched MailboxCard, existing Anthropic / Scrap.io / Perplexity cards, SendingCaps, AutoRouting (confirmed via Claude Preview).
+- Storage migrates v10 → v13 on next load — old v10/v11/v12 keys left in localStorage as recovery breadcrumbs.
+- No hot-reload errors in the dev server through the rewrite.
 
 ---
 
 ## Files touched this session
 
-- `app/src/lib/roles.js` — 5 default array flips
-- `app/src/pages/settings/Roles.jsx` — full restructure (PERM_GROUPS, DANGER_KEYS, callout, grouped tables, sensitive pill, reset button, smarter toast)
-- `app/src/pages/settings/SettingsLayout.jsx` — sidebar label
-- `app/src/pages/settings/Team.jsx` — cross-link in section-head
-- `app/src/data/seed.js` — version 9 → 10
-- `app/src/store/persist.js` — STORAGE_KEY v9 → v10 + bump comment
-- `app/src/index.css` — `.perm-group-head` + `.perm-sensitive-pill`
-- `SHELL_ROADMAP.md` — added `[x]` Permission defaults audit + Roles editor discoverability item
+- `app/src/lib/outreach.js` — full rewrite from local-stub to real Instantly v2 client (with stub fallback)
+- `app/src/components/NewCampaignModal.jsx` — full rewrite (sender dropdown sources from Instantly mailboxes, per-campaign schedule fields, real API submit)
+- `app/src/pages/Outreach.jsx` — added `InstantlyApiKeyCard`, replaced `MailboxCard` with branched OAuth version, added `useRef` import, refresh + OAuth polling logic
+- `app/src/pages/CampaignDetail.jsx` — wired activate / pause / delete to the API in production mode
+- `app/src/components/OutreachDispatcher.jsx` — added `pollInstantlyReplies()` for production mode + branched tick interval
+- `app/src/data/seed.js` — added Instantly settings fields, version 12 → 13
+- `app/src/store/persist.js` — STORAGE_KEY v12 → v13 + bump comment
+- `app/src/index.css` — `.mailbox-list` + `.mailbox-row` + `.days-picker` styles
+- `SHELL_ROADMAP.md` — added Outreach + Find Prospects sections; removed sales-sequence stretch item
+- `CLAUDE.md` — updated Primary files, storage version, added Outreach + Instantly section
+- `HANDOFF.md` — this rewrite
 
----
-
----
+(Plus the 11 files modified + 9 untracked files that were already pending from the broken-main state — committed as part of this session's chunked landing.)
 
 ---
 
@@ -85,8 +124,19 @@ Per `CLAUDE.md`:
 1. `git rev-parse --is-inside-work-tree && git remote -v` — verify clone + origin.
 2. `git fetch` — compare local HEAD vs `origin/main`. Report sync status.
 3. If behind + clean → offer fast-forward. If diverged → flag; don't auto-merge.
-4. Read [`SHELL_ROADMAP.md`](SHELL_ROADMAP.md) — Core is complete; the only remaining work is **deployment** (clone to Rainier repo) and per-client tweaks.
-5. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Storage key: `'pp.store.v10'` / seed version 10.**
+4. Read [`SHELL_ROADMAP.md`](SHELL_ROADMAP.md) — Outreach is the new shell module; Core is complete except mobile-responsive rollout.
+5. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Storage key: `'pp.store.v13'` / seed version 13.**
+
+---
+
+## Suggested next session
+
+1. **Webhook UI for Hypergrowth-tier Instantly users** — currently the OutreachDispatcher polls every 90s. For Hypergrowth, add a Settings → Outreach card that creates a webhook via `POST /api/v2/webhooks` pointing at a deploy backend endpoint (the backend just relays the POST body to a /messaging-style SSE/websocket the client subscribes to).
+2. **Analytics from `/campaigns/analytics/overview`** — currently `selectCampaignKpis` computes from local events. Replace with a fetch + cache pattern keyed off `campaign.instantlyCampaignId`.
+3. **Per-step variant editor** — Instantly supports `variants[]` per step (A/B/n-way). Sequence editor in CampaignDetail currently single-variant only. Add a "+ Variant" button per step.
+4. **Plan-tier detection** — first call after `validateInstantlyKey` should attempt `POST /webhooks` with a no-op event to detect 403 (Growth) vs 200 (Hypergrowth). Store the result in `outreachSettings.instantlyPlanTier` and gate webhook UI accordingly.
+5. **Lead lifecycle polling** — currently we ingest replies. Also poll `/leads/{id}` for `i_status` changes so the Pipeline reflects "Meeting Booked" / "Closed" updates the user makes inside Instantly.
+6. **Backport this work to the Rainier client repo** — the Outreach module is shell-tier; Rainier's clone needs the next sync.
 
 ---
 
