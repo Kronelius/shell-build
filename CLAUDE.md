@@ -71,7 +71,6 @@ Once shell Core is complete:
 | `app/src/STYLING.md` | The styling contract. Respect the three-bucket rule. |
 | `shell.html` | Original static HTML wireframe. Kept for reference only — **the live product is `app/`**, not this file. |
 | `theme-polishpoint-blue.css` | PolishPoint Blue theme — can be linked into `shell.html` or adapted for the app. |
-| `rainier-facility-solutions.html` | Legacy — original Rainier hardcoded mockup. Reference only. |
 
 ## Running the app
 
