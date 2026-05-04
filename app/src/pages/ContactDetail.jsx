@@ -282,23 +282,53 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
       {tab === 'activity' && (
         <div className="card">
+          {canEditThis && (
+            <ComplaintComposer
+              contactId={contact.id}
+              onSubmit={(text) => {
+                dispatch({
+                  type: ACTIONS.ADD_CONTACT_ACTIVITY,
+                  activity: { kind: 'complaint', contactId: contact.id, body: text },
+                });
+                toast.success('Complaint logged');
+              }}
+            />
+          )}
           {activity.length === 0 ? (
             <EmptyState icon={<Icon name="bell" size={28} />} title="No activity yet" message="Notes, stage changes, invoices, and messages will appear here." />
           ) : (
             <div className="activity-list">
-              {activity.map((a) => (
-                <div key={a.id} className={`activity-item activity-${a.kind}`}>
-                  <div className="activity-kind">{a.kind}</div>
-                  <div className="activity-body">
-                    <div className="activity-text">{a.body}</div>
-                    <div className="activity-meta text-xs text-muted">
-                      {fmtRelative(a.occurredAt)}
-                      {a._source === 'invoice' && <> · <Link to={`/invoices/${a._ref}`} state={nav}>Open invoice</Link></>}
-                      {a._source === 'job' && <> · <Link to={`/schedule/${a._ref}`} state={nav}>Open job</Link></>}
+              {activity.map((a) => {
+                const isComplaint = a.kind === 'complaint';
+                const isResolved = isComplaint && a.resolvedAt;
+                return (
+                  <div key={a.id} className={`activity-item activity-${a.kind}${isResolved ? ' is-resolved' : ''}`}>
+                    <div className="activity-kind">{isResolved ? 'resolved' : a.kind}</div>
+                    <div className="activity-body">
+                      <div className="activity-text">{a.body}</div>
+                      <div className="activity-meta text-xs text-muted">
+                        {fmtRelative(a.occurredAt)}
+                        {a._source === 'invoice' && <> · <Link to={`/invoices/${a._ref}`} state={nav}>Open invoice</Link></>}
+                        {a._source === 'job' && <> · <Link to={`/schedule/${a._ref}`} state={nav}>Open job</Link></>}
+                        {isComplaint && a._source === 'activity' && canEditThis && (
+                          <> · <button
+                            type="button"
+                            className="linklike"
+                            onClick={() => {
+                              dispatch({
+                                type: ACTIONS.UPDATE_CONTACT_ACTIVITY,
+                                id: a.id,
+                                patch: { resolvedAt: isResolved ? null : new Date().toISOString() },
+                              });
+                              toast.success(isResolved ? 'Complaint reopened' : 'Complaint resolved');
+                            }}
+                          >{isResolved ? 'Reopen' : 'Mark resolved'}</button></>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -313,25 +343,42 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             {invoices.length === 0 ? (
               <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No invoices where this contact is billing-lead.</span></div>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Status</th><th></th></tr></thead>
-                  <tbody>
-                    {invoices.map((inv) => {
-                      const st = deriveInvoiceStatus(inv);
-                      return (
-                        <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                          <td className="name">{inv.id}</td>
-                          <td>{fmtDate(inv.issueDate)}</td>
-                          <td className="money">{money(invoiceTotal(inv))}</td>
-                          <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
-                          <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                      {invoices.map((inv) => {
+                        const st = deriveInvoiceStatus(inv);
+                        return (
+                          <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
+                            <td className="name">{inv.id}</td>
+                            <td>{fmtDate(inv.issueDate)}</td>
+                            <td className="money">{money(invoiceTotal(inv))}</td>
+                            <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
+                            <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mobile-card-list" style={{ padding: '0 12px 12px' }}>
+                  {invoices.map((inv) => {
+                    const st = deriveInvoiceStatus(inv);
+                    return (
+                      <div key={inv.id} className="mobile-card" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
+                        <div className="mc-name" style={{ gridColumn: '1 / span 3' }}>{inv.id}</div>
+                        <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
+                        <div className="mc-sub" style={{ gridColumn: '1 / span 3' }}>{fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}</div>
+                        <div className="mc-meta">
+                          <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 
@@ -343,23 +390,42 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             {relatedJobs.length === 0 ? (
               <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No jobs linked.</span></div>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Date</th><th>Service</th><th>Status</th><th></th></tr></thead>
-                  <tbody>
-                    {relatedJobs.slice(0, 10).map((j) => (
-                      <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                        <td>{fmtDate(j.startAt)}</td>
-                        <td>{state.services.find((s) => s.id === j.serviceId)?.name || '—'}</td>
-                        <td><Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
-                          {j.status.replace('_', ' ')}
-                        </Badge></td>
-                        <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Date</th><th>Service</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                      {relatedJobs.slice(0, 10).map((j) => (
+                        <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
+                          <td>{fmtDate(j.startAt)}</td>
+                          <td>{state.services.find((s) => s.id === j.serviceId)?.name || '—'}</td>
+                          <td><Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
+                            {j.status.replace('_', ' ')}
+                          </Badge></td>
+                          <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mobile-card-list" style={{ padding: '0 12px 12px' }}>
+                  {relatedJobs.slice(0, 10).map((j) => {
+                    const serviceName = state.services.find((s) => s.id === j.serviceId)?.name || '—';
+                    return (
+                      <div key={j.id} className="mobile-card" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
+                        <div className="mc-name" style={{ gridColumn: '1 / span 3' }}>{fmtDate(j.startAt)}</div>
+                        <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
+                        <div className="mc-sub" style={{ gridColumn: '1 / span 3' }}>{serviceName}</div>
+                        <div className="mc-meta">
+                          <Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
+                            {j.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 
@@ -430,4 +496,45 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 function isContactOwner(_state, contact, currentUser) {
   if (!currentUser || !contact) return false;
   return contact.ownerUserId === currentUser.id;
+}
+
+// Complaint composer (used in the Activity tab). Self-contained — caller
+// passes the dispatch via onSubmit so we don't have to thread store hooks.
+function ComplaintComposer({ onSubmit }) {
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)' }}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(true)}>
+          <Icon name="bell" size={12} /> Log complaint
+        </button>
+      </div>
+    );
+  }
+  const submit = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    setText('');
+    setOpen(false);
+  };
+  return (
+    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)' }}>
+      <FormField label="What did the client report?">
+        <textarea
+          className="input"
+          rows={3}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="e.g. Streaks on the lobby glass after Friday's clean."
+          autoFocus
+        />
+      </FormField>
+      <div className="flex-row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => { setOpen(false); setText(''); }}>Cancel</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={submit} disabled={!text.trim()}>Save complaint</button>
+      </div>
+    </div>
+  );
 }
