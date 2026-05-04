@@ -114,6 +114,30 @@
   --avatar-4:        var(--color-avatar-4);
   --avatar-5:        var(--color-avatar-5);
 
+  /* ── Sidebar states ── */
+  --sidebar-hover:   var(--color-neutral-800);   /* #1e293b */
+  --sidebar-active:  var(--color-brand-primary-500);
+
+  /* ── Legacy semantic palette aliases (flat family-slot form) ── */
+  --green-bg:      var(--color-semantic-success-50);
+  --green-text:    var(--color-semantic-success-600);
+  --green-border:  var(--color-semantic-success-200);
+  --amber-bg:      var(--color-semantic-warning-50);
+  --amber-text:    var(--color-semantic-warning-500);
+  --amber-border:  var(--color-semantic-warning-200);
+  --red-bg:        var(--color-semantic-error-50);
+  --red-text:      var(--color-semantic-error-500);
+  --red-border:    var(--color-semantic-error-200);
+  --blue-bg:       var(--color-brand-primary-50);
+  --blue-text:     var(--color-brand-primary-600);
+  --blue-border:   #A8D4F5;   /* no canonical match in brand scale */
+  --purple-bg:     var(--color-accent-purple-50);
+  --purple-text:   var(--color-accent-purple-500);
+  --purple-border: var(--color-accent-purple-200);
+  --slate-bg:      var(--color-neutral-100);
+  --slate-text:    var(--color-neutral-600);
+  --slate-border:  var(--color-neutral-200);
+
   /* ==========================================================
      RECIPES
      Theme-specific compositions. Every input is a var(--token)

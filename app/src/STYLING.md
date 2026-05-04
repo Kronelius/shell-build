@@ -9,6 +9,44 @@
 1. **The shell's styling vocabulary is canonical and matches the Swatchboard.** When the Swatchboard emits `tokens.css` in Phase 1, dropping it into the shell should "just work" with no mapping layer.
 2. **Themes change values, never names.** A contributor adding a new component picks from the existing token names. They don't invent new ones. A genuinely new token goes through the Swatchboard's Material Change Protocol first.
 3. **Three buckets, three rules.** Every styling value in the shell is either a *token*, an *alias*, or a *recipe*. Know the bucket before you write it.
+4. **No element is left flat.** Every visible component the shell ships consumes a theme recipe — never a bare flat color. If the active theme defines `--btn-primary-grad`, `--card-shadow`, `--sidebar-grad`, `--badge-blue-grad` etc., the component CSS must read them. A theme swap is a single-PR `theme-*.css` replacement; that only works if the components are wired to consume the recipes.
+
+## The Every-Component-Themed Contract
+
+When you ship styling work — a re-skin, a new component, a per-client theme application — **every visual element in the touched surface gets the full theme treatment**. No flat backgrounds where the theme defines a gradient. No `box-shadow: none` where the theme provides `--card-shadow`. No `color: var(--primary)` on a button where the theme provides `--btn-primary-grad` + `--btn-primary-glow`.
+
+### When you re-skin (apply a theme to a fresh client clone)
+
+1. **Read the swatchboard end-to-end** before writing CSS. Inventory every component recipe (sidebar gradient, edge notch, nav triangle indicator, card gradient + colored shadow, button gradient + glow, badge gradient + colored shadow, gradient input borders, glass tabs, gradient table headers + striped rows, gradient hero + orb, per-cell metric gradients, gradient pipeline / timeline / drip cards, gradient chat bubbles, themed mobile header).
+2. **Inventory every selector in `index.css`** (`grep -n '^\.[a-zA-Z]' index.css`) and decide for each one which theme recipe it consumes. Anything left at base tokens (e.g. `background: var(--card-bg)` where the theme defines a gradient) is a miss.
+3. **Wire the recipes**. Examples in this codebase:
+   - `.sidebar { background: var(--sidebar-grad); }` and `.sidebar::after { background: var(--sidebar-edge); }` (the soft notch)
+   - `.nav-btn::before { background: var(--nav-hover-bg); ... mask-image: ...triangle... }` (the triangle indicator)
+   - `.nav-btn.active::before { background: var(--nav-active-bg); box-shadow: var(--nav-active-shadow); }` and `.nav-btn.active { filter: var(--nav-active-filter); }`
+   - `.card { background: linear-gradient(...primary-bg → card-bg); box-shadow: var(--card-shadow); }`
+   - `.btn-primary { background: var(--btn-primary-grad); box-shadow: var(--btn-primary-glow); }`
+   - `.badge.blue { background: var(--badge-blue-grad); box-shadow: var(--badge-blue-shadow); }` (one variant per color)
+   - `body { background: var(--page-bg-layers); }` and `body::before { background: var(--page-aurora); }` (aurora layers)
+4. **Verify every page**, not just the dashboard. Settings, Pipeline, Schedule, Contacts, Messaging, Invoices, Reminders, modals, mobile header. If a recipe didn't land, find the selector and wire it. Visual diff: the only blacks should be in the dark sidebar (when theme is dark-sidebar) or pure-text. Everything else has a tint.
+5. **No new tokens during re-skin.** If you find a component that genuinely has nothing to consume, that's a Swatchboard Material Change Protocol issue — don't invent a new token name in the theme file. Either pick an existing recipe that fits, or escalate.
+
+### When you add a new component
+
+The same contract applies in miniature: pick from existing recipes for cards / buttons / badges / inputs / tabs. If your component is a new pattern (a stat tile, a flow node, etc.), check whether the existing theme already covers it (`--tl-card-bg` and `--drip-node-bg` are reusable for any "blue gradient pill"). If it doesn't, add a recipe in the theme file — never inline a hex/gradient in the component file.
+
+### Pre-merge checklist for any styling PR
+
+- [ ] No `background: var(--card-bg)` where a `--*-grad` recipe applies
+- [ ] No `box-shadow: var(--shadow-md)` on a card / button / badge that has a `--*-shadow` recipe in the theme
+- [ ] No flat `background: var(--primary)` on a primary button — must use `--btn-primary-grad` + `--btn-primary-glow`
+- [ ] No flat `background: var(--success|warning|danger|primary)` on a `.badge.<color>` — must use the badge gradient + colored shadow
+- [ ] Body has aurora layers (`--page-bg-layers`, `--page-aurora`)
+- [ ] Sidebar has gradient + edge notch + triangle nav indicator
+- [ ] Tables: gradient header + alternating colored rows
+- [ ] Inputs: gradient border + focus glow
+- [ ] Tabs / dash-switcher / chips: glass background + gradient active
+- [ ] Hero / metric strip: per-cell gradients + decorative orb / top bar
+- [ ] Modals carry the same colored inset glow as cards
 
 ---
 
