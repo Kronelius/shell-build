@@ -1,5 +1,7 @@
 # Session Handoff
 
+> **NEW (2026-05-03) — MOBILE RESPONSIVE MANDATE:** [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md) was added to the shell from the Rainier proving build. **Zero horizontal scroll on any viewport, anywhere in the app.** Read that doc before any UI / CSS / new-page work. It contains a full audit of known offenders, 8 canonical CSS recipes, a per-page rollout checklist, and a testing protocol. The audit applies to this shell baseline — every flagged page in the doc has the same offender here. Visual mockup at [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html). The Rainier session that produced this doc has only fixed the sidebar overflow leak so far; the per-page rollout (card lists for tables, etc.) is the next workstream that should backport here.
+
 **Last session end:** **Permission defaults audit + Roles editor discoverability shipped** (Friday meeting follow-up). Tightened 5 default permissions, restructured the Roles editor into 8 grouped tables with sensitive-pills + precedence callout + reset button, relabeled the sidebar "Roles" → "Roles & Permissions", added Team-page cross-link, bumped storage v9 → v10. The shell is now ready to clone to a Rainier-credentialed repo.
 
 Current branch: `main`, working tree clean.

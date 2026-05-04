@@ -133,6 +133,18 @@ Per-client config tweak — belongs in the Rainier repo, not shell.
 
 Decision: **keep the schema** (`owner / admin / crew`) and rely on `ROLE_LABELS` for UI display ("Super Admin / Admin / Crew"). Documented in `roles.js`. Renaming the schema would touch every reducer/selector/permission check for zero user-visible benefit. If a client wants different labels, update `ROLE_LABELS` only.
 
+## `[ ]` Mobile responsive rollout — zero horizontal scroll `[Core]`
+
+Originated 2026-05-03 from the Rainier proving build. **Mandate: zero horizontal scroll on any viewport, anywhere in the app, including data tables.** Full spec, audit, canonical CSS recipes, per-page checklist, and testing protocol live in [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md). Visual mockups at [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html) (Contacts — 3 states) and [`app/public/mobile-mockups.html`](app/public/mobile-mockups.html) (Invoices list, Invoice line items, Reminders inbox, Team members, Roles accordion, Messaging list + thread).
+
+**Definition of Done:**
+- [ ] §3 canonical patterns landed in `app/src/index.css` (page head, filter drawer, card list, sticky bulk bar, modal sizing, toast/popover, sidebar overflow clip, global flexbox guard).
+- [ ] `MobileCardList` + per-entity card row components built in `app/src/components/`.
+- [ ] Per-page rollout (§4 checklist): `/contacts` (Contacts + Accounts), `/invoices` (list + detail line-items), `/reminders`, `/messaging` (3-pane → route-based view swap), `/settings/team`, `/settings/roles` (matrix → accordion), `/settings/services`, `/clients/:id` (3 tables), `/clients/contact/:id` (2 tables), Dashboard (top clients + overdue invoices).
+- [ ] CSV import preview restored to a wrap-friendly mobile layout.
+- [ ] Verified at 320 / 375 / 414 / 640 / 641px with the dev-tools eval from §6 returning an empty list.
+- [ ] Already shipped (Rainier): sidebar overflow clip on mobile (`overflow: hidden` when closed, `visible` when `mobile-open`).
+
 ## `[x]` Permission defaults audit + Roles editor discoverability `[Core]`
 
 Friday meeting follow-up. Tightened 5 default permissions and restructured the Roles editor so an Owner can land on it cold and configure permission levels for the other two roles in 30 seconds.

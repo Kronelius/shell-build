@@ -5,6 +5,7 @@
 1. **`CLAUDE.md`** (this file) — stable project context, conventions, file map. Auto-loaded.
 2. **`HANDOFF.md`** — session-to-session continuity: what just shipped, open issues, suggested next pickup.
 3. **`SHELL_ROADMAP.md`** — living roadmap with sprints + per-module Definition of Done checklists. Source of truth for what's done / in progress / pending.
+4. **`SHELL_MOBILE_RESPONSIVE.md`** — mandatory styling spec for mobile. **Zero horizontal scroll on any viewport, anywhere in the app.** Read before any UI/CSS work, any new page, any new list/table. Contains audit, canonical CSS recipes, per-page checklist, regression tests. Visual reference: [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html).
 
 ## Session Start Checklist (do this FIRST, every session)
 Before responding to any request in this folder:
@@ -107,5 +108,25 @@ Key CRM perms: `contacts.view`, `contacts.view.all`, `contacts.edit`, `contacts.
 - Tokens + aliases + recipes only — no hardcoded colors, no inline hex. See `app/src/STYLING.md`.
 - Badge color variants: `green` / `amber` / `red` / `blue` / `slate` / `purple`. Reused by tag chips.
 - Token vocabulary is shared with the Swatchboard. Reference files:
-  - `C:\Users\danie\Documents\PolishPoint\Blue\theme_polishpoint_blue_swatchboard.html`
-  - `C:\Users\danie\Documents\PolishPoint\Blue\blue-theme-mockup.html` (legacy visual reference, not canonical)
+  - `C:\Users\dtucc\OneDrive\Documents\PolishPoint\theme_polishpoint_blue_swatchboard.html` (canonical)
+  - `C:\Users\dtucc\OneDrive\Documents\PolishPoint\theme_polishpoint_blue.html` (mockup)
+
+### Every-component-themed contract (load-bearing)
+
+When you do any styling work — re-skinning a client clone, applying a theme to the shell, building a new component — **every visible element on the surface you touch must consume the active theme's recipes**. No bare flat colors when the theme defines a gradient. No missing `box-shadow` on a card / button / badge that has a colored-shadow recipe. No flat sidebar where the theme has a gradient + edge notch + triangle nav indicator. No flat hero where the theme has a gradient + radial orb.
+
+The procedure is documented in [`app/src/STYLING.md`](app/src/STYLING.md) under "The Every-Component-Themed Contract" — **read it before any re-skin or visual PR**. The pre-merge checklist there is mandatory: walk the inventory of `index.css`, identify every selector still on base tokens, and wire it to the matching theme recipe. A re-skin is "done" only when every page (Dashboard, Schedule, Pipeline, Contacts, Messaging, Invoices, Reminders, Settings, detail views, mobile header, modals) shows the theme on every component.
+
+### Mobile responsive contract (load-bearing — ZERO horizontal scroll)
+
+When you build or modify any UI surface, **it must fit a 375px viewport with no horizontal scrolling**. This is non-negotiable — applies to tables, modals, settings, messaging panes, every list page, every detail page. Tables that don't fit must be replaced with card lists on mobile, not allowed to scroll sideways.
+
+**Read [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md) before any new page, any new list/table, any modal, any layout work.** It contains:
+
+- The full audit of known offenders (file + line + fix).
+- 8 canonical CSS recipes you should reuse (page head, filter drawer, card list, sticky bulk bar, modal sizing, toast/popover, sidebar overflow clip, global flexbox guard).
+- Per-page implementation checklist for the rollout.
+- Testing protocol — including a one-liner dev-tools eval that lists every element pushing past viewport.
+- 10 regression-risk edge cases (iOS 100vh, RTL, safe-area insets, browser zoom, third-party embeds, etc.).
+
+A page is **not** "done" until you've verified at 320 / 375 / 414 / 640 / 641px that nothing scrolls horizontally. Pair every new `<table>` with a card-list alternative gated on `@media (max-width: 640px)`. Visual mockups for every canonical pattern live at [`app/public/mobile-contacts-mockup.html`](app/public/mobile-contacts-mockup.html) (Contacts list — 3 states) and [`app/public/mobile-mockups.html`](app/public/mobile-mockups.html) (six more: Invoices list, Invoice line items, Reminders inbox, Team members, Roles & Permissions accordion, Messaging list + thread).
