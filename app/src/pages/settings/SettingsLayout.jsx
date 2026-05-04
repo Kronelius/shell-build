@@ -6,6 +6,7 @@ const ITEMS = [
   { to: 'account',       label: 'Account',       icon: 'user',     perm: 'settings.account'    },
   { to: 'company',       label: 'Company',       icon: 'building', perm: 'settings.company'    },
   { to: 'services',      label: 'Services',      icon: 'invoices', perm: 'settings.services'   },
+  { to: 'tags',          label: 'Tags',          icon: 'tag',      perm: 'tags.manage'         },
   { to: 'team',          label: 'Team',          icon: 'clients',  perm: 'settings.team.view'  },
   { to: 'roles',         label: 'Roles & Permissions', icon: 'lock', perm: 'settings.roles.edit' },
   { to: 'notifications', label: 'Notifications', icon: 'bell',     perm: 'reminders.edit'      },

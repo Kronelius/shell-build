@@ -185,7 +185,7 @@ export default function JobDetail() {
           <h3 className="dash-card-title">Details</h3>
           {!editing ? (
             <dl className="detail-dl">
-              <div><dt>Client</dt><dd>{client ? <a className="link" href={`/clients/${client.id}`}>{client.name}</a> : '—'}</dd></div>
+              <div><dt>Client</dt><dd>{client ? <Link className="link" to={`/clients/${client.id}`} state={nav}>{client.name}</Link> : '—'}</dd></div>
               <div><dt>Site</dt><dd>{site?.name || '—'}{site?.address ? <div className="text-muted text-sm">{site.address}</div> : null}</dd></div>
               <div>
                 <dt>Site contact</dt>

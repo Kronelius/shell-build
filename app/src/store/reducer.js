@@ -45,7 +45,6 @@ export const ACTIONS = {
   ASSIGN_CONTACT_OWNER: 'ASSIGN_CONTACT_OWNER',
   SET_CONTACT_VISIBILITY: 'SET_CONTACT_VISIBILITY',
   SET_CONTACT_STAGE: 'SET_CONTACT_STAGE',
-  SET_CONTACT_LIFECYCLE: 'SET_CONTACT_LIFECYCLE',
   APPEND_CONTACT_NOTE: 'APPEND_CONTACT_NOTE',
 
   // Tags
@@ -138,6 +137,31 @@ export const ACTIONS = {
   // Inbound/outbound SMS plumbing — adds delivery state to messages and routes inbound to threads.
   RECEIVE_SMS: 'RECEIVE_SMS',
   SET_MESSAGE_DELIVERY: 'SET_MESSAGE_DELIVERY',
+
+  // ---------- Outreach (cold email module — v11) ----------
+  // Campaign CRUD
+  ADD_CAMPAIGN: 'ADD_CAMPAIGN',
+  UPDATE_CAMPAIGN: 'UPDATE_CAMPAIGN',
+  DELETE_CAMPAIGN: 'DELETE_CAMPAIGN',
+  SET_CAMPAIGN_STATUS: 'SET_CAMPAIGN_STATUS',
+  // Sequence step CRUD (steps belong to a campaign)
+  ADD_CAMPAIGN_STEP: 'ADD_CAMPAIGN_STEP',
+  UPDATE_CAMPAIGN_STEP: 'UPDATE_CAMPAIGN_STEP',
+  DELETE_CAMPAIGN_STEP: 'DELETE_CAMPAIGN_STEP',
+  // Enrollment (contact × campaign join)
+  ENROLL_CONTACTS: 'ENROLL_CONTACTS',                  // payload: { campaignId, contactIds: [] }
+  UPDATE_ENROLLMENT: 'UPDATE_ENROLLMENT',
+  REMOVE_ENROLLMENT: 'REMOVE_ENROLLMENT',
+  // Events (sent / opened / clicked / replied / bounced)
+  ADD_CAMPAIGN_EVENT: 'ADD_CAMPAIGN_EVENT',
+  // Inbound replies + AI classification (entry point for the auto-routing dispatcher)
+  RECEIVE_OUTREACH_REPLY: 'RECEIVE_OUTREACH_REPLY',
+  MARK_REPLY_HANDLED: 'MARK_REPLY_HANDLED',
+  APPEND_REPLY_AUTO_ACTION: 'APPEND_REPLY_AUTO_ACTION',
+  // Settings
+  UPDATE_OUTREACH_SETTINGS: 'UPDATE_OUTREACH_SETTINGS',
+  CONNECT_MAILBOX: 'CONNECT_MAILBOX',
+  DISCONNECT_MAILBOX: 'DISCONNECT_MAILBOX',
 };
 
 function replaceById(list, id, patch) {
@@ -168,15 +192,28 @@ export function reducer(state, action) {
       return { ...state, services: [...state.services, { id: newId('svc'), defaultDurationMins: 60, ...action.service }] };
     case ACTIONS.UPDATE_SERVICE:
       return { ...state, services: replaceById(state.services, action.id, action.patch) };
-    case ACTIONS.DELETE_SERVICE:
-      return { ...state, services: removeById(state.services, action.id) };
+    case ACTIONS.DELETE_SERVICE: {
+      const id = action.id;
+      return {
+        ...state,
+        services: removeById(state.services, id),
+        clients: state.clients.map((c) => (c.serviceId === id ? { ...c, serviceId: null } : c)),
+        jobs: state.jobs.map((j) => (j.serviceId === id ? { ...j, serviceId: null } : j)),
+      };
+    }
 
     case ACTIONS.ADD_FREQUENCY:
       return { ...state, frequencies: [...state.frequencies, { id: newId('frq'), ...action.frequency }] };
     case ACTIONS.UPDATE_FREQUENCY:
       return { ...state, frequencies: replaceById(state.frequencies, action.id, action.patch) };
-    case ACTIONS.DELETE_FREQUENCY:
-      return { ...state, frequencies: removeById(state.frequencies, action.id) };
+    case ACTIONS.DELETE_FREQUENCY: {
+      const id = action.id;
+      return {
+        ...state,
+        frequencies: removeById(state.frequencies, id),
+        clients: state.clients.map((c) => (c.frequencyId === id ? { ...c, frequencyId: null } : c)),
+      };
+    }
 
     // ---------- Users ----------
     case ACTIONS.ADD_USER: {
@@ -185,12 +222,26 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_USER:
       return { ...state, users: replaceById(state.users, action.id, action.patch) };
-    case ACTIONS.DELETE_USER:
+    case ACTIONS.DELETE_USER: {
+      const id = action.id;
       return {
         ...state,
-        users: removeById(state.users, action.id),
-        userPermissionOverrides: (state.userPermissionOverrides || []).filter((o) => o.userId !== action.id),
+        users: removeById(state.users, id),
+        userPermissionOverrides: (state.userPermissionOverrides || []).filter((o) => o.userId !== id),
+        contacts: (state.contacts || []).map((c) => (c.ownerUserId === id ? { ...c, ownerUserId: null } : c)),
+        jobs: state.jobs.map((j) => (
+          (j.crewIds || []).includes(id) ? { ...j, crewIds: j.crewIds.filter((u) => u !== id) } : j
+        )),
+        conversations: state.conversations.map((cv) => {
+          const next = { ...cv };
+          if (next.assignedUserId === id) next.assignedUserId = null;
+          if ((next.followedUserIds || []).includes(id)) next.followedUserIds = next.followedUserIds.filter((u) => u !== id);
+          return next;
+        }),
+        messages: state.messages.map((m) => (m.authorUserId === id ? { ...m, authorUserId: null } : m)),
+        contactActivities: (state.contactActivities || []).map((a) => (a.authorUserId === id ? { ...a, authorUserId: null } : a)),
       };
+    }
 
     // ---------- Clients ----------
     case ACTIONS.ADD_CLIENT: {
@@ -335,8 +386,6 @@ export function reducer(state, action) {
         contactActivities: [...(state.contactActivities || []), ...activity],
       };
     }
-    case ACTIONS.SET_CONTACT_LIFECYCLE:
-      return { ...state, contacts: replaceById(state.contacts || [], action.id, { lifecycle: action.lifecycle, updatedAt: nowIso() }) };
     case ACTIONS.APPEND_CONTACT_NOTE: {
       const now = nowIso();
       const authorUserId = action.authorUserId || state.currentUserId;
@@ -409,8 +458,15 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_SITE:
       return { ...state, sites: replaceById(state.sites, action.id, action.patch) };
-    case ACTIONS.DELETE_SITE:
-      return { ...state, sites: removeById(state.sites, action.id) };
+    case ACTIONS.DELETE_SITE: {
+      const id = action.id;
+      return {
+        ...state,
+        sites: removeById(state.sites, id),
+        jobs: state.jobs.map((j) => (j.siteId === id ? { ...j, siteId: null } : j)),
+        invoices: state.invoices.map((inv) => (inv.siteId === id ? { ...inv, siteId: null } : inv)),
+      };
+    }
 
     // ---------- Jobs ----------
     case ACTIONS.ADD_JOB: {
@@ -442,18 +498,38 @@ export function reducer(state, action) {
     }
     case ACTIONS.SET_JOB_STATUS:
       return { ...state, jobs: replaceById(state.jobs, action.id, { status: action.status }) };
-    case ACTIONS.DELETE_JOB:
-      return { ...state, jobs: removeById(state.jobs, action.id) };
-    case ACTIONS.DELETE_JOB_SERIES:
+    case ACTIONS.DELETE_JOB: {
+      const id = action.id;
       return {
         ...state,
-        jobs: state.jobs.filter((j) => {
-          if (j.seriesId !== action.seriesId) return true;
-          if (j.status !== 'upcoming') return true;
-          if (action.fromDate && j.startAt < action.fromDate) return true;
-          return false;
-        }),
+        jobs: removeById(state.jobs, id),
+        invoices: state.invoices.map((inv) => (
+          (inv.jobIds || []).includes(id) ? { ...inv, jobIds: inv.jobIds.filter((j) => j !== id) } : inv
+        )),
+        reminderEvents: (state.reminderEvents || []).filter((e) => e.jobId !== id),
       };
+    }
+    case ACTIONS.DELETE_JOB_SERIES: {
+      const removedIds = new Set(
+        state.jobs
+          .filter((j) => {
+            if (j.seriesId !== action.seriesId) return false;
+            if (j.status !== 'upcoming') return false;
+            if (action.fromDate && j.startAt < action.fromDate) return false;
+            return true;
+          })
+          .map((j) => j.id)
+      );
+      return {
+        ...state,
+        jobs: state.jobs.filter((j) => !removedIds.has(j.id)),
+        invoices: state.invoices.map((inv) => {
+          const ids = (inv.jobIds || []).filter((id) => !removedIds.has(id));
+          return ids.length === (inv.jobIds || []).length ? inv : { ...inv, jobIds: ids };
+        }),
+        reminderEvents: (state.reminderEvents || []).filter((e) => !removedIds.has(e.jobId)),
+      };
+    }
 
     // ---------- Invoices ----------
     case ACTIONS.ADD_INVOICE: {
@@ -915,6 +991,171 @@ export function reducer(state, action) {
       if (action.failureReason) patch.failureReason = action.failureReason;
       return { ...state, messages: replaceById(state.messages, action.id, patch) };
     }
+
+    // ---------- Outreach (v11) ----------
+    case ACTIONS.ADD_CAMPAIGN: {
+      const base = {
+        id: newId('cmp'),
+        name: 'Untitled Campaign',
+        status: 'draft',
+        description: '',
+        audienceFilter: '',
+        senderUserId: state.currentUserId,
+        fromEmail: '',
+        createdAt: nowIso(),
+        activatedAt: null,
+        completedAt: null,
+        pausedAt: null,
+        pausedReason: null,
+      };
+      return { ...state, campaigns: [...(state.campaigns || []), { ...base, ...action.campaign }] };
+    }
+    case ACTIONS.UPDATE_CAMPAIGN:
+      return { ...state, campaigns: replaceById(state.campaigns || [], action.id, action.patch) };
+    case ACTIONS.DELETE_CAMPAIGN: {
+      const id = action.id;
+      return {
+        ...state,
+        campaigns: (state.campaigns || []).filter((c) => c.id !== id),
+        campaignSteps: (state.campaignSteps || []).filter((s) => s.campaignId !== id),
+        campaignEnrollments: (state.campaignEnrollments || []).filter((e) => e.campaignId !== id),
+        campaignEvents: (state.campaignEvents || []).filter((e) => e.campaignId !== id),
+        outreachReplies: (state.outreachReplies || []).filter((r) => r.campaignId !== id),
+      };
+    }
+    case ACTIONS.SET_CAMPAIGN_STATUS: {
+      const now = nowIso();
+      const stamp = {};
+      if (action.status === 'active' && !state.campaigns?.find((c) => c.id === action.id)?.activatedAt) {
+        stamp.activatedAt = now;
+      }
+      if (action.status === 'paused')    { stamp.pausedAt = now; stamp.pausedReason = action.reason || null; }
+      if (action.status === 'active')    { stamp.pausedAt = null; stamp.pausedReason = null; }
+      if (action.status === 'completed') { stamp.completedAt = now; }
+      return {
+        ...state,
+        campaigns: replaceById(state.campaigns || [], action.id, { status: action.status, ...stamp }),
+      };
+    }
+
+    case ACTIONS.ADD_CAMPAIGN_STEP: {
+      const all = state.campaignSteps || [];
+      const peers = all.filter((s) => s.campaignId === action.step.campaignId);
+      const order = action.step.order ?? (peers.length + 1);
+      const base = {
+        id: newId('cs'),
+        order,
+        delayDays: 3,
+        channel: 'email',
+        subject: '',
+        body: '',
+      };
+      return { ...state, campaignSteps: [...all, { ...base, ...action.step }] };
+    }
+    case ACTIONS.UPDATE_CAMPAIGN_STEP:
+      return { ...state, campaignSteps: replaceById(state.campaignSteps || [], action.id, action.patch) };
+    case ACTIONS.DELETE_CAMPAIGN_STEP:
+      return { ...state, campaignSteps: (state.campaignSteps || []).filter((s) => s.id !== action.id) };
+
+    case ACTIONS.ENROLL_CONTACTS: {
+      const now = nowIso();
+      const existing = state.campaignEnrollments || [];
+      const existingPairs = new Set(existing.map((e) => `${e.campaignId}::${e.contactId}`));
+      const additions = (action.contactIds || [])
+        .filter((cid) => !existingPairs.has(`${action.campaignId}::${cid}`))
+        .map((contactId) => ({
+          id: newId('cen'),
+          campaignId: action.campaignId,
+          contactId,
+          currentStepIndex: 0,
+          status: 'pending',
+          enrolledAt: now,
+          lastSentAt: null,
+          nextSendAt: now, // dispatcher picks up immediately on next tick
+        }));
+      return { ...state, campaignEnrollments: [...existing, ...additions] };
+    }
+    case ACTIONS.UPDATE_ENROLLMENT:
+      return { ...state, campaignEnrollments: replaceById(state.campaignEnrollments || [], action.id, action.patch) };
+    case ACTIONS.REMOVE_ENROLLMENT:
+      return { ...state, campaignEnrollments: (state.campaignEnrollments || []).filter((e) => e.id !== action.id) };
+
+    case ACTIONS.ADD_CAMPAIGN_EVENT: {
+      const base = { id: newId('cev'), occurredAt: nowIso() };
+      return { ...state, campaignEvents: [...(state.campaignEvents || []), { ...base, ...action.event }] };
+    }
+
+    case ACTIONS.RECEIVE_OUTREACH_REPLY: {
+      // Entry point for the inbound side. Creates the reply row + appends a
+      // contactActivity so the contact's timeline shows the reply.
+      const base = {
+        id: newId('orp'),
+        receivedAt: nowIso(),
+        classification: 'other',
+        classificationConfidence: 0,
+        classificationReasoning: '',
+        autoActions: [],
+        handledByUserId: null,
+        handledAt: null,
+      };
+      const reply = { ...base, ...action.reply };
+      const activity = action.reply.contactId ? [{
+        id: newId('act'),
+        contactId: action.reply.contactId,
+        kind: 'outreach_reply',
+        authorUserId: null,
+        body: `Reply to campaign — classified ${reply.classification}`,
+        occurredAt: reply.receivedAt,
+      }] : [];
+      return {
+        ...state,
+        outreachReplies: [...(state.outreachReplies || []), reply],
+        contactActivities: [...(state.contactActivities || []), ...activity],
+      };
+    }
+    case ACTIONS.MARK_REPLY_HANDLED:
+      return {
+        ...state,
+        outreachReplies: replaceById(state.outreachReplies || [], action.id, {
+          handledByUserId: action.userId || state.currentUserId,
+          handledAt: nowIso(),
+        }),
+      };
+    case ACTIONS.APPEND_REPLY_AUTO_ACTION:
+      return {
+        ...state,
+        outreachReplies: (state.outreachReplies || []).map((r) => {
+          if (r.id !== action.id) return r;
+          const existing = r.autoActions || [];
+          if (existing.includes(action.action)) return r; // idempotent
+          return { ...r, autoActions: [...existing, action.action] };
+        }),
+      };
+
+    case ACTIONS.UPDATE_OUTREACH_SETTINGS:
+      return { ...state, outreachSettings: { ...(state.outreachSettings || {}), ...action.patch } };
+    case ACTIONS.CONNECT_MAILBOX:
+      return {
+        ...state,
+        outreachSettings: {
+          ...(state.outreachSettings || {}),
+          mailboxConnected: true,
+          mailboxProvider: action.provider,
+          mailboxAddress: action.address,
+          mailboxConnectedAt: nowIso(),
+        },
+      };
+    case ACTIONS.DISCONNECT_MAILBOX:
+      return {
+        ...state,
+        outreachSettings: {
+          ...(state.outreachSettings || {}),
+          mailboxConnected: false,
+          mailboxProvider: null,
+          mailboxAddress: null,
+          mailboxConnectedAt: null,
+        },
+      };
 
     default:
       return state;
