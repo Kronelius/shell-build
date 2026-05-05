@@ -254,31 +254,32 @@ export default function PipelineBoard() {
         <span className="text-sm font-semi">
           {selectionCount > 0 ? `${selectionCount} selected` : 'Select cards for bulk actions'}
         </span>
-        <div style={{ flex: 1 }} />
-        {canEdit && (
-          <FormField
-            label=""
-            as="select"
-            value=""
-            disabled={selectionCount === 0}
-            onChange={(e) => bulkMoveStage(e.target.value)}
-            options={[{ value: '', label: 'Move to stage…' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
-          />
+        {selectionCount > 0 && (
+          <>
+            {canEdit && (
+              <FormField
+                label=""
+                as="select"
+                value=""
+                onChange={(e) => bulkMoveStage(e.target.value)}
+                options={[{ value: '', label: 'Move to stage…' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
+              />
+            )}
+            {canAssignOwner && (
+              <FormField
+                label=""
+                as="select"
+                value=""
+                onChange={(e) => bulkAssignOwner(e.target.value)}
+                options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
+              />
+            )}
+            {canDelete && (
+              <button className="btn btn-primary btn-sm" onClick={bulkArchive}>Archive</button>
+            )}
+            <button className="btn btn-danger btn-sm" onClick={clearSelection}>Cancel</button>
+          </>
         )}
-        {canAssignOwner && (
-          <FormField
-            label=""
-            as="select"
-            value=""
-            disabled={selectionCount === 0}
-            onChange={(e) => bulkAssignOwner(e.target.value)}
-            options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
-          />
-        )}
-        {canDelete && (
-          <button className="btn btn-outline btn-sm" disabled={selectionCount === 0} onClick={bulkArchive}>Archive</button>
-        )}
-        <button className="btn btn-outline btn-sm" disabled={selectionCount === 0} onClick={clearSelection}>Cancel</button>
       </div>
 
       <StageManagerModal open={manageStagesOpen} onClose={() => setManageStagesOpen(false)} />

@@ -226,17 +226,20 @@ export default function Clients() {
             <span className="text-sm font-semi">
               {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select contacts for bulk actions'}
             </span>
-            <div style={{ flex: 1 }} />
-            <div style={{ width: 280, flexShrink: 0 }}>
-              <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Select tag" disabled={selectedIds.size === 0} />
-            </div>
-            <button className="btn btn-primary btn-sm" disabled={selectedIds.size === 0 || bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
-            {canAssignOwner && (
-              <FormField label="" as="select" value="" disabled={selectedIds.size === 0} onChange={(e) => bulkAssignOwner(e.target.value)}
-                options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
+            {selectedIds.size > 0 && (
+              <>
+                <div style={{ width: 280, flexShrink: 0 }}>
+                  <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Select tag" />
+                </div>
+                <button className="btn btn-primary btn-sm" disabled={bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
+                {canAssignOwner && (
+                  <FormField label="" as="select" value="" onChange={(e) => bulkAssignOwner(e.target.value)}
+                    options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
+                )}
+                <button className="btn btn-primary btn-sm" onClick={bulkArchive}>Archive</button>
+                <button className="btn btn-danger btn-sm" onClick={clearSelection}>Cancel</button>
+              </>
             )}
-            <button className="btn btn-primary btn-sm" disabled={selectedIds.size === 0} onClick={bulkArchive}>Archive</button>
-            <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0} onClick={clearSelection}>Cancel</button>
           </div>
 
           {filteredContacts.length === 0 ? (
@@ -405,9 +408,12 @@ export default function Clients() {
             <span className="text-sm font-semi">
               {selectedClientIds.size > 0 ? `${selectedClientIds.size} selected` : 'Select accounts for bulk actions'}
             </span>
-            <div style={{ flex: 1 }} />
-            <button className="btn btn-outline btn-sm" disabled={selectedClientIds.size === 0} onClick={bulkArchiveClients}>Archive</button>
-            <button className="btn btn-outline btn-sm" disabled={selectedClientIds.size === 0} onClick={clearClientSelection}>Cancel</button>
+            {selectedClientIds.size > 0 && (
+              <>
+                <button className="btn btn-primary btn-sm" onClick={bulkArchiveClients}>Archive</button>
+                <button className="btn btn-danger btn-sm" onClick={clearClientSelection}>Cancel</button>
+              </>
+            )}
           </div>
 
           {filteredClients.length === 0 ? (

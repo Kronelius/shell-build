@@ -976,13 +976,6 @@ label:has(> input[type="checkbox"]) {
   color: var(--text-muted);
 }
 .bulk-bar.is-empty > span { color: var(--text-muted); font-weight: 500; }
-.bulk-bar.is-empty .btn:disabled,
-.bulk-bar.is-empty .input:disabled,
-.bulk-bar.is-empty select:disabled,
-.bulk-bar.is-empty .tag-picker-row {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 
 /* Schedule toolbar */
 .schedule-toolbar {

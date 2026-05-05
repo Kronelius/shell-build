@@ -63,16 +63,17 @@ Keep the wrapping `<div>` so the section is one grid cell / one block. Drop the 
 
 ## 3. Bulk-action bars persist — no layout shift on selection
 
-**Rule.** Any UI element that appears/disappears based on selection state must instead **always be rendered**. When nothing is selected, show neutral placeholder copy and disable the action controls. The result: selecting an item never pushes the content below it down.
+**Rule.** Any UI element that appears/disappears based on selection state must instead **always be rendered** as a container. When nothing is selected, show neutral placeholder copy and **hide the action controls entirely** (do not render them). The result: selecting an item never pushes the content below it down, but the empty bar stays clean with only instructional text.
 
 **Where it applies.**
 - `Clients` (Contacts tab): bulk-bar with tag/owner/archive actions
+- `Clients` (Accounts tab): bulk-bar with archive action
 - `Invoices`: bulk-bar with mark-paid/export/clear
 - `Pipeline`: bulk-bar with move-to-stage/owner/archive
 
 **How to apply.**
 
-1. JSX: render unconditionally with an `is-empty` modifier when count is 0.
+1. JSX: render the bar unconditionally with an `is-empty` modifier when count is 0. Controls render only when count > 0, left-justified (no flex spacer).
    ```jsx
    <div className={`bulk-bar ${selection.size === 0 ? 'is-empty' : ''}`}>
      <span>
@@ -80,10 +81,16 @@ Keep the wrapping `<div>` so the section is one grid cell / one block. Drop the 
          ? `${selection.size} selected`
          : 'Select <items> for bulk actions'}
      </span>
-     {/* ...controls with disabled={selection.size === 0}... */}
+     {selection.size > 0 && (
+       <>
+         {/* ...controls (no disabled={selection.size === 0} needed)... */}
+         <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
+       </>
+     )}
    </div>
    ```
-2. CSS: `.bulk-bar.is-empty` softens the visual (transparent bg, dashed border, muted text) and dims disabled controls. See `index.css` near `.bulk-bar`.
+2. CSS: `.bulk-bar.is-empty` softens the visual (transparent bg, dashed border, muted text). No dimming rules needed since controls are absent.
+3. Do NOT use a flex spacer to push controls right — controls follow the "{N} selected" text directly (left-justified).
 
 **Generalizes to:** any "context bar" tied to selection or transient state (filter chips, batch toolbars). If it would CLS on appearance, render it always.
 
