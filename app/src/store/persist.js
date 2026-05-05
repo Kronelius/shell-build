@@ -1,7 +1,9 @@
-// v10: tightened default permissions (5 flips: pipeline.view, messaging.startConversation,
-// messaging.internalComment, settings.services, integrations.view) + grouped Roles editor.
-// Bump in lockstep with INITIAL_STATE.version so v9 caches force a fresh reseed.
-const STORAGE_KEY = 'pp.store.v10';
+// v14: KPI write-paths shipped — JobDetail "Mark Missed" button + ContactDetail
+// "Log complaint" composer + "Mark resolved / Reopen" toggle. Reducer gained
+// UPDATE_CONTACT_ACTIVITY. Activity field naming aligned to schema canon
+// (occurredAt + body, was at + text on the seeded complaints).
+// Bump in lockstep with INITIAL_STATE.version so v13 caches force a fresh reseed.
+const STORAGE_KEY = 'pp.store.v14';
 
 export function loadState() {
   try {

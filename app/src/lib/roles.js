@@ -20,7 +20,7 @@ export const ROLE_LABELS = {
 
 export const ROLE_DESCRIPTIONS = {
   owner: 'Full access — can assign roles, edit permissions, and override access per user. The top tier.',
-  admin: 'Manages day-to-day ops: clients, jobs, invoices, messages, team. Cannot assign roles.',
+  admin: 'Manages day-to-day ops: clients, jobs, messages, team. Cannot see financials or assign roles.',
   crew:  'Sees their own jobs and assigned contacts. Can update job status.',
 };
 
@@ -45,11 +45,13 @@ export const PERMISSIONS = {
   'pipeline.view':           { label: 'View sales pipeline',              defaultRoles: ['owner', 'admin'] },
   'pipeline.edit':           { label: 'Move deals in pipeline',           defaultRoles: ['owner', 'admin'] },
   // ---------- Invoices / Reminders / Messaging ----------
-  'invoices.view':           { label: 'View Invoices',            defaultRoles: ['owner', 'admin'] },
-  'invoices.edit':           { label: 'Create / edit invoices',   defaultRoles: ['owner', 'admin'] },
-  'invoices.recordPayment':  { label: 'Record payments',          defaultRoles: ['owner', 'admin'] },
-  'reminders.view':          { label: 'View Reminders',           defaultRoles: ['owner', 'admin'] },
-  'reminders.edit':          { label: 'Edit reminder templates',  defaultRoles: ['owner', 'admin'] },
+  // Per Rainier Q24: Admin should not see financials. Owner-only by default;
+  // Heather/Lauren get specific grants via per-user overrides if/when needed.
+  'invoices.view':           { label: 'View Invoices',            defaultRoles: ['owner'] },
+  'invoices.edit':           { label: 'Create / edit invoices',   defaultRoles: ['owner'] },
+  'invoices.recordPayment':  { label: 'Record payments',          defaultRoles: ['owner'] },
+  'reminders.view':          { label: 'View Reminders',           defaultRoles: ['owner'] },
+  'reminders.edit':          { label: 'Edit reminder templates',  defaultRoles: ['owner'] },
   'messaging.use':               { label: 'Use Messaging',              defaultRoles: ['owner', 'admin', 'crew'] },
   'messaging.startConversation': { label: 'Start new conversations',     defaultRoles: ['owner', 'admin'] },
   'messaging.internalComment':   { label: 'Post internal comments',      defaultRoles: ['owner', 'admin', 'crew'] },

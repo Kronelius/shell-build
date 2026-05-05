@@ -286,10 +286,10 @@ export function selectVisibleContactsFor(s, user, permissions) {
   });
 }
 
-// Pipeline — contacts in lead/prospect lifecycles with a stage set.
+// Pipeline — contacts in lead/prospect/customer lifecycles with a stage set.
 export function selectPipelineContacts(s) {
   return (s.contacts || []).filter(
-    (c) => c.lifecycle !== 'archived' && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect')
+    (c) => c.lifecycle !== 'archived' && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'customer')
   );
 }
 
@@ -370,6 +370,80 @@ export const selectUnreadReminderCount = (s) =>
   (s.reminderEvents || []).filter((e) => !e.readAt).length;
 export const selectFailedReminderCount = (s) =>
   (s.reminderEvents || []).filter((e) => e.status === 'failed').length;
+
+// ─── Rainier KPIs (per questionnaire Q17 + Q18) ─────────────────────────────
+// All windowed selectors use a rolling N-day lookback from "now" so the
+// dashboard auto-updates without bookkeeping. `complaint` activities are
+// `contactActivities` rows with `kind === 'complaint'`. Missed cleans are
+// jobs with `status === 'missed'` (status is set by the reducer/UI when a
+// scheduled job is intentionally marked missed; not auto-derived from time
+// to avoid silently flipping cancelled jobs).
+
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const daysAgoDate = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return startOfDay(d); };
+
+// Q17: "missed cleans" — count + estimated revenue impact over the last 30 days.
+// Revenue impact is service.defaultDurationMins as a rough proxy ($150/hr).
+export function selectMissedCleansThisMonth(s) {
+  const since = daysAgoDate(30);
+  const services = s.services || [];
+  const missed = (s.jobs || []).filter(
+    (j) => j.status === 'missed' && new Date(j.startAt) >= since
+  );
+  const revenueImpact = missed.reduce((sum, j) => {
+    const svc = services.find((sv) => sv.id === j.serviceId);
+    const hours = (svc?.defaultDurationMins || 60) / 60;
+    return sum + hours * 150;
+  }, 0);
+  return { count: missed.length, revenueImpact };
+}
+
+// Q17: "labor report" — sum of crew-hours for jobs that started in the last 7 days.
+// labor-hours = (endAt - startAt) × crewIds.length, summed over completed/in-progress.
+export function selectLaborHoursThisWeek(s) {
+  const since = daysAgoDate(7);
+  const totalMins = (s.jobs || [])
+    .filter((j) => {
+      const start = new Date(j.startAt);
+      return start >= since && (j.status === 'done' || j.status === 'in_progress');
+    })
+    .reduce((sum, j) => {
+      const dur = Math.max(0, (new Date(j.endAt) - new Date(j.startAt)) / 60000);
+      const crewSize = Math.max(1, (j.crewIds || []).length);
+      return sum + dur * crewSize;
+    }, 0);
+  return Math.round(totalMins / 60);
+}
+
+// Q17: "client complaints" — open complaint activities in last 30 days.
+// A complaint is `contactActivities` row with `kind === 'complaint'` and no
+// `resolvedAt` timestamp. Closed complaints fall off the count.
+export function selectOpenComplaints(s) {
+  const since = daysAgoDate(30);
+  return (s.contactActivities || []).filter(
+    (a) => a.kind === 'complaint' && !a.resolvedAt && new Date(a.occurredAt || a.createdAt) >= since
+  );
+}
+
+// Q18: "outstanding quotes" — sum of dealValue + count for contacts at the
+// 'quote' stage (Quote Sent in the Rainier pipeline). Walkthroughs in the
+// pre-quote stages are tracked separately.
+export function selectOutstandingQuotes(s) {
+  const inQuote = (s.contacts || []).filter((c) => c.stage === 'quote');
+  const value = inQuote.reduce((sum, c) => sum + (Number(c.dealValue) || 0), 0);
+  return { count: inQuote.length, value };
+}
+
+// Q18: revenue this month (paid amount logged within current calendar month).
+export function selectRevenueThisMonth(s) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  return (s.invoices || []).reduce((sum, inv) => {
+    return sum + (inv.payments || []).reduce((paySum, p) => {
+      return new Date(p.date) >= monthStart ? paySum + (Number(p.amount) || 0) : paySum;
+    }, 0);
+  }, 0);
+}
 
 // Reminder stats (computed from events)
 export function selectReminderStats(s) {
