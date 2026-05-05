@@ -15,6 +15,7 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
+import { useToast } from '../components/Toast';
 import {
   selectClients, selectClientById, selectServiceById, selectFrequencies, selectServices,
   selectContacts, selectTags, selectTagById, selectPermissions, selectUsers, selectUserById,
@@ -38,6 +39,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const nav = useFromHere();
   const dispatch = useDispatch();
+  const toast = useToast();
   const { currentUser } = useAuth();
   const canCreateClient = usePermission('clients.edit');
   const canCreateContact = usePermission('contacts.edit');
@@ -86,6 +88,7 @@ export default function Clients() {
   const aService = searchParams.get('aservice') || 'all';
   const aFreq = searchParams.get('afreq') || 'all';
   const [addClientOpen, setAddClientOpen] = useState(false);
+  const [selectedClientIds, setSelectedClientIds] = useState(() => new Set());
 
   const filteredContacts = useMemo(() => {
     const q = cSearch.trim().toLowerCase();
@@ -148,10 +151,29 @@ export default function Clients() {
     });
     setBulkTagIds([]);
     clearSelection();
+    toast.success('Tags applied');
   };
   const bulkArchive = () => {
     selectedIds.forEach((id) => dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id }));
     clearSelection();
+  };
+
+  // Account (Client) selection — mirrors the Contacts pattern.
+  const toggleClientSelected = (id) => {
+    setSelectedClientIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllClients = () => {
+    if (selectedClientIds.size === filteredClients.length) setSelectedClientIds(new Set());
+    else setSelectedClientIds(new Set(filteredClients.map((c) => c.id)));
+  };
+  const clearClientSelection = () => setSelectedClientIds(new Set());
+  const bulkArchiveClients = () => {
+    selectedClientIds.forEach((id) => dispatch({ type: ACTIONS.ARCHIVE_CLIENT, id }));
+    clearClientSelection();
   };
 
   return (
@@ -205,15 +227,15 @@ export default function Clients() {
               {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select contacts for bulk actions'}
             </span>
             <div style={{ flex: 1 }} />
-            <div style={{ minWidth: 200 }}>
-              <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Tag selected…" disabled={selectedIds.size === 0} />
+            <div style={{ width: 280, flexShrink: 0 }}>
+              <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Select tag" disabled={selectedIds.size === 0} />
             </div>
-            <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0 || bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
+            <button className="btn btn-primary btn-sm" disabled={selectedIds.size === 0 || bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
             {canAssignOwner && (
               <FormField label="" as="select" value="" disabled={selectedIds.size === 0} onChange={(e) => bulkAssignOwner(e.target.value)}
                 options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
             )}
-            <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0} onClick={bulkArchive}>Archive</button>
+            <button className="btn btn-primary btn-sm" disabled={selectedIds.size === 0} onClick={bulkArchive}>Archive</button>
             <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0} onClick={clearSelection}>Cancel</button>
           </div>
 
@@ -379,6 +401,15 @@ export default function Clients() {
               options={[{ value: 'all', label: 'All frequencies' }, ...frequencies.map((f) => ({ value: f.id, label: f.label }))]} />
           </div>
 
+          <div className={`bulk-bar ${selectedClientIds.size === 0 ? 'is-empty' : ''}`}>
+            <span className="text-sm font-semi">
+              {selectedClientIds.size > 0 ? `${selectedClientIds.size} selected` : 'Select accounts for bulk actions'}
+            </span>
+            <div style={{ flex: 1 }} />
+            <button className="btn btn-outline btn-sm" disabled={selectedClientIds.size === 0} onClick={bulkArchiveClients}>Archive</button>
+            <button className="btn btn-outline btn-sm" disabled={selectedClientIds.size === 0} onClick={clearClientSelection}>Cancel</button>
+          </div>
+
           {filteredClients.length === 0 ? (
             clients.length === 0 ? (
               <EmptyState
@@ -396,6 +427,14 @@ export default function Clients() {
                 <table>
                   <thead>
                     <tr>
+                      <th style={{ width: 36 }}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select all accounts"
+                          checked={selectedClientIds.size > 0 && selectedClientIds.size === filteredClients.length}
+                          onChange={toggleSelectAllClients}
+                        />
+                      </th>
                       <th>Account</th>
                       <th>Primary contact</th>
                       <th>Service</th>
@@ -412,6 +451,14 @@ export default function Clients() {
                         const primaryLabel = primary ? `${primary.firstName} ${primary.lastName}` : (c.primaryContact || '—');
                         return (
                           <tr key={c.id} className="clickable" onClick={() => navigate(`/clients/${c.id}`, { state: nav })}>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${c.name}`}
+                                checked={selectedClientIds.has(c.id)}
+                                onChange={() => toggleClientSelected(c.id)}
+                              />
+                            </td>
                             <td className="name">{c.name}</td>
                             <td>{primaryLabel}</td>
                             <td>{selectServiceById(state, c.serviceId)?.name || '—'}</td>
@@ -442,6 +489,14 @@ export default function Clients() {
                       className="mobile-card"
                       onClick={() => navigate(`/clients/${c.id}`, { state: nav })}
                     >
+                      <input
+                        type="checkbox"
+                        className="mc-check"
+                        aria-label={`Select ${c.name}`}
+                        checked={selectedClientIds.has(c.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleClientSelected(c.id)}
+                      />
                       <div className="mc-avatar" style={{ gridColumn: 1, gridRow: '1 / span 2' }}>
                         <Avatar initials={initials} variant={(c.id.length % 5) + 1} size="sm" />
                       </div>
