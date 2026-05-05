@@ -4,10 +4,9 @@ import FormField from './FormField';
 import Icon from './Icon';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectPipelineStages, selectContactsByStageKey } from '../store/selectors';
+import { selectActivePipeline, selectActivePipelineStages, selectContactsByStageKey } from '../store/selectors';
 import { useToast } from './Toast';
 
-// Inline-editable row. Owns its own input state so blurs don't thrash the whole modal.
 function StageRow({ stage, count, index, total, onRename, onMove, onDelete }) {
   const [label, setLabel] = useState(stage.label);
 
@@ -66,7 +65,9 @@ export default function StageManagerModal({ open, onClose }) {
   const state = useStore();
   const dispatch = useDispatch();
   const toast = useToast();
-  const stages = selectPipelineStages(state);
+  const pipeline = selectActivePipeline(state);
+  const stages = selectActivePipelineStages(state);
+  const pipelineId = pipeline?.id;
 
   const [newLabel, setNewLabel] = useState('');
 
@@ -75,7 +76,7 @@ export default function StageManagerModal({ open, onClose }) {
   }, [open]);
 
   const rename = (id, label) => {
-    dispatch({ type: ACTIONS.UPDATE_PIPELINE_STAGE, id, patch: { label } });
+    dispatch({ type: ACTIONS.UPDATE_PIPELINE_STAGE, pipelineId, id, patch: { label } });
   };
 
   const move = (id, delta) => {
@@ -85,7 +86,7 @@ export default function StageManagerModal({ open, onClose }) {
     if (j < 0 || j >= stages.length) return;
     const next = stages.slice();
     [next[i], next[j]] = [next[j], next[i]];
-    dispatch({ type: ACTIONS.REORDER_PIPELINE_STAGES, ids: next.map((s) => s.id) });
+    dispatch({ type: ACTIONS.REORDER_PIPELINE_STAGES, pipelineId, ids: next.map((s) => s.id) });
   };
 
   const remove = (stage) => {
@@ -94,7 +95,7 @@ export default function StageManagerModal({ open, onClose }) {
       toast.error(`"${stage.label}" has ${count} contact${count === 1 ? '' : 's'} — move them out first.`);
       return;
     }
-    dispatch({ type: ACTIONS.DELETE_PIPELINE_STAGE, id: stage.id });
+    dispatch({ type: ACTIONS.DELETE_PIPELINE_STAGE, pipelineId, id: stage.id });
   };
 
   const add = (e) => {
@@ -105,13 +106,13 @@ export default function StageManagerModal({ open, onClose }) {
       toast.error(`A stage named "${label}" already exists.`);
       return;
     }
-    dispatch({ type: ACTIONS.ADD_PIPELINE_STAGE, label });
+    dispatch({ type: ACTIONS.ADD_PIPELINE_STAGE, pipelineId, label });
     toast.success(`Stage "${label}" added`);
     setNewLabel('');
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Manage Pipeline Stages">
+    <Modal open={open} onClose={onClose} title={`Manage Stages — ${pipeline?.label || 'Pipeline'}`}>
       <p className="text-sm text-muted" style={{ marginTop: 0, marginBottom: 12 }}>
         Rename, reorder, add, or delete stages. Delete is blocked while a stage has contacts in it.
       </p>
@@ -137,9 +138,7 @@ export default function StageManagerModal({ open, onClose }) {
           onChange={(e) => setNewLabel(e.target.value)}
           placeholder="New stage name (e.g. Negotiating)"
         />
-        <button type="submit" className="btn btn-outline btn-sm" disabled={!newLabel.trim()}>
-          <Icon name="plus" size={14} /> Add stage
-        </button>
+        <button type="submit" className="btn btn-primary" disabled={!newLabel.trim()}>+ Add Stage</button>
       </form>
 
       <div className="modal-actions">

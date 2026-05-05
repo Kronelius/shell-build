@@ -120,7 +120,11 @@ export const ACTIONS = {
   // Permissions
   UPDATE_PERMISSION: 'UPDATE_PERMISSION',
 
-  // Pipeline stages (v6)
+  // Pipelines (v15)
+  ADD_PIPELINE: 'ADD_PIPELINE',
+  UPDATE_PIPELINE: 'UPDATE_PIPELINE',
+  DELETE_PIPELINE: 'DELETE_PIPELINE',
+  SET_ACTIVE_PIPELINE: 'SET_ACTIVE_PIPELINE',
   ADD_PIPELINE_STAGE: 'ADD_PIPELINE_STAGE',
   UPDATE_PIPELINE_STAGE: 'UPDATE_PIPELINE_STAGE',
   DELETE_PIPELINE_STAGE: 'DELETE_PIPELINE_STAGE',
@@ -320,12 +324,13 @@ export function reducer(state, action) {
       const prev = all.find((c) => c.id === action.id);
       if (!prev) return state;
       const stageChanged = prev.stage !== action.stage;
+      const pipelineId = action.pipelineId || prev.pipelineId || state.activePipelineId;
       const patched = {
         ...prev,
         stage: action.stage,
+        pipelineId: action.stage ? pipelineId : null,
         stageChangedAt: stageChanged ? now : prev.stageChangedAt,
         updatedAt: now,
-        // Move to 'customer' lifecycle automatically on 'won'; 'lost' leaves lifecycle alone so callers can decide.
         lifecycle: action.stage === 'won' ? 'customer' : prev.lifecycle,
       };
       // Optional reorder: `insertBeforeId` places the moved contact immediately before that contact in the
@@ -715,41 +720,88 @@ export function reducer(state, action) {
     case ACTIONS.UPDATE_PERMISSION:
       return { ...state, permissions: replaceById(state.permissions, action.id, action.patch) };
 
-    // ---------- Pipeline stages ----------
-    case ACTIONS.ADD_PIPELINE_STAGE: {
-      const existing = state.pipelineStages || [];
+    // ---------- Pipelines ----------
+    case ACTIONS.ADD_PIPELINE: {
       const label = (action.label || '').trim();
       if (!label) return state;
-      // Slug the label into a stable key. Dedupe by appending a suffix if needed.
-      const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'stage';
-      let key = baseKey;
-      let n = 2;
-      while (existing.some((s) => s.key === key)) { key = `${baseKey}-${n++}`; }
-      return { ...state, pipelineStages: [...existing, { id: newId('ps'), key, label }] };
+      const id = newId('pl');
+      const pipeline = { id, label, createdAt: nowIso(), stages: [] };
+      return { ...state, pipelines: [...(state.pipelines || []), pipeline], activePipelineId: id };
     }
-    case ACTIONS.UPDATE_PIPELINE_STAGE: {
-      const existing = state.pipelineStages || [];
+    case ACTIONS.UPDATE_PIPELINE: {
       const label = (action.patch?.label || '').trim();
       if (!label) return state;
-      return { ...state, pipelineStages: replaceById(existing, action.id, { label }) };
+      const pipelines = (state.pipelines || []).map((p) =>
+        p.id === action.id ? { ...p, label } : p
+      );
+      return { ...state, pipelines };
+    }
+    case ACTIONS.DELETE_PIPELINE: {
+      const pipelines = state.pipelines || [];
+      const target = pipelines.find((p) => p.id === action.id);
+      if (!target) return state;
+      if ((state.contacts || []).some((c) => c.pipelineId === action.id)) return state;
+      const next = pipelines.filter((p) => p.id !== action.id);
+      const activePipelineId = state.activePipelineId === action.id
+        ? (next[0]?.id || null)
+        : state.activePipelineId;
+      return { ...state, pipelines: next, activePipelineId };
+    }
+    case ACTIONS.SET_ACTIVE_PIPELINE:
+      return { ...state, activePipelineId: action.id };
+
+    // ---------- Pipeline stages (scoped to pipeline) ----------
+    case ACTIONS.ADD_PIPELINE_STAGE: {
+      const pipelineId = action.pipelineId || state.activePipelineId;
+      const label = (action.label || '').trim();
+      if (!label) return state;
+      const pipelines = (state.pipelines || []).map((p) => {
+        if (p.id !== pipelineId) return p;
+        const existing = p.stages || [];
+        const baseKey = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'stage';
+        let key = baseKey;
+        let n = 2;
+        while (existing.some((s) => s.key === key)) { key = `${baseKey}-${n++}`; }
+        return { ...p, stages: [...existing, { id: newId('ps'), key, label }] };
+      });
+      return { ...state, pipelines };
+    }
+    case ACTIONS.UPDATE_PIPELINE_STAGE: {
+      const pipelineId = action.pipelineId || state.activePipelineId;
+      const label = (action.patch?.label || '').trim();
+      if (!label) return state;
+      const pipelines = (state.pipelines || []).map((p) => {
+        if (p.id !== pipelineId) return p;
+        return { ...p, stages: replaceById(p.stages || [], action.id, { label }) };
+      });
+      return { ...state, pipelines };
     }
     case ACTIONS.DELETE_PIPELINE_STAGE: {
-      const existing = state.pipelineStages || [];
-      const target = existing.find((s) => s.id === action.id);
+      const pipelineId = action.pipelineId || state.activePipelineId;
+      const pipeline = (state.pipelines || []).find((p) => p.id === pipelineId);
+      if (!pipeline) return state;
+      const target = (pipeline.stages || []).find((s) => s.id === action.id);
       if (!target) return state;
-      // Refuse if any contact is parked in this stage. UI should guard first; this is the safety net.
-      const inUse = (state.contacts || []).some((c) => c.stage === target.key);
+      const inUse = (state.contacts || []).some((c) => c.pipelineId === pipelineId && c.stage === target.key);
       if (inUse) return state;
-      return { ...state, pipelineStages: existing.filter((s) => s.id !== action.id) };
+      const pipelines = (state.pipelines || []).map((p) => {
+        if (p.id !== pipelineId) return p;
+        return { ...p, stages: (p.stages || []).filter((s) => s.id !== action.id) };
+      });
+      return { ...state, pipelines };
     }
     case ACTIONS.REORDER_PIPELINE_STAGES: {
-      const existing = state.pipelineStages || [];
+      const pipelineId = action.pipelineId || state.activePipelineId;
       const ids = Array.isArray(action.ids) ? action.ids : [];
-      const map = Object.fromEntries(existing.map((s) => [s.id, s]));
-      const ordered = ids.map((id) => map[id]).filter(Boolean);
-      // Preserve anything not listed (shouldn't happen in practice, but defensive).
-      const leftover = existing.filter((s) => !ids.includes(s.id));
-      return { ...state, pipelineStages: [...ordered, ...leftover] };
+      const pipelines = (state.pipelines || []).map((p) => {
+        if (p.id !== pipelineId) return p;
+        const existing = p.stages || [];
+        const map = Object.fromEntries(existing.map((s) => [s.id, s]));
+        const ordered = ids.map((id) => map[id]).filter(Boolean);
+        const leftover = existing.filter((s) => !ids.includes(s.id));
+        return { ...p, stages: [...ordered, ...leftover] };
+      });
+      return { ...state, pipelines };
     }
 
     // ---------- Integrations / Twilio ----------
