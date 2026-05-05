@@ -41,6 +41,16 @@ const paths = {
   expand:   <path d="M3.75 3.75h5.25M3.75 3.75v5.25M3.75 3.75l6 6 M20.25 3.75h-5.25M20.25 3.75v5.25M20.25 3.75l-6 6 M3.75 20.25h5.25M3.75 20.25v-5.25M3.75 20.25l6-6 M20.25 20.25h-5.25M20.25 20.25v-5.25M20.25 20.25l-6-6" />,
   repeat:   <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.015 4.653v4.992" />,
   warning:  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />,
+  grip: (
+    <>
+      <circle cx="9" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="18" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="18" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 20, strokeWidth = 2, className = '', ...rest }) {
