@@ -56,11 +56,23 @@ export const selectUserByEmail = (s, email) => {
   const lower = email.trim().toLowerCase();
   return s.users.find((u) => (u.email || '').toLowerCase() === lower) || null;
 };
-export const selectPipelineStages = (s) => s.pipelineStages || [];
-export const selectPipelineStageByKey = (s, key) =>
-  (s.pipelineStages || []).find((st) => st.key === key) || null;
-export const selectContactsByStageKey = (s, key) =>
-  (s.contacts || []).filter((c) => c.stage === key);
+export const selectPipelines = (s) => s.pipelines || [];
+export const selectActivePipeline = (s) =>
+  (s.pipelines || []).find((p) => p.id === s.activePipelineId) || (s.pipelines || [])[0] || null;
+export const selectActivePipelineStages = (s) => {
+  const pl = selectActivePipeline(s);
+  return pl ? pl.stages : [];
+};
+export const selectPipelineStages = selectActivePipelineStages;
+export const selectPipelineStageByKey = (s, key) => {
+  const stages = selectActivePipelineStages(s);
+  return stages.find((st) => st.key === key) || null;
+};
+export const selectContactsByStageKey = (s, key) => {
+  const pl = selectActivePipeline(s);
+  if (!pl) return [];
+  return (s.contacts || []).filter((c) => c.pipelineId === pl.id && c.stage === key);
+};
 export const selectTagById = (s, id) => (s.tags || []).find((t) => t.id === id) || null;
 
 // ---------- Relationship reads ----------
@@ -286,10 +298,12 @@ export function selectVisibleContactsFor(s, user, permissions) {
   });
 }
 
-// Pipeline — contacts in lead/prospect/customer lifecycles with a stage set.
+// Pipeline — contacts in the active pipeline with a stage set.
 export function selectPipelineContacts(s) {
+  const pl = selectActivePipeline(s);
+  if (!pl) return [];
   return (s.contacts || []).filter(
-    (c) => c.lifecycle !== 'archived' && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'customer')
+    (c) => c.lifecycle !== 'archived' && c.pipelineId === pl.id && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'customer')
   );
 }
 
