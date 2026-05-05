@@ -29,18 +29,44 @@ import { pickFirstName, pickLastName } from './scrapio';
 const DEFAULT_TARGET_ROLES = ['Owner', 'Operations Director', 'General Manager'];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PRODUCTION PROMPT — what Claude actually sees when an Anthropic key is
-// configured + the enricher hits api.anthropic.com directly.
+// PIPELINE OVERVIEW — what actually runs when a user clicks "Find →"
 //
-// This function is the single source of truth for the prompt. The Step 3 UI
-// in the Outreach tab calls it to render a live preview so the user can see
-// exactly what runs against their businesses with their key.
+// Layer 1 — WEBSITE (Anthropic / Claude)
+//   1. Page discovery (deterministic). Hit a fixed list of candidate paths
+//      on the business's domain: /about, /about-us, /team, /our-team,
+//      /leadership, /staff, /people, /contact. Keep the ones that return 200.
+//   2. Page fetch (deterministic). HTTP-fetch each surviving URL, strip
+//      <script>/<style>/<nav>/<footer>, take the first ~3000 chars of clean
+//      text per page. Concatenate.
+//   3. Identify-and-rank (Claude, single call). Send the page text + the
+//      user's businessProfile.targetRoles + excludedTitles to Claude with
+//      buildEnrichmentPrompt(). Claude returns the best-matching person as
+//      strict JSON. Model: claude-haiku-4-5 (cheapest tier — single-shot
+//      structured extraction doesn't need Sonnet/Opus).
+//   4. Email synthesis (deterministic). If the JSON has no email, build one
+//      as `firstname@domain` (most-common B2B convention).
 //
-// The prompt assumes Claude has the web_search tool enabled (or is given the
-// website HTML in a follow-up turn). Output is strict JSON so the dispatcher
-// can parse it without LLM-mistake handling. Model: claude-haiku-4-5 by
-// default — single-shot website reads don't need Sonnet/Opus capability.
+// Layer 2 — WEB SEARCH (Perplexity Sonar) — runs only when Layer 1 returns null
+//   1. Query Perplexity Sonar with buildPerplexityPrompt(). Sonar combines
+//      a live LinkedIn / press-release / news search with structured output
+//      in a single call. Returns the same shape as Layer 1.
+//   2. Email synthesis (deterministic) — same as Layer 1.
+//
+// Both buildXxxPrompt() functions below are the single source of truth for
+// what each layer sends. The Step 3 UI in the Outreach tab calls them to
+// render a live preview so the user can see exactly what runs against
+// their businesses with their key.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Step 1 of Layer 1 — the candidate paths the page-discovery scanner tries.
+// Surfaced in the UI so the user can see which URLs get hit per business.
+export const PAGE_DISCOVERY_PATHS = [
+  '/about', '/about-us', '/team', '/our-team', '/leadership',
+  '/staff', '/people', '/contact', '/contact-us',
+];
+
+// Layer 1 — the prompt sent to Claude after page discovery + fetch are done.
+// Model: claude-haiku-4-5 (default). Output: strict JSON.
 export function buildEnrichmentPrompt({
   businessName, category, website, targetRoles, excludedTitles,
 }) {
@@ -64,12 +90,16 @@ ${rolesBlock}
 EXCLUDED TITLES (never return someone whose title contains any of these words):
   ${excludedLine}
 
+PAGE TEXT (the About / Team / Leadership / Contact pages already fetched and cleaned):
+
+[the concatenated, script-stripped page text — typically 2000–8000 words — is appended here at runtime]
+
 INSTRUCTIONS:
-1. Use the web_search tool to read the business's About, Team, Leadership, Contact, and Staff pages.
-2. Find the person whose title most closely matches role #1 in the priority list. If nobody matches, try role #2, and so on.
+1. Read the page text and extract every named person along with their title (and email or phone if present).
+2. Score each person against the target roles in priority order — does their title match role #1? If not, role #2? And so on.
 3. Skip anyone whose title contains an excluded word.
-4. Synthesize their work email if not stated outright (firstname@domain when in doubt — the most common B2B convention).
-5. Score your confidence 0.0–1.0 based on how clearly the person and role were identified.
+4. Pick the highest-priority match. Synthesize their work email if not stated outright (firstname@domain when in doubt — the most common B2B convention).
+5. Score your confidence 0.0–1.0 based on how clearly the person and matching role were identified.
 
 Return ONLY this JSON object — no prose, no markdown fences, no other text:
 
@@ -89,6 +119,50 @@ Return ONLY this JSON object — no prose, no markdown fences, no other text:
 If no suitable contact can be found on the website, return:
 
 { "decisionMaker": null, "candidateCount": 0, "reasoning": "..." }
+`;
+}
+
+// Layer 2 — fallback prompt sent to Perplexity Sonar (sonar-medium-online)
+// when Layer 1 returns null (no decision-maker found on the website).
+// Sonar combines a live LinkedIn / news / press-release search with structured
+// output in a single request, so this is one round-trip instead of search+LLM.
+export function buildPerplexityPrompt({
+  businessName, category, website, targetRoles, excludedTitles,
+}) {
+  const roles = Array.isArray(targetRoles) && targetRoles.length > 0
+    ? targetRoles
+    : DEFAULT_TARGET_ROLES;
+  const excluded = Array.isArray(excludedTitles) ? excludedTitles : [];
+  const rolesLine = roles.map((r, i) => `${i + 1}. ${r}`).join(', ');
+  const excludedLine = excluded.length > 0 ? excluded.join(', ') : 'none';
+
+  return `Find the most senior decision-maker contact at "${businessName}"${category ? ` (a ${category})` : ''}${website ? ` — website ${website}` : ''}.
+
+Search LinkedIn, the company website, recent press releases, and news coverage. Try the roles in this priority order — only fall back to a lower-priority role if no one matches the higher one:
+
+  ${rolesLine}
+
+Skip anyone whose title contains: ${excludedLine}.
+
+Return ONLY this JSON object — no prose, no markdown fences, no other text:
+
+{
+  "decisionMaker": {
+    "firstName": "...",
+    "lastName": "...",
+    "title": "...",
+    "linkedinUrl": "...",
+    "email": "...",
+    "confidence": 0.0
+  },
+  "matchedRole": "the role from the list that they fit",
+  "sources": ["url-1", "url-2"],
+  "reasoning": "one sentence on why this person was selected and where the title was confirmed"
+}
+
+If no suitable contact is found, return:
+
+{ "decisionMaker": null, "sources": [], "reasoning": "..." }
 `;
 }
 

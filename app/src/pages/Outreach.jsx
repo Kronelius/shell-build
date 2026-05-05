@@ -25,7 +25,10 @@ import {
   validateInstantlyKey, listMailboxes, initOAuth, pollOAuthSession, getMailboxByEmail,
 } from '../lib/outreach';
 import { runSearch, scrapioIsStub } from '../lib/scrapio';
-import { enrichDecisionMaker, buildEnrichmentPrompt } from '../lib/decisionMakerEnricher';
+import {
+  enrichDecisionMaker, buildEnrichmentPrompt, buildPerplexityPrompt,
+  PAGE_DISCOVERY_PATHS,
+} from '../lib/decisionMakerEnricher';
 import { newId } from '../lib/ids';
 import { fmtRelative } from '../lib/dates';
 
@@ -1355,29 +1358,20 @@ function ProspectingTab({ dispatch, toast, state, settings }) {
   return (
     <div className="prospecting-layout">
       <div className="prospecting-main">
-        {/* Step 1: targeting (who you sell to) — explicit + persistent */}
+        {/* Step 1 — targeting (who you sell to). Always visible. */}
         <BusinessProfileCard settings={settings} dispatch={dispatch} toast={toast} />
-        {/* Step 2: search (where to look) */}
+        {/* Step 2 — search (where to look). Always visible. */}
         <ProspectSearchForm onSubmit={onNewSearch} settings={settings} />
-        {/* Step 3: results (who we found) */}
-        {activeSearch && (
-          <ProspectResultsPanel
-            search={activeSearch}
-            results={activeResults}
-            allResults={allResults}
-            settings={settings}
-            dispatch={dispatch}
-            toast={toast}
-            state={state}
-          />
-        )}
-        {!activeSearch && (
-          <EmptyState
-            icon={<Icon name="search" size={28} />}
-            title="No searches yet"
-            message="Set your targeting above, then run your first search. Matching businesses load from Google Maps, and the people who fit your target roles get enriched automatically."
-          />
-        )}
+        {/* Step 3 — find decision makers (the enrichment pipeline). Always visible
+            so the user can read the mechanism even before running a search. */}
+        <ProspectEnrichmentPanel
+          activeSearch={activeSearch}
+          results={activeResults}
+          settings={settings}
+          dispatch={dispatch}
+          toast={toast}
+          state={state}
+        />
       </div>
       <ProspectSearchHistory
         searches={searches}
@@ -1507,11 +1501,100 @@ function ProspectSearchForm({ onSubmit, settings }) {
   );
 }
 
-function ProspectResultsPanel({ search, results, settings, dispatch, toast, state }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// EnrichmentMechanism — describes the actual production pipeline that runs
+// when the user clicks "Find →" on a row. Always visible in Step 3 so the
+// pipeline is transparent even before any prospect search has run.
+//
+// Each layer's exact prompt is rendered live with the user's current
+// businessProfile interpolated in. That way the user can see precisely what
+// would be sent against each business with their Anthropic / Perplexity key.
+// ─────────────────────────────────────────────────────────────────────────────
+function EnrichmentMechanism({ settings }) {
+  const profile = settings.businessProfile || {};
+  // Use a representative business so the prompt preview reads naturally.
+  const sampleBusiness = {
+    businessName: 'Skyline Office Cleaning',
+    category: 'Commercial cleaning',
+    website: 'skylinecleaning.io',
+    targetRoles: profile.targetRoles || [],
+    excludedTitles: profile.excludedTitles || [],
+  };
+  const layer1Prompt = buildEnrichmentPrompt(sampleBusiness);
+  const layer2Prompt = buildPerplexityPrompt(sampleBusiness);
+
+  return (
+    <div className="enrichment-mechanism">
+      <div className="enrichment-layer">
+        <div className="enrichment-layer-head">
+          <span className="enrichment-layer-num">Layer 1</span>
+          <strong>Website read</strong>
+          <span className="enrichment-layer-model">Claude Haiku 4.5</span>
+          <span className="enrichment-layer-cost">~$0.005 / business</span>
+        </div>
+        <ol className="enrichment-steps">
+          <li>
+            <strong>Page discovery.</strong> Probe the business's domain for the paths most likely to list people:{' '}
+            {PAGE_DISCOVERY_PATHS.map((p, i) => (
+              <span key={p}>
+                {i > 0 && ' · '}
+                <code>{p}</code>
+              </span>
+            ))}
+            . Keep the URLs that respond <code>200</code>.
+          </li>
+          <li>
+            <strong>Page fetch.</strong> HTTP-fetch each surviving URL. Strip <code>&lt;script&gt;</code>, <code>&lt;style&gt;</code>, <code>&lt;nav&gt;</code>, <code>&lt;footer&gt;</code>. Take the first ~3,000 chars of clean text per page. Concatenate them.
+          </li>
+          <li>
+            <strong>Identify &amp; rank (Claude).</strong> Send the cleaned page text + your target roles + excluded titles to Claude with the prompt below. Claude extracts every named person, scores each against your roles in priority order, and returns the highest-priority match as strict JSON.
+          </li>
+          <li>
+            <strong>Email synthesis.</strong> If Claude didn't return an email, build one as <code>firstname@domain</code> — the most-common B2B convention.
+          </li>
+        </ol>
+        <details className="prompt-preview">
+          <summary>Show the exact prompt sent to Claude</summary>
+          <pre className="prompt-preview-body">{layer1Prompt}</pre>
+          <div className="text-xs text-muted" style={{ marginTop: 8 }}>
+            Endpoint: <code>POST https://api.anthropic.com/v1/messages</code> · Model: <code>claude-haiku-4-5</code> · Auth: <code>x-api-key</code> header from your installation. The prompt re-renders live whenever you edit Step 1.
+          </div>
+        </details>
+      </div>
+
+      <div className="enrichment-layer">
+        <div className="enrichment-layer-head">
+          <span className="enrichment-layer-num">Layer 2</span>
+          <strong>Web search</strong>
+          <span className="enrichment-layer-model">Perplexity Sonar</span>
+          <span className="enrichment-layer-cost">~$0.02 / business</span>
+          <span className="enrichment-layer-note">runs only when Layer 1 returns no match</span>
+        </div>
+        <ol className="enrichment-steps">
+          <li>
+            <strong>Sonar query.</strong> Send the prompt below to Perplexity Sonar. Sonar combines a live LinkedIn / press-release / news search with structured JSON output in a single call — one round-trip instead of search-then-LLM.
+          </li>
+          <li>
+            <strong>Email synthesis.</strong> Same fallback as Layer 1 — <code>firstname@domain</code> if Sonar didn't surface an email.
+          </li>
+        </ol>
+        <details className="prompt-preview">
+          <summary>Show the exact prompt sent to Perplexity</summary>
+          <pre className="prompt-preview-body">{layer2Prompt}</pre>
+          <div className="text-xs text-muted" style={{ marginTop: 8 }}>
+            Endpoint: <code>POST https://api.perplexity.ai/chat/completions</code> · Model: <code>sonar-medium-online</code> · Auth: Bearer token from your installation. Add a Perplexity key in Settings to enable this layer; without one, Layer 1 misses are surfaced as "no match found" instead of falling back.
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function ProspectEnrichmentPanel({ activeSearch, results, settings, dispatch, toast, state }) {
   const [selected, setSelected] = useState(new Set());
 
-  // Clear selection if the search changes.
-  useEffect(() => { setSelected(new Set()); }, [search.id]);
+  // Clear selection if the search changes (or there's no search yet).
+  useEffect(() => { setSelected(new Set()); }, [activeSearch?.id]);
 
   const toggle = (id) => {
     const next = new Set(selected);
@@ -1560,8 +1643,8 @@ function ProspectResultsPanel({ search, results, settings, dispatch, toast, stat
           visibility: 'org',
           lifecycle: 'lead',
           stage: 'new',
-          notes: `Sourced via prospect search: "${search.query}" in ${search.location}.`,
-          customFields: { company: r.businessName, sourceSearchId: search.id, website: r.website },
+          notes: `Sourced via prospect search: "${activeSearch?.query || ''}" in ${activeSearch?.location || ''}.`,
+          customFields: { company: r.businessName, sourceSearchId: activeSearch?.id, website: r.website },
         },
       });
       dispatch({ type: ACTIONS.LINK_PROSPECT_TO_CONTACT, resultId: r.id, contactId });
@@ -1579,7 +1662,7 @@ function ProspectResultsPanel({ search, results, settings, dispatch, toast, stat
   const buildTargetRoles = () => {
     const profile = settings.businessProfile || {};
     const profileRoles = profile.targetRoles || [];
-    const override = search.overrideRole;
+    const override = activeSearch?.overrideRole;
     if (!override) return profileRoles;
     const rest = profileRoles.filter((r) => r.toLowerCase() !== override.toLowerCase());
     return [override, ...rest];
@@ -1630,138 +1713,164 @@ function ProspectResultsPanel({ search, results, settings, dispatch, toast, stat
     toast.success(`Enriching ${targets.length} prospect${targets.length === 1 ? '' : 's'}…`);
   };
 
-  if (search.status === 'running' || search.status === 'queued') {
-    return (
-      <div className="card dash-card">
-        <div className="dash-card-title">Searching Google Maps…</div>
-        <div className="prospect-progress">
-          <div className="prospect-progress-bar" style={{ width: `${search.progress || 0}%` }} />
-        </div>
-        <div className="text-sm text-muted" style={{ marginTop: 10 }}>
-          {search.progress || 0}% — pulling businesses matching "{search.query}" in {search.location}
-        </div>
-      </div>
-    );
-  }
-
-  if (search.status === 'failed') {
-    return (
-      <div className="card dash-card">
-        <div className="dash-card-title">Search failed</div>
-        <div className="text-sm" style={{ color: 'var(--danger)' }}>{search.failureReason || 'Unknown error'}</div>
-      </div>
-    );
-  }
-
+  // ---- Render ----
+  // ONE wrapping Step 3 card. The mechanism description is always visible.
+  // The body underneath shows whichever state the active search is in:
+  //   no search yet  → empty placeholder
+  //   running/queued → progress bar
+  //   failed         → error
+  //   completed      → action toolbar + results table with per-row Find buttons
   return (
-    <div className="card dash-card">
-      <div className="dash-card-title-row">
+    <div className="card dash-card targeting-card">
+      <div className="targeting-head">
+        <div className="targeting-step">Step 3</div>
         <div>
-          <div className="dash-card-title" style={{ margin: 0, padding: 0, border: 'none' }}>
-            Results for "{search.query}" in {search.location}
+          <div className="targeting-title">Find decision makers</div>
+          <div className="text-sm text-muted">
+            Click <strong>Find →</strong> on any row (or <strong>Enrich all</strong>) to identify the right person at each business — using the roles defined in Step 1. Two layers run in order, both transparent below.
           </div>
-          <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-            {results.length} businesses · {enrichedCount} enriched · {savedCount} saved to CRM
-          </div>
-        </div>
-        <div className="flex-row">
-          <button className="btn btn-outline btn-sm" onClick={enrichAllVisible}>
-            <Icon name="search" size={12} /> Enrich all
-          </button>
-          <button className="btn btn-outline btn-sm" onClick={selectAllUnsaved}>
-            Select unsaved
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={selected.size === 0}
-            onClick={bulkSave}
-          >
-            <Icon name="plus" size={12} /> Save {selected.size > 0 ? `${selected.size} ` : ''}to CRM
-          </button>
         </div>
       </div>
 
-      <div className="table-wrap" style={{ marginTop: 12 }}>
-        <table className="prospect-results-table">
-          <thead>
-            <tr>
-              <th style={{ width: 32 }}></th>
-              <th>Business</th>
-              <th>Category</th>
-              <th>Phone</th>
-              <th>Website</th>
-              <th>Decision maker</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map((r) => {
-              const dmRun = selectActiveDmRunForResult(state, r.id);
-              const enriching = dmRun?.status === 'running';
-              const failed = dmRun?.status === 'failed';
-              const saved = Boolean(r.savedContactId);
-              return (
-                <tr key={r.id} className={saved ? 'saved' : ''}>
-                  <td>
-                    {!saved && (
-                      <input
-                        type="checkbox"
-                        checked={selected.has(r.id)}
-                        onChange={() => toggle(r.id)}
-                      />
-                    )}
-                  </td>
-                  <td className="name">
-                    {r.businessName}
-                    <div className="text-xs text-muted">{r.address}</div>
-                  </td>
-                  <td><span className="text-xs text-muted">{r.category}</span></td>
-                  <td className="text-xs">{r.phone}</td>
-                  <td className="text-xs">{r.website}</td>
-                  <td>
-                    {r.decisionMaker ? (
-                      <div>
-                        <div className="text-sm" style={{ fontWeight: 600 }}>
-                          {r.decisionMaker.firstName} {r.decisionMaker.lastName}
-                        </div>
-                        <div className="text-xs">
-                          <span className="dm-role-badge" title="Matched your targeting">{r.decisionMaker.title}</span>
-                        </div>
-                        {r.decisionMaker.email && (
-                          <div className="text-xs" style={{ color: 'var(--primary)', marginTop: 4 }}>{r.decisionMaker.email}</div>
-                        )}
-                        <div className="text-xs text-muted" style={{ marginTop: 2 }}>
-                          via {r.decisionMaker.source === 'website' ? 'Claude (website)' : 'Perplexity (web search)'}
-                          {r.decisionMaker.confidence && ` · ${Math.round(r.decisionMaker.confidence * 100)}%`}
-                        </div>
-                      </div>
-                    ) : enriching ? (
-                      <span className="text-xs text-muted">
-                        <span className="dot-pulse" /> Reading website…
-                      </span>
-                    ) : failed ? (
-                      <button className="btn btn-outline btn-sm" onClick={() => enrichOne(r.id)}>
-                        Retry
-                      </button>
-                    ) : (
-                      <button className="btn btn-outline btn-sm" onClick={() => enrichOne(r.id)}>
-                        Find →
-                      </button>
-                    )}
-                  </td>
-                  <td>
-                    {saved ? (
-                      <Link to={`/contacts/${r.savedContactId}`} className="text-xs" style={{ color: 'var(--success)' }}>
-                        ✓ In CRM
-                      </Link>
-                    ) : null}
-                  </td>
+      <EnrichmentMechanism settings={settings} />
+
+      {/* State-dependent body */}
+      {!activeSearch && (
+        <div className="enrichment-body-empty">
+          <Icon name="search" size={24} />
+          <div>
+            <strong>No prospects loaded yet.</strong>
+            <div className="text-sm text-muted">
+              Run a search in Step 2 to populate this list. Each row gets a "Find →" button to run the pipeline above.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSearch && (activeSearch.status === 'running' || activeSearch.status === 'queued') && (
+        <div className="enrichment-body-running">
+          <div className="prospect-progress">
+            <div className="prospect-progress-bar" style={{ width: `${activeSearch.progress || 0}%` }} />
+          </div>
+          <div className="text-sm text-muted" style={{ marginTop: 10 }}>
+            {activeSearch.progress || 0}% — pulling businesses matching "{activeSearch.query}" in {activeSearch.location}
+          </div>
+        </div>
+      )}
+
+      {activeSearch && activeSearch.status === 'failed' && (
+        <div className="enrichment-body-failed">
+          <strong>Search failed.</strong>{' '}
+          <span className="text-sm">{activeSearch.failureReason || 'Unknown error'}</span>
+        </div>
+      )}
+
+      {activeSearch && activeSearch.status === 'completed' && (
+        <div className="enrichment-body-results">
+          <div className="enrichment-results-toolbar">
+            <div className="text-xs text-muted">
+              <strong>"{activeSearch.query}" in {activeSearch.location}</strong> · {results.length} businesses · {enrichedCount} enriched · {savedCount} saved to CRM
+            </div>
+            <div className="flex-row">
+              <button className="btn btn-outline btn-sm" onClick={enrichAllVisible}>
+                <Icon name="search" size={12} /> Enrich all
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={selectAllUnsaved}>
+                Select unsaved
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                disabled={selected.size === 0}
+                onClick={bulkSave}
+              >
+                <Icon name="plus" size={12} /> Save {selected.size > 0 ? `${selected.size} ` : ''}to CRM
+              </button>
+            </div>
+          </div>
+
+          <div className="table-wrap" style={{ marginTop: 12 }}>
+            <table className="prospect-results-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 32 }}></th>
+                  <th>Business</th>
+                  <th>Category</th>
+                  <th>Phone</th>
+                  <th>Website</th>
+                  <th>Decision maker</th>
+                  <th></th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {results.map((r) => {
+                  const dmRun = selectActiveDmRunForResult(state, r.id);
+                  const enriching = dmRun?.status === 'running';
+                  const failed = dmRun?.status === 'failed';
+                  const saved = Boolean(r.savedContactId);
+                  return (
+                    <tr key={r.id} className={saved ? 'saved' : ''}>
+                      <td>
+                        {!saved && (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.id)}
+                            onChange={() => toggle(r.id)}
+                          />
+                        )}
+                      </td>
+                      <td className="name">
+                        {r.businessName}
+                        <div className="text-xs text-muted">{r.address}</div>
+                      </td>
+                      <td><span className="text-xs text-muted">{r.category}</span></td>
+                      <td className="text-xs">{r.phone}</td>
+                      <td className="text-xs">{r.website}</td>
+                      <td>
+                        {r.decisionMaker ? (
+                          <div>
+                            <div className="text-sm" style={{ fontWeight: 600 }}>
+                              {r.decisionMaker.firstName} {r.decisionMaker.lastName}
+                            </div>
+                            <div className="text-xs">
+                              <span className="dm-role-badge" title="Matched your targeting">{r.decisionMaker.title}</span>
+                            </div>
+                            {r.decisionMaker.email && (
+                              <div className="text-xs" style={{ color: 'var(--primary)', marginTop: 4 }}>{r.decisionMaker.email}</div>
+                            )}
+                            <div className="text-xs text-muted" style={{ marginTop: 2 }}>
+                              via {r.decisionMaker.source === 'website' ? 'Claude (website)' : 'Perplexity (web search)'}
+                              {r.decisionMaker.confidence && ` · ${Math.round(r.decisionMaker.confidence * 100)}%`}
+                            </div>
+                          </div>
+                        ) : enriching ? (
+                          <span className="text-xs text-muted">
+                            <span className="dot-pulse" /> Reading website…
+                          </span>
+                        ) : failed ? (
+                          <button className="btn btn-outline btn-sm" onClick={() => enrichOne(r.id)}>
+                            Retry
+                          </button>
+                        ) : (
+                          <button className="btn btn-outline btn-sm" onClick={() => enrichOne(r.id)}>
+                            Find →
+                          </button>
+                        )}
+                      </td>
+                      <td>
+                        {saved ? (
+                          <Link to={`/contacts/${r.savedContactId}`} className="text-xs" style={{ color: 'var(--success)' }}>
+                            ✓ In CRM
+                          </Link>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

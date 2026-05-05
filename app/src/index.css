@@ -3025,3 +3025,136 @@ tr.clickable:hover { background: var(--inset-bg); }
   border-radius: 999px;
   font-size: 11px; font-weight: 600;
 }
+
+/* ── ENRICHMENT MECHANISM (Step 3) ── */
+.enrichment-mechanism {
+  display: flex; flex-direction: column; gap: 12px;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+.enrichment-layer {
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--inset-bg);
+  padding: 14px 16px;
+}
+.enrichment-layer-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+.enrichment-layer-num {
+  font-size: 10px; font-weight: 700;
+  color: var(--primary); background: var(--primary-bg);
+  padding: 3px 8px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.enrichment-layer-head strong {
+  font-size: 14px; color: var(--text-primary);
+}
+.enrichment-layer-model {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-body);
+  padding: 2px 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+.enrichment-layer-cost {
+  font-size: 11px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.enrichment-layer-note {
+  font-size: 11px; color: var(--text-muted);
+  font-style: italic;
+}
+
+.enrichment-steps {
+  margin: 0; padding-left: 22px;
+  font-size: 13px; color: var(--text-body);
+  line-height: 1.6;
+}
+.enrichment-steps li { margin: 4px 0; }
+.enrichment-steps strong { color: var(--text-primary); }
+.enrichment-steps code {
+  font-size: 11px;
+  padding: 1px 5px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+/* Prompt-preview expandable */
+.prompt-preview {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--card-border);
+}
+.prompt-preview summary {
+  font-size: 12px; font-weight: 600; color: var(--primary);
+  cursor: pointer; user-select: none;
+  list-style: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 0;
+}
+.prompt-preview summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.15s;
+  font-size: 10px;
+}
+.prompt-preview[open] summary::before { transform: rotate(90deg); }
+.prompt-preview summary::-webkit-details-marker { display: none; }
+.prompt-preview summary:hover { text-decoration: underline; }
+.prompt-preview-body {
+  margin-top: 8px;
+  padding: 12px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 11px; line-height: 1.5;
+  color: var(--text-body);
+  white-space: pre-wrap;
+  max-height: 360px;
+  overflow: auto;
+}
+
+/* Step 3 body states */
+.enrichment-body-empty {
+  margin-top: 14px; padding: 16px;
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--inset-bg);
+  border: 1px dashed var(--card-border);
+  border-radius: var(--card-radius);
+  color: var(--text-muted);
+}
+.enrichment-body-empty strong { color: var(--text-primary); display: block; margin-bottom: 2px; }
+.enrichment-body-running {
+  margin-top: 14px; padding: 14px 16px;
+  background: var(--primary-bg); border-radius: var(--card-radius);
+}
+.enrichment-body-failed {
+  margin-top: 14px; padding: 12px 14px;
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid var(--danger);
+  border-radius: var(--card-radius);
+  color: var(--danger);
+}
+.enrichment-body-failed strong { color: var(--danger); }
+.enrichment-body-results { margin-top: 14px; }
+.enrichment-results-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--inset-bg);
+  border-radius: var(--card-radius);
+}
+@media (max-width: 768px) {
+  .enrichment-layer-head { gap: 6px; }
+  .enrichment-layer-cost,
+  .enrichment-layer-note { width: 100%; }
+}
