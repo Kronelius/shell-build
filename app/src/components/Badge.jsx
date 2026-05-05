@@ -7,7 +7,7 @@ export function statusBadgeVariant(status) {
   const map = {
     Paid: 'green', Active: 'green', Confirmed: 'green', Available: 'green',
     Pending: 'amber', 'On Site': 'amber',
-    Overdue: 'red',
+    Overdue: 'red', Missed: 'red', Cancelled: 'red',
     'In Progress': 'blue',
     Inactive: 'slate', 'Off Duty': 'slate',
   };

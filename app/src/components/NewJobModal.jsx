@@ -234,7 +234,7 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
           </div>
         )}
 
-        <FormField label="Crew">
+        <FormField label="Crew" help="Click a crew member to assign or unassign them from this job. Highlighted chips are assigned.">
           <div className="chip-picker">
             {crewPool.map((u) => {
               const on = form.crewIds.includes(u.id);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
+import Select from './Select';
 import TagPicker from './TagPicker';
 import { useStore } from '../store';
 import { selectActiveUsers } from '../store/selectors';
@@ -141,30 +142,26 @@ function FiltersPopover({ filters, onFiltersChange, onClose }) {
 
         <div className="filter-block">
           <div className="filter-label">Assignee</div>
-          <select
-            className="input"
-            value={filters.ownerId}
-            onChange={(e) => onFiltersChange({ ...filters, ownerId: e.target.value })}
-          >
-            <option value="">Any assignee</option>
-            <option value="__unassigned">Unassigned</option>
-            {activeUsers.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
+          <Select
+            ariaLabel="Assignee"
+            value={filters.ownerId || ''}
+            onChange={(v) => onFiltersChange({ ...filters, ownerId: v })}
+            options={[
+              { value: '', label: 'Any assignee' },
+              { value: '__unassigned', label: 'Unassigned' },
+              ...activeUsers.map((u) => ({ value: u.id, label: u.name })),
+            ]}
+          />
         </div>
 
         <div className="filter-block">
           <div className="filter-label">Date range</div>
-          <select
-            className="input"
+          <Select
+            ariaLabel="Date range"
             value={filters.dateRange}
-            onChange={(e) => onFiltersChange({ ...filters, dateRange: e.target.value })}
-          >
-            {DATE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+            onChange={(v) => onFiltersChange({ ...filters, dateRange: v })}
+            options={DATE_OPTIONS}
+          />
         </div>
 
         <div className="filter-block">

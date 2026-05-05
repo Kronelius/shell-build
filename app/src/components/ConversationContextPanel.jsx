@@ -5,6 +5,7 @@ import Avatar from './Avatar';
 import Badge, { statusBadgeVariant } from './Badge';
 import ContactPicker from './ContactPicker';
 import ContactFocusModal from './ContactFocusModal';
+import Select from './Select';
 import EmptyState from './EmptyState';
 import Icon from './Icon';
 import TagChip from './TagChip';
@@ -220,21 +221,26 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
         <div>
           <dt>Assigned user</dt>
           <dd className="assigned-user-cell">
-            <select className="inline-select" value={form.ownerUserId} onChange={up('ownerUserId')} disabled={!canAssignOwner}>
-              <option value="">Unassigned</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <Select
+              ariaLabel="Assigned user"
+              value={form.ownerUserId || ''}
+              onChange={(v) => up('ownerUserId')({ target: { value: v } })}
+              disabled={!canAssignOwner}
+              options={[{ value: '', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
+            />
             {selectedOwner && <Avatar initials={selectedOwner.initials} variant={selectedOwner.avatar} size="sm" />}
           </dd>
         </div>
         <div>
           <dt>Visibility</dt>
           <dd>
-            <select className="inline-select" value={form.visibility} onChange={up('visibility')} disabled={!canEdit}>
-              {Object.entries(VISIBILITY_LABELS).map(([v, label]) => (
-                <option key={v} value={v}>{label}</option>
-              ))}
-            </select>
+            <Select
+              ariaLabel="Visibility"
+              value={form.visibility}
+              onChange={(v) => up('visibility')({ target: { value: v } })}
+              disabled={!canEdit}
+              options={Object.entries(VISIBILITY_LABELS).map(([v, label]) => ({ value: v, label }))}
+            />
           </dd>
         </div>
         {showPipelineFields && (
@@ -242,12 +248,13 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
             <div>
               <dt>Stage</dt>
               <dd>
-                <select className="inline-select" value={form.stage} onChange={up('stage')} disabled={!canEdit}>
-                  <option value="">—</option>
-                  {stages.map((s) => (
-                    <option key={s.key} value={s.key}>{s.label}</option>
-                  ))}
-                </select>
+                <Select
+                  ariaLabel="Stage"
+                  value={form.stage || ''}
+                  onChange={(v) => up('stage')({ target: { value: v } })}
+                  disabled={!canEdit}
+                  options={[{ value: '', label: '—' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
+                />
               </dd>
             </div>
             <div>

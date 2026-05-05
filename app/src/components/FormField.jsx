@@ -1,6 +1,8 @@
 // Thin wrapper. Consumer supplies the input/select/textarea as children,
 // or uses the `as` convenience prop for simple cases.
 
+import Select from './Select';
+
 export default function FormField({
   label,
   name,
@@ -25,14 +27,23 @@ export default function FormField({
     if (as === 'textarea') {
       input = <textarea className="input" rows={rows} {...inputProps} />;
     } else if (as === 'select') {
+      // Use the themed Select component. Synthesize a fake event for the
+      // onChange handler so existing callers reading `e.target.value` keep
+      // working without changes.
+      const normalizedOptions = (options || []).map((o) =>
+        typeof o === 'string' ? { value: o, label: o } : o
+      );
       input = (
-        <select className="input" {...inputProps}>
-          {options?.map((o) => (
-            typeof o === 'string'
-              ? <option key={o} value={o}>{o}</option>
-              : <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <Select
+          id={id}
+          ariaLabel={typeof label === 'string' ? label : undefined}
+          value={value}
+          onChange={(v) => onChange?.({ target: { value: v, name } })}
+          disabled={rest.disabled}
+          ghost={rest.ghost}
+          placeholder={placeholder || 'Select…'}
+          options={normalizedOptions}
+        />
       );
     } else {
       input = <input className="input" type={type} {...inputProps} />;

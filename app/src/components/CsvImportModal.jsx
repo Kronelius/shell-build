@@ -10,6 +10,7 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useToast } from './Toast';
 import Icon from './Icon';
+import Select from './Select';
 
 const STEP = { UPLOAD: 'upload', MAP: 'map', PREVIEW: 'preview', RESULT: 'result' };
 
@@ -185,16 +186,12 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
                   <div className="text-sm font-semi">{h || <em className="text-muted">(empty)</em>}</div>
                   <div className="text-xs text-muted">{parsed.rows[0]?.[idx]?.slice(0, 40) || '—'}</div>
                 </div>
-                <select
-                  className="input"
+                <Select
+                  ariaLabel="CSV column mapping"
                   value={mapping[idx] || ''}
-                  onChange={(e) => setMapping({ ...mapping, [idx]: e.target.value || null })}
-                >
-                  <option value="">— Skip —</option>
-                  {fields.map((f) => (
-                    <option key={f.key} value={f.key}>{f.label}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setMapping({ ...mapping, [idx]: v || null })}
+                  options={[{ value: '', label: '— Skip —' }, ...fields.map((f) => ({ value: f.key, label: f.label }))]}
+                />
               </div>
             ))}
           </div>
