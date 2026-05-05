@@ -421,31 +421,7 @@ const reminderEvents = (() => {
   return evts;
 })();
 
-// Q17 sample data: two open complaint activities so the dashboard KPI strip
-// has signal. Real complaints get logged via the Contact Detail → Activity
-// timeline (a 'complaint' kind with optional `resolvedAt` for triage).
-const contactActivities = [
-  {
-    id: seedId('act', 'comp-1'),
-    kind: 'complaint',
-    contactId: contacts[1].id, // Morgan Choi (Lakeside Office Park)
-    authorUserId: users[3].id, // Lauren logged it
-    body: 'Morgan flagged streaks on the 4F lobby glass after Friday\'s clean. Wants the crew to redo on Monday at no charge.',
-    occurredAt: daysAgo(2),
-    resolvedAt: null,
-    createdAt: daysAgo(2),
-  },
-  {
-    id: seedId('act', 'comp-2'),
-    kind: 'complaint',
-    contactId: contacts[4].id, // Kim Nelson (Pacific Ridge)
-    authorUserId: users[2].id, // Heather logged it
-    body: 'Kim called — restroom paper supplies were not restocked on the Tuesday visit. Crew to address Thursday.',
-    occurredAt: daysAgo(1),
-    resolvedAt: null,
-    createdAt: daysAgo(1),
-  },
-];
+const contactActivities = [];
 const userPermissionOverrides = [];
 
 // Default current user is Kyler (super admin). Switcher in UI changes this.
@@ -470,6 +446,7 @@ export const INITIAL_STATE = {
   contacts,
   tags,
   contactActivities,
+  clientActivities: [],
   userPermissionOverrides,
   snippets,
   snippetFolders,

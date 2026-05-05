@@ -276,7 +276,7 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
                   <th>Status</th>
                   <th>Sent</th>
                   <th>Template</th>
-                  <th>Client</th>
+                  <th>Account</th>
                   <th>Channel</th>
                   <th className="text-right"></th>
                 </tr>

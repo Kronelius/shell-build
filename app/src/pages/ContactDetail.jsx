@@ -6,8 +6,8 @@ import { ACTIONS } from '../store/reducer';
 import {
   selectContactById, selectClientById, selectUserById, selectUsers, selectClients,
   selectInvoicesForContact, selectConversationsForContact, selectJobsForClient,
-  selectSynthesizedActivityForContact, selectTagById, selectPipelineStages,
-  invoiceTotal, invoiceBalance, deriveInvoiceStatus,
+  selectActivitiesForContact, selectTagById, selectPipelineStages,
+  invoiceTotal, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { useAuth } from '../hooks/useAuth';
@@ -29,7 +29,6 @@ import { fmtDate, fmtRelative, money } from '../lib/dates';
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'activity', label: 'Activity' },
-  { key: 'related',  label: 'Related' },
   { key: 'notes',    label: 'Notes' },
 ];
 
@@ -53,6 +52,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const canEditAll = usePermission('contacts.edit');
   const canDelete = usePermission('contacts.delete');
+  const canArchive = usePermission('contacts.delete');
   const canAssignOwner = usePermission('contacts.assignOwner');
   const canStartConversation = usePermission('messaging.startConversation');
 
@@ -63,15 +63,20 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
   const stageLabel = (key) => stages.find((s) => s.key === key)?.label || key;
 
   const [tab, setTab] = useState('overview');
+  const [activitySubTab, setActivitySubTab] = useState('service');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState(null);
 
   if (!contact) {
     return (
       <div style={{ padding: 32 }}>
-        {embedded ? <h3>Contact not found</h3> : <DetailHeader backTo="/clients" title="Contact not found" />}
+        {embedded ? <h3>Contact not found</h3> : <DetailHeader backTo="/contacts" backLabel="Contacts" title="Contact not found" />}
       </div>
     );
   }
@@ -83,8 +88,9 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const invoices = useMemo(() => selectInvoicesForContact(state, contact.id), [state, contact.id]);
   const conversations = useMemo(() => selectConversationsForContact(state, contact.id), [state, contact.id]);
-  const relatedJobs = useMemo(() => (contact.companyId ? selectJobsForClient(state, contact.companyId) : []), [state, contact.companyId]);
-  const activity = useMemo(() => selectSynthesizedActivityForContact(state, contact.id), [state, contact.id]);
+  const serviceHistory = useMemo(() => (contact.companyId ? selectJobsForClient(state, contact.companyId) : []), [state, contact.companyId]);
+  const activities = useMemo(() => selectActivitiesForContact(state, contact.id), [state, contact.id]);
+  const noteActivities = useMemo(() => activities.filter((a) => a.kind === 'note'), [activities]);
 
   const updateField = (patch) => {
     dispatch({ type: ACTIONS.UPDATE_CONTACT, id: contact.id, patch });
@@ -95,6 +101,30 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
     dispatch({ type: ACTIONS.APPEND_CONTACT_NOTE, id: contact.id, text: noteText.trim(), authorUserId: currentUser?.id });
     setNoteText('');
     toast.success('Note added');
+  };
+
+  const startEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setEditingNoteText(note.body);
+  };
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteText('');
+  };
+  const saveEditNote = () => {
+    if (!editingNoteText.trim()) return;
+    dispatch({
+      type: ACTIONS.UPDATE_CONTACT_ACTIVITY,
+      id: editingNoteId,
+      patch: { body: editingNoteText.trim(), editedAt: new Date().toISOString() },
+    });
+    cancelEditNote();
+    toast.success('Note updated');
+  };
+  const deleteNote = (id) => {
+    dispatch({ type: ACTIONS.DELETE_CONTACT_ACTIVITY, id });
+    setConfirmDeleteNoteId(null);
+    toast.success('Note deleted');
   };
 
   const removeTag = (tag) => {
@@ -111,7 +141,12 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const del = () => {
     dispatch({ type: ACTIONS.DELETE_CONTACT, id: contact.id });
-    navigate('/clients');
+    navigate('/contacts');
+  };
+  const archive = () => {
+    dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id: contact.id });
+    setConfirmArchive(false);
+    toast.success('Contact archived');
   };
 
   const headerBadges = (
@@ -145,6 +180,9 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
         </button>
       )}
       {canEditThis && <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
+      {canArchive && contact.lifecycle !== 'archived' && (
+        <button className="btn btn-outline btn-sm" onClick={() => setConfirmArchive(true)}>Archive</button>
+      )}
       {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
     </div>
   );
@@ -169,8 +207,8 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
         </div>
       ) : (
         <DetailHeader
-          backTo="/clients"
-          backLabel="Clients"
+          backTo="/contacts"
+          backLabel="Contacts"
           title={`${contact.firstName} ${contact.lastName}`}
           subtitle={`${contact.title || '—'} · ${companyLabel}`}
           badge={headerBadges}
@@ -279,169 +317,88 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
       )}
 
       {tab === 'activity' && (
-        <div className="card">
-          {canEditThis && (
-            <ComplaintComposer
-              contactId={contact.id}
-              onSubmit={(text) => {
-                dispatch({
-                  type: ACTIONS.ADD_CONTACT_ACTIVITY,
-                  activity: { kind: 'complaint', contactId: contact.id, body: text },
-                });
-                toast.success('Complaint logged');
-              }}
-            />
-          )}
-          {activity.length === 0 ? (
-            <EmptyState icon={<Icon name="bell" size={28} />} title="No activity yet" message="Notes, stage changes, invoices, and messages will appear here." />
-          ) : (
-            <div className="activity-list">
-              {activity.map((a) => {
-                const isComplaint = a.kind === 'complaint';
-                const isResolved = isComplaint && a.resolvedAt;
-                return (
-                  <div key={a.id} className={`activity-item activity-${a.kind}${isResolved ? ' is-resolved' : ''}`}>
-                    <div className="activity-kind">{isResolved ? 'resolved' : a.kind}</div>
-                    <div className="activity-body">
-                      <div className="activity-text">{a.body}</div>
-                      <div className="activity-meta text-xs text-muted">
-                        {fmtRelative(a.occurredAt)}
-                        {a._source === 'invoice' && <> · <Link to={`/invoices/${a._ref}`} state={nav}>Open invoice</Link></>}
-                        {a._source === 'job' && <> · <Link to={`/schedule/${a._ref}`} state={nav}>Open job</Link></>}
-                        {isComplaint && a._source === 'activity' && canEditThis && (
-                          <> · <button
-                            type="button"
-                            className="linklike"
-                            onClick={() => {
-                              dispatch({
-                                type: ACTIONS.UPDATE_CONTACT_ACTIVITY,
-                                id: a.id,
-                                patch: { resolvedAt: isResolved ? null : new Date().toISOString() },
-                              });
-                            }}
-                          >{isResolved ? 'Reopen' : 'Mark resolved'}</button></>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === 'related' && (
         <div>
-          <div style={{ marginBottom: 12 }}>
-            <div className="section-head">
-              <h3 className="section-title">Invoices ({invoices.length})</h3>
-            </div>
-            {invoices.length === 0 ? (
-              <div><span className="text-muted text-sm">No invoices where this contact is billing-lead.</span></div>
-            ) : (
-              <>
-                <div className="table-wrap">
-                  <table>
-                    <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Status</th><th></th></tr></thead>
-                    <tbody>
-                      {invoices.map((inv) => {
-                        const st = deriveInvoiceStatus(inv);
-                        return (
-                          <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                            <td className="name">{inv.id}</td>
-                            <td>{fmtDate(inv.issueDate)}</td>
-                            <td className="money">{money(invoiceTotal(inv))}</td>
-                            <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
-                            <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mobile-card-list" style={{ padding: '0 12px 12px' }}>
-                  {invoices.map((inv) => {
-                    const st = deriveInvoiceStatus(inv);
-                    return (
-                      <div key={inv.id} className="mobile-card" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                        <div className="mc-name" style={{ gridColumn: '1 / span 3' }}>{inv.id}</div>
-                        <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
-                        <div className="mc-sub" style={{ gridColumn: '1 / span 3' }}>{fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}</div>
-                        <div className="mc-meta">
-                          <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+          <div className="activity-toggle">
+            <button
+              type="button"
+              className={`activity-toggle-btn ${activitySubTab === 'service' ? 'active' : ''}`}
+              onClick={() => setActivitySubTab('service')}
+            >
+              <Icon name="schedule" size={14} />
+              Service History
+              <span className="activity-toggle-count">{serviceHistory.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`activity-toggle-btn ${activitySubTab === 'payment' ? 'active' : ''}`}
+              onClick={() => setActivitySubTab('payment')}
+            >
+              <Icon name="invoices" size={14} />
+              Payment History
+              <span className="activity-toggle-count">{invoices.length}</span>
+            </button>
           </div>
 
-          <div style={{ marginBottom: 12 }}>
-            <div className="section-head">
-              <h3 className="section-title">Jobs ({relatedJobs.length})</h3>
-              {contact.companyId && <span className="text-xs text-muted">via {companyLabel}</span>}
-            </div>
-            {relatedJobs.length === 0 ? (
-              <div><span className="text-muted text-sm">No jobs linked.</span></div>
+          {activitySubTab === 'service' && (
+            serviceHistory.length === 0 ? (
+              <EmptyState icon={<Icon name="schedule" size={28} />} title="No service history" message={contact.companyId ? 'Jobs linked to this account will appear here.' : 'This contact is not attached to an account yet.'} />
             ) : (
-              <>
-                <div className="table-wrap">
-                  <table>
-                    <thead><tr><th>Date</th><th>Service</th><th>Status</th><th></th></tr></thead>
-                    <tbody>
-                      {relatedJobs.slice(0, 10).map((j) => (
-                        <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                          <td>{fmtDate(j.startAt)}</td>
-                          <td>{state.services.find((s) => s.id === j.serviceId)?.name || '—'}</td>
-                          <td><Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
-                            {j.status.replace('_', ' ')}
-                          </Badge></td>
-                          <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mobile-card-list" style={{ padding: '0 12px 12px' }}>
-                  {relatedJobs.slice(0, 10).map((j) => {
-                    const serviceName = state.services.find((s) => s.id === j.serviceId)?.name || '—';
-                    return (
-                      <div key={j.id} className="mobile-card" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                        <div className="mc-name" style={{ gridColumn: '1 / span 3' }}>{fmtDate(j.startAt)}</div>
-                        <div className="mc-chev"><Icon name="chevronRight" size={14} /></div>
-                        <div className="mc-sub" style={{ gridColumn: '1 / span 3' }}>{serviceName}</div>
-                        <div className="mc-meta">
-                          <Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
-                            {j.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
+              <div className="activity-card-grid">
+                {serviceHistory.map((j) => {
+                  const serviceName = state.services.find((s) => s.id === j.serviceId)?.name || '—';
+                  const statusLabel = j.status.replace('_', ' ');
+                  return (
+                    <button
+                      key={j.id}
+                      type="button"
+                      className="activity-card activity-card-service"
+                      onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}
+                    >
+                      <div className="activity-card-icon"><Icon name="schedule" size={18} /></div>
+                      <div className="activity-card-body">
+                        <div className="activity-card-title">{serviceName}</div>
+                        <div className="activity-card-meta">{fmtDate(j.startAt)}</div>
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div>
-            <div className="section-head">
-              <h3 className="section-title">Conversations ({conversations.length})</h3>
-            </div>
-            {conversations.length === 0 ? (
-              <div><span className="text-muted text-sm">No message threads yet.</span></div>
-            ) : (
-              <div>
-                {conversations.map((cv) => (
-                  <Link key={cv.id} to={`/messaging/${cv.id}`} state={nav} className="chip" style={{ marginRight: 6 }}>
-                    {cv.channel.toUpperCase()} · {fmtRelative(cv.createdAt)}
-                  </Link>
-                ))}
+                      <Badge variant={statusBadgeVariant(j.status === 'done' ? 'Confirmed' : j.status === 'in_progress' ? 'In Progress' : 'Pending')}>
+                        {statusLabel}
+                      </Badge>
+                      <Icon name="chevronRight" size={14} />
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            )
+          )}
+
+          {activitySubTab === 'payment' && (
+            invoices.length === 0 ? (
+              <EmptyState icon={<Icon name="invoices" size={28} />} title="No payment history" message="Invoices billed to this contact will appear here." />
+            ) : (
+              <div className="activity-card-grid">
+                {invoices.map((inv) => {
+                  const st = deriveInvoiceStatus(inv);
+                  return (
+                    <button
+                      key={inv.id}
+                      type="button"
+                      className="activity-card activity-card-payment"
+                      onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}
+                    >
+                      <div className="activity-card-icon"><Icon name="invoices" size={18} /></div>
+                      <div className="activity-card-body">
+                        <div className="activity-card-title">{inv.id}</div>
+                        <div className="activity-card-meta">{fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}</div>
+                      </div>
+                      <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>
+                        {st.charAt(0).toUpperCase() + st.slice(1)}
+                      </Badge>
+                      <Icon name="chevronRight" size={14} />
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          )}
         </div>
       )}
 
@@ -455,11 +412,47 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
               </div>
             </div>
           )}
-          {!contact.notes ? (
-            <EmptyState icon={<Icon name="edit" size={28} />} title="No notes yet" message="Notes are timestamped and appended in order." />
+          {noteActivities.length === 0 ? (
+            <EmptyState icon={<Icon name="edit" size={28} />} title="No notes yet" message="Notes are timestamped and shown newest first." />
           ) : (
-            <div className="card">
-              <pre className="notes-pre" style={{ padding: 16 }}>{contact.notes}</pre>
+            <div className="note-list">
+              {noteActivities.map((n) => {
+                const author = n.authorUserId ? selectUserById(state, n.authorUserId) : null;
+                const isEditing = editingNoteId === n.id;
+                return (
+                  <div key={n.id} className="note-item">
+                    <div className="note-item-head">
+                      <div className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                        {author && <Avatar initials={author.initials} variant={author.avatar} size="sm" />}
+                        <div>
+                          <div className="note-item-author">{author?.name || 'Someone'}</div>
+                          <div className="note-item-time text-xs text-muted">
+                            {fmtRelative(n.occurredAt)}
+                            {n.editedAt && <> · edited {fmtRelative(n.editedAt)}</>}
+                          </div>
+                        </div>
+                      </div>
+                      {canEditThis && !isEditing && (
+                        <div className="note-item-actions">
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => startEditNote(n)}>Edit</button>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmDeleteNoteId(n.id)}>Delete</button>
+                        </div>
+                      )}
+                    </div>
+                    {isEditing ? (
+                      <div style={{ marginTop: 8 }}>
+                        <FormField label="" as="textarea" value={editingNoteText} onChange={(e) => setEditingNoteText(e.target.value)} />
+                        <div className="flex-row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={cancelEditNote}>Cancel</button>
+                          <button type="button" className="btn btn-primary btn-sm" onClick={saveEditNote} disabled={!editingNoteText.trim()}>Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="note-item-body">{n.body}</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -485,6 +478,23 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
         onConfirm={del}
         onClose={() => setConfirmDelete(false)}
       />
+      <ConfirmDialog
+        open={confirmArchive}
+        title={`Archive ${contact.firstName} ${contact.lastName}?`}
+        message="They'll be marked archived. You can find archived contacts via the lifecycle filter."
+        confirmLabel="Archive"
+        onConfirm={archive}
+        onClose={() => setConfirmArchive(false)}
+      />
+      <ConfirmDialog
+        open={confirmDeleteNoteId !== null}
+        title="Delete this note?"
+        message="This permanently removes the note. You can't undo this."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => deleteNote(confirmDeleteNoteId)}
+        onClose={() => setConfirmDeleteNoteId(null)}
+      />
     </div>
   );
 }
@@ -495,43 +505,3 @@ function isContactOwner(_state, contact, currentUser) {
   return contact.ownerUserId === currentUser.id;
 }
 
-// Complaint composer (used in the Activity tab). Self-contained — caller
-// passes the dispatch via onSubmit so we don't have to thread store hooks.
-function ComplaintComposer({ onSubmit }) {
-  const [text, setText] = useState('');
-  const [open, setOpen] = useState(false);
-  if (!open) {
-    return (
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)' }}>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => setOpen(true)}>
-          <Icon name="bell" size={12} /> Log complaint
-        </button>
-      </div>
-    );
-  }
-  const submit = () => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    onSubmit(trimmed);
-    setText('');
-    setOpen(false);
-  };
-  return (
-    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)' }}>
-      <FormField label="What did the client report?">
-        <textarea
-          className="input"
-          rows={3}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. Streaks on the lobby glass after Friday's clean."
-          autoFocus
-        />
-      </FormField>
-      <div className="flex-row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => { setOpen(false); setText(''); }}>Cancel</button>
-        <button type="button" className="btn btn-primary btn-sm" onClick={submit} disabled={!text.trim()}>Save complaint</button>
-      </div>
-    </div>
-  );
-}

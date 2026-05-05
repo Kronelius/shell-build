@@ -79,6 +79,7 @@ export default function Clients() {
   const cCompany = searchParams.get('company') || 'all';
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkTagIds, setBulkTagIds] = useState([]);
+  const [bulkOwnerId, setBulkOwnerId] = useState('');
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
@@ -137,12 +138,16 @@ export default function Clients() {
   };
   const clearSelection = () => setSelectedIds(new Set());
 
-  const bulkAssignOwner = (userId) => {
+  const bulkAssignOwner = () => {
     if (!canAssignOwner) return;
+    if (!bulkOwnerId) return;
+    const userId = bulkOwnerId === 'unassigned' ? null : bulkOwnerId;
     selectedIds.forEach((id) => {
-      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId: userId || null });
+      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId });
     });
+    setBulkOwnerId('');
     clearSelection();
+    toast.success('Owner assigned');
   };
   const bulkApplyTags = () => {
     if (bulkTagIds.length === 0) return;
@@ -180,9 +185,11 @@ export default function Clients() {
     <>
       <div className="page-head">
         <div className="page-head-text">
-          <h1 className="page-head-title">Contacts</h1>
+          <h1 className="page-head-title">{tab === 'accounts' ? 'Accounts' : 'Contacts'}</h1>
           <p className="page-head-subtitle">
-            People and the companies they belong to. Switch tabs for the Accounts view.
+            {tab === 'accounts'
+              ? 'Companies and the contacts attached to them. Switch tabs for the Contacts view.'
+              : 'People and the companies they belong to. Switch tabs for the Accounts view.'}
           </p>
         </div>
         <div className="page-head-actions">
@@ -233,10 +240,13 @@ export default function Clients() {
                 </div>
                 <button className="btn btn-primary btn-sm" disabled={bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
                 {canAssignOwner && (
-                  <FormField label="" as="select" value="" onChange={(e) => bulkAssignOwner(e.target.value)}
-                    options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
+                  <>
+                    <FormField label="" as="select" value={bulkOwnerId} onChange={(e) => setBulkOwnerId(e.target.value)}
+                      options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
+                    <button className="btn btn-primary btn-sm" disabled={!bulkOwnerId} onClick={bulkAssignOwner}>Assign</button>
+                  </>
                 )}
-                <button className="btn btn-primary btn-sm" onClick={bulkArchive}>Archive</button>
+                <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={bulkArchive}>Archive</button>
                 <button className="btn btn-danger btn-sm" onClick={clearSelection}>Cancel</button>
               </>
             )}
@@ -410,7 +420,7 @@ export default function Clients() {
             </span>
             {selectedClientIds.size > 0 && (
               <>
-                <button className="btn btn-primary btn-sm" onClick={bulkArchiveClients}>Archive</button>
+                <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={bulkArchiveClients}>Archive</button>
                 <button className="btn btn-danger btn-sm" onClick={clearClientSelection}>Cancel</button>
               </>
             )}

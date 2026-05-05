@@ -31,9 +31,13 @@ export const ACTIONS = {
   // Clients
   ADD_CLIENT: 'ADD_CLIENT',
   UPDATE_CLIENT: 'UPDATE_CLIENT',
+  DELETE_CLIENT: 'DELETE_CLIENT',
   ARCHIVE_CLIENT: 'ARCHIVE_CLIENT',
   UNARCHIVE_CLIENT: 'UNARCHIVE_CLIENT',
   APPEND_CLIENT_NOTE: 'APPEND_CLIENT_NOTE',
+  ADD_CLIENT_ACTIVITY: 'ADD_CLIENT_ACTIVITY',
+  UPDATE_CLIENT_ACTIVITY: 'UPDATE_CLIENT_ACTIVITY',
+  DELETE_CLIENT_ACTIVITY: 'DELETE_CLIENT_ACTIVITY',
 
   // Contacts (CRM)
   ADD_CONTACT: 'ADD_CONTACT',
@@ -55,6 +59,7 @@ export const ACTIONS = {
   // Contact activities
   ADD_CONTACT_ACTIVITY: 'ADD_CONTACT_ACTIVITY',
   UPDATE_CONTACT_ACTIVITY: 'UPDATE_CONTACT_ACTIVITY',
+  DELETE_CONTACT_ACTIVITY: 'DELETE_CONTACT_ACTIVITY',
 
   // Per-user permission overrides
   SET_USER_PERMISSION_OVERRIDE: 'SET_USER_PERMISSION_OVERRIDE',
@@ -234,8 +239,31 @@ export function reducer(state, action) {
       return { ...state, clients: replaceById(state.clients, action.id, { status: 'inactive', archivedAt: nowIso() }) };
     case ACTIONS.UNARCHIVE_CLIENT:
       return { ...state, clients: replaceById(state.clients, action.id, { status: 'active', archivedAt: null }) };
+    case ACTIONS.DELETE_CLIENT: {
+      const id = action.id;
+      return {
+        ...state,
+        clients: (state.clients || []).filter((c) => c.id !== id),
+        contacts: (state.contacts || []).map((ct) => (ct.companyId === id ? { ...ct, companyId: null } : ct)),
+        sites: (state.sites || []).filter((s) => s.clientId !== id),
+        jobs: (state.jobs || []).filter((j) => j.clientId !== id),
+        invoices: (state.invoices || []).filter((inv) => inv.clientId !== id),
+        clientActivities: (state.clientActivities || []).filter((a) => a.clientId !== id),
+      };
+    }
     case ACTIONS.APPEND_CLIENT_NOTE: {
+      const now = nowIso();
       const stamp = new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const authorUserId = action.authorUserId || state.currentUserId;
+      const activity = {
+        id: newId('clact'),
+        clientId: action.id,
+        kind: 'note',
+        authorUserId,
+        body: action.text,
+        occurredAt: now,
+        createdAt: now,
+      };
       return {
         ...state,
         clients: state.clients.map((c) => {
@@ -244,6 +272,25 @@ export function reducer(state, action) {
           const next = c.notes ? `${entry}\n\n${c.notes}` : entry;
           return { ...c, notes: next };
         }),
+        clientActivities: [...(state.clientActivities || []), activity],
+      };
+    }
+    case ACTIONS.ADD_CLIENT_ACTIVITY: {
+      const base = { id: newId('clact'), occurredAt: nowIso(), createdAt: nowIso(), authorUserId: state.currentUserId };
+      return { ...state, clientActivities: [...(state.clientActivities || []), { ...base, ...action.activity }] };
+    }
+    case ACTIONS.UPDATE_CLIENT_ACTIVITY: {
+      return {
+        ...state,
+        clientActivities: (state.clientActivities || []).map((a) =>
+          a.id === action.id ? { ...a, ...action.patch } : a
+        ),
+      };
+    }
+    case ACTIONS.DELETE_CLIENT_ACTIVITY: {
+      return {
+        ...state,
+        clientActivities: (state.clientActivities || []).filter((a) => a.id !== action.id),
       };
     }
 
@@ -421,6 +468,12 @@ export function reducer(state, action) {
         contactActivities: (state.contactActivities || []).map((a) =>
           a.id === action.id ? { ...a, ...action.patch } : a
         ),
+      };
+    }
+    case ACTIONS.DELETE_CONTACT_ACTIVITY: {
+      return {
+        ...state,
+        contactActivities: (state.contactActivities || []).filter((a) => a.id !== action.id),
       };
     }
 

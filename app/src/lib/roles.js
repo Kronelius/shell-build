@@ -20,7 +20,7 @@ export const ROLE_LABELS = {
 
 export const ROLE_DESCRIPTIONS = {
   owner: 'Full access — can assign roles, edit permissions, and override access per user. The top tier.',
-  admin: 'Manages day-to-day ops: clients, jobs, messages, team. Cannot see financials or assign roles.',
+  admin: 'Manages day-to-day ops: accounts, jobs, messages, team. Cannot see financials or assign roles.',
   crew:  'Sees their own jobs and assigned contacts. Can update job status.',
 };
 
@@ -30,10 +30,10 @@ export const PERMISSIONS = {
   'schedule.view':           { label: 'View Schedule',            defaultRoles: ['owner', 'admin', 'crew'] },
   'schedule.edit':           { label: 'Create / edit jobs',       defaultRoles: ['owner', 'admin'] },
   'schedule.statusTransition': { label: 'Change job status',      defaultRoles: ['owner', 'admin', 'crew'] },
-  'clients.view':            { label: 'View Clients',             defaultRoles: ['owner', 'admin', 'crew'] },
-  'clients.edit':            { label: 'Create / edit clients',    defaultRoles: ['owner', 'admin'] },
-  'clients.archive':         { label: 'Archive / delete clients', defaultRoles: ['owner', 'admin'] },
-  'sites.edit':              { label: 'Manage client sites',      defaultRoles: ['owner', 'admin'] },
+  'clients.view':            { label: 'View Accounts',            defaultRoles: ['owner', 'admin', 'crew'] },
+  'clients.edit':            { label: 'Create / edit accounts',   defaultRoles: ['owner', 'admin'] },
+  'clients.archive':         { label: 'Archive / delete accounts',defaultRoles: ['owner', 'admin'] },
+  'sites.edit':              { label: 'Manage account sites',     defaultRoles: ['owner', 'admin'] },
   // ---------- Contacts (CRM) ----------
   'contacts.view':           { label: 'View Contacts',                    defaultRoles: ['owner', 'admin', 'crew'] },
   'contacts.view.all':       { label: 'View all contacts (not just own)', defaultRoles: ['owner', 'admin'] },

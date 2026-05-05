@@ -13,7 +13,7 @@ import {
   selectCompany, selectActiveUsers, selectActiveClients, selectInvoices, selectJobs,
   selectClientById, selectServiceById, selectSiteById, selectContactById,
   selectDashboardStats, selectJobsForUser, selectStaleLeads, selectUnansweredThreads,
-  selectMissedCleansThisMonth, selectLaborHoursThisWeek, selectOpenComplaints,
+  selectMissedCleansThisMonth, selectLaborHoursThisWeek,
   selectOutstandingQuotes, selectRevenueThisMonth,
 } from '../store/selectors';
 import { fmtRelative, fmtTime, fmtTimeRange, money, sameDay, startOfWeek } from '../lib/dates';
@@ -55,7 +55,6 @@ export default function Dashboard() {
   // Rainier KPIs (Q17 + Q18)
   const missed = selectMissedCleansThisMonth(state);
   const laborHrs = selectLaborHoursThisWeek(state);
-  const openComplaints = selectOpenComplaints(state);
   const outstandingQuotes = selectOutstandingQuotes(state);
   const revenueMonth = selectRevenueThisMonth(state);
 
@@ -138,7 +137,7 @@ export default function Dashboard() {
                   </div>
                   <div className="dash-hero-stat">
                     <div className="val">{stats.activeClients}</div>
-                    <div className="lbl">Active Clients</div>
+                    <div className="lbl">Active Accounts</div>
                   </div>
                 </>
               )}
@@ -164,12 +163,6 @@ export default function Dashboard() {
                   label="Labor Hours (this week)"
                   trend={laborHrs > 0 ? `${(laborHrs / 7).toFixed(1)} hrs/day avg` : 'No completed jobs yet'}
                   trendDirection="up"
-                />
-                <StatCard
-                  value={openComplaints.length}
-                  label="Open Complaints (30d)"
-                  trend={openComplaints.length > 0 ? 'Needs follow-up' : 'All clear'}
-                  trendDirection={openComplaints.length > 0 ? 'down' : 'up'}
                 />
               </div>
             </>
@@ -239,8 +232,8 @@ export default function Dashboard() {
                       <span className="qa-icon">$</span>Invoices
                     </button>
                   )}
-                  <button className="qa-btn" onClick={() => navigate('/clients')}>
-                    <span className="qa-icon"><Icon name="clients" size={16} /></span>Clients
+                  <button className="qa-btn" onClick={() => navigate('/contacts')}>
+                    <span className="qa-icon"><Icon name="clients" size={16} /></span>Contacts
                   </button>
                   <button className="qa-btn" onClick={() => navigate('/messaging')}>
                     <span className="qa-icon"><Icon name="messaging" size={16} /></span>Messages

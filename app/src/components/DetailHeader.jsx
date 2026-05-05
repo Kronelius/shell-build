@@ -4,6 +4,7 @@ export default function DetailHeader({ backTo, backLabel = 'Back', title, subtit
   const navigate = useNavigate();
   const location = useLocation();
   const target = location.state?.from || backTo;
+  const label = location.state?.fromLabel || backLabel;
   const handleClick = (e) => {
     e.preventDefault();
     if (target) navigate(target);
@@ -12,7 +13,7 @@ export default function DetailHeader({ backTo, backLabel = 'Back', title, subtit
   return (
     <div className="detail-head">
       <div className="detail-head-top">
-        <a href={target || '#'} className="detail-back" onClick={handleClick}>← {backLabel}</a>
+        <a href={target || '#'} className="detail-back" onClick={handleClick}>← {label}</a>
       </div>
       <div className="detail-head-body">
         <div className="detail-head-text">

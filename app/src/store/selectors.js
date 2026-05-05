@@ -185,6 +185,11 @@ export const selectActivitiesForContact = (s, contactId) =>
     .filter((a) => a.contactId === contactId)
     .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
 
+export const selectActivitiesForClient = (s, clientId) =>
+  (s.clientActivities || [])
+    .filter((a) => a.clientId === clientId)
+    .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+
 // ---------- Integrations ----------
 export const selectIntegrations = (s) => s.company?.integrations || {};
 export const selectTwilioIntegration = (s) => s.company?.integrations?.twilio || null;
@@ -427,16 +432,6 @@ export function selectLaborHoursThisWeek(s) {
       return sum + dur * crewSize;
     }, 0);
   return Math.round(totalMins / 60);
-}
-
-// Q17: "client complaints" — open complaint activities in last 30 days.
-// A complaint is `contactActivities` row with `kind === 'complaint'` and no
-// `resolvedAt` timestamp. Closed complaints fall off the count.
-export function selectOpenComplaints(s) {
-  const since = daysAgoDate(30);
-  return (s.contactActivities || []).filter(
-    (a) => a.kind === 'complaint' && !a.resolvedAt && new Date(a.occurredAt || a.createdAt) >= since
-  );
 }
 
 // Q18: "outstanding quotes" — sum of dealValue + count for contacts at the

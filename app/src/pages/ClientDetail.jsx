@@ -6,6 +6,7 @@ import { ACTIONS } from '../store/reducer';
 import {
   selectClientById, selectSitesForClient, selectJobsForClient, selectInvoicesForClient,
   selectServiceById, selectFrequencies, selectServices, selectContactsForClient, selectContactById,
+  selectActivitiesForClient, selectUserById, selectConversationsForContact,
   invoiceTotal, invoiceBalance, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
@@ -18,18 +19,18 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import FormField from '../components/FormField';
 import AddSiteModal from '../components/AddSiteModal';
 import AddContactModal from '../components/AddContactModal';
+import NewConversationModal from '../components/NewConversationModal';
 import ContactPicker from '../components/ContactPicker';
 import Select from '../components/Select';
 import Avatar from '../components/Avatar';
 import Icon from '../components/Icon';
-import { fmtDate, fmtTimeRange, money } from '../lib/dates';
+import { fmtDate, fmtTimeRange, fmtRelative, money } from '../lib/dates';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'contacts', label: 'Contacts' },
   { key: 'sites',    label: 'Sites' },
-  { key: 'history',  label: 'Service History' },
-  { key: 'invoices', label: 'Invoices' },
+  { key: 'activity', label: 'Activity' },
   { key: 'notes',    label: 'Notes' },
 ];
 
@@ -56,13 +57,28 @@ export default function ClientDetail() {
   const primaryContact = client?.primaryContactId ? selectContactById(state, client.primaryContactId) : null;
 
   const [tab, setTab] = useState('overview');
+  const [activitySubTab, setActivitySubTab] = useState('service');
   const [form, setForm] = useState(client);
   const [addSiteOpen, setAddSiteOpen] = useState(false);
   const [editSite, setEditSite] = useState(null);
   const [confirmDeleteSite, setConfirmDeleteSite] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [newConvOpen, setNewConvOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState(null);
+
+  const activities = useMemo(() => (client ? selectActivitiesForClient(state, client.id) : []), [state, client?.id]);
+  const noteActivities = useMemo(() => activities.filter((a) => a.kind === 'note'), [activities]);
+  const primaryConversations = useMemo(
+    () => (primaryContact ? selectConversationsForContact(state, primaryContact.id) : []),
+    [state, primaryContact?.id]
+  );
+  const canDelete = usePermission('clients.archive');
+  const canStartConversation = usePermission('messaging.startConversation');
 
   const outstanding = useMemo(() => invoices.reduce((a, inv) => {
     const s = deriveInvoiceStatus(inv);
@@ -85,7 +101,7 @@ export default function ClientDetail() {
   if (!client) {
     return (
       <div style={{ padding: 32 }}>
-        <DetailHeader backTo="/clients" title="Client not found" />
+        <DetailHeader backTo="/clients?tab=accounts" backLabel="Accounts" title="Account not found" />
       </div>
     );
   }
@@ -115,16 +131,66 @@ export default function ClientDetail() {
 
   const appendNote = () => {
     if (!noteText.trim()) return;
-    dispatch({ type: ACTIONS.APPEND_CLIENT_NOTE, id: client.id, text: noteText.trim(), author: currentUser?.name });
+    dispatch({
+      type: ACTIONS.APPEND_CLIENT_NOTE,
+      id: client.id,
+      text: noteText.trim(),
+      author: currentUser?.name,
+      authorUserId: currentUser?.id,
+    });
     setNoteText('');
     toast.success('Note added');
+  };
+
+  const startEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setEditingNoteText(note.body);
+  };
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteText('');
+  };
+  const saveEditNote = () => {
+    if (!editingNoteText.trim()) return;
+    dispatch({
+      type: ACTIONS.UPDATE_CLIENT_ACTIVITY,
+      id: editingNoteId,
+      patch: { body: editingNoteText.trim(), editedAt: new Date().toISOString() },
+    });
+    cancelEditNote();
+    toast.success('Note updated');
+  };
+  const deleteNote = (id) => {
+    dispatch({ type: ACTIONS.DELETE_CLIENT_ACTIVITY, id });
+    setConfirmDeleteNoteId(null);
+    toast.success('Note deleted');
+  };
+
+  const del = () => {
+    dispatch({ type: ACTIONS.DELETE_CLIENT, id: client.id });
+    navigate('/clients?tab=accounts');
+  };
+
+  const handleMessage = () => {
+    if (!primaryContact) {
+      toast.error('Set a primary contact first to start a conversation.');
+      return;
+    }
+    const existing = primaryConversations
+      .filter((c) => !c.archived)
+      .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
+    if (existing.length > 0) {
+      navigate(`/messaging/${existing[0].id}`, { state: nav });
+    } else {
+      setNewConvOpen(true);
+    }
   };
 
   return (
     <div className="page-pad">
       <DetailHeader
-        backTo="/clients"
-        backLabel="Clients"
+        backTo="/clients?tab=accounts"
+        backLabel="Accounts"
         title={client.name}
         subtitle={client.primaryContact || ''}
         badge={<Badge variant={statusBadgeVariant(client.status === 'active' ? 'Active' : 'Inactive')}>
@@ -132,8 +198,15 @@ export default function ClientDetail() {
         </Badge>}
         actions={
           <div className="flex-row" style={{ gap: 8 }}>
+            {canStartConversation && (
+              <button className="btn btn-outline btn-sm" onClick={handleMessage}>
+                <Icon name="messaging" size={14} />
+                Message
+              </button>
+            )}
             {canArchive && client.status === 'active' && <button className="btn btn-outline btn-sm" onClick={() => setConfirmArchive(true)}>Archive</button>}
             {canArchive && client.status !== 'active' && <button className="btn btn-outline btn-sm" onClick={unarchive}>Reactivate</button>}
+            {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
           </div>
         }
       />
@@ -145,6 +218,7 @@ export default function ClientDetail() {
       </div>
 
       {tab === 'overview' && (
+        <div className="detail-grid">
         <div className="card detail-card">
           <div className="inline-edit-grid">
             <label className="inline-edit-label" htmlFor="cli-name">Company name</label>
@@ -242,24 +316,6 @@ export default function ClientDetail() {
               />
             </div>
 
-            <label className="inline-edit-label">Lifetime revenue</label>
-            <div className="inline-edit-readonly">{money(client.revenue || 0)}</div>
-
-            <label className="inline-edit-label">Outstanding</label>
-            <div className="inline-edit-readonly">
-              {outstanding > 0 ? <span className="text-danger">{money(outstanding)}</span> : money(0)}
-            </div>
-
-            <label className="inline-edit-label">Last service</label>
-            <div className="inline-edit-readonly muted">
-              {client.lastServiceAt ? fmtDate(client.lastServiceAt) : '—'}
-            </div>
-
-            <label className="inline-edit-label">Contacts</label>
-            <div className="inline-edit-readonly">{contacts.length}</div>
-
-            <label className="inline-edit-label">Sites</label>
-            <div className="inline-edit-readonly">{sites.length}</div>
           </div>
 
           {canEdit && dirty && (
@@ -269,6 +325,35 @@ export default function ClientDetail() {
               <button type="button" className="btn btn-primary" onClick={save}>Save Changes</button>
             </div>
           )}
+        </div>
+
+        <div>
+          <div className="card detail-card">
+            <h3>Lifetime revenue</h3>
+            <div className="stat-card-value">{money(client.revenue || 0)}</div>
+          </div>
+          <div className="card detail-card">
+            <h3>Outstanding</h3>
+            <div className={`stat-card-value ${outstanding > 0 ? 'text-danger' : ''}`}>
+              {money(outstanding)}
+            </div>
+          </div>
+          <div className="card detail-card">
+            <h3>Last service</h3>
+            <div className="stat-card-value-sm">
+              {client.lastServiceAt ? fmtDate(client.lastServiceAt) : '—'}
+            </div>
+          </div>
+          <div className="card detail-card">
+            <h3>At a glance</h3>
+            <dl className="detail-dl">
+              <div><dt>Contacts</dt><dd>{contacts.length}</dd></div>
+              <div><dt>Sites</dt><dd>{sites.length}</dd></div>
+              <div><dt>Jobs</dt><dd>{jobs.length}</dd></div>
+              <div><dt>Invoices</dt><dd>{invoices.length}</dd></div>
+            </dl>
+          </div>
+        </div>
         </div>
       )}
 
@@ -378,56 +463,97 @@ export default function ClientDetail() {
         </div>
       )}
 
-      {tab === 'history' && (
-        jobs.length === 0 ? (
-          <EmptyState icon={<Icon name="schedule" size={28} />} title="No jobs yet" message="Jobs will appear here once scheduled." />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Date</th><th>Service</th><th>Site</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {jobs.map((j) => (
-                  <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                    <td>{fmtDate(j.startAt)} <span className="text-muted text-sm">{fmtTimeRange(j.startAt, j.endAt)}</span></td>
-                    <td>{selectServiceById(state, j.serviceId)?.name || '—'}</td>
-                    <td>{state.sites.find((s) => s.id === j.siteId)?.name || '—'}</td>
-                    <td><Badge variant={statusBadgeVariant(j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Confirmed' : 'Pending')}>
-                      {j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Done' : j.status === 'cancelled' ? 'Cancelled' : 'Upcoming'}
-                    </Badge></td>
-                    <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {tab === 'activity' && (
+        <div>
+          <div className="activity-toggle">
+            <button
+              type="button"
+              className={`activity-toggle-btn ${activitySubTab === 'service' ? 'active' : ''}`}
+              onClick={() => setActivitySubTab('service')}
+            >
+              <Icon name="schedule" size={14} />
+              Service History
+              <span className="activity-toggle-count">{jobs.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`activity-toggle-btn ${activitySubTab === 'payment' ? 'active' : ''}`}
+              onClick={() => setActivitySubTab('payment')}
+            >
+              <Icon name="invoices" size={14} />
+              Payment History
+              <span className="activity-toggle-count">{invoices.length}</span>
+            </button>
           </div>
-        )
-      )}
 
-      {tab === 'invoices' && (
-        invoices.length === 0 ? (
-          <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {invoices.map((inv) => {
-                  const st = deriveInvoiceStatus(inv);
+          {activitySubTab === 'service' && (
+            jobs.length === 0 ? (
+              <EmptyState icon={<Icon name="schedule" size={28} />} title="No service history" message="Jobs scheduled for this account will appear here." />
+            ) : (
+              <div className="activity-card-grid">
+                {jobs.map((j) => {
+                  const serviceName = selectServiceById(state, j.serviceId)?.name || '—';
+                  const siteName = state.sites.find((s) => s.id === j.siteId)?.name;
+                  const statusLabel = j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Done' : j.status === 'cancelled' ? 'Cancelled' : 'Upcoming';
+                  const statusVariant = statusBadgeVariant(j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Confirmed' : 'Pending');
                   return (
-                    <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                      <td className="name">{inv.id}</td>
-                      <td>{fmtDate(inv.issueDate)}</td>
-                      <td className="money">{money(invoiceTotal(inv))}</td>
-                      <td className="money">{money(invoiceBalance(inv))}</td>
-                      <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
-                      <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                    </tr>
+                    <button
+                      key={j.id}
+                      type="button"
+                      className="activity-card activity-card-service"
+                      onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}
+                    >
+                      <div className="activity-card-icon"><Icon name="schedule" size={18} /></div>
+                      <div className="activity-card-body">
+                        <div className="activity-card-title">{serviceName}</div>
+                        <div className="activity-card-meta">
+                          {fmtDate(j.startAt)} <span className="text-muted">{fmtTimeRange(j.startAt, j.endAt)}</span>
+                          {siteName && <> · {siteName}</>}
+                        </div>
+                      </div>
+                      <Badge variant={statusVariant}>{statusLabel}</Badge>
+                      <Icon name="chevronRight" size={14} />
+                    </button>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )
+              </div>
+            )
+          )}
+
+          {activitySubTab === 'payment' && (
+            invoices.length === 0 ? (
+              <EmptyState icon={<Icon name="invoices" size={28} />} title="No payment history" message="Invoices issued to this account will appear here." />
+            ) : (
+              <div className="activity-card-grid">
+                {invoices.map((inv) => {
+                  const st = deriveInvoiceStatus(inv);
+                  const balance = invoiceBalance(inv);
+                  return (
+                    <button
+                      key={inv.id}
+                      type="button"
+                      className="activity-card activity-card-payment"
+                      onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}
+                    >
+                      <div className="activity-card-icon"><Icon name="invoices" size={18} /></div>
+                      <div className="activity-card-body">
+                        <div className="activity-card-title">{inv.id}</div>
+                        <div className="activity-card-meta">
+                          {fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}
+                          {balance > 0 && <> · <span className="text-danger">Balance {money(balance)}</span></>}
+                        </div>
+                      </div>
+                      <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>
+                        {st.charAt(0).toUpperCase() + st.slice(1)}
+                      </Badge>
+                      <Icon name="chevronRight" size={14} />
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          )}
+        </div>
       )}
 
       {tab === 'notes' && (
@@ -440,11 +566,58 @@ export default function ClientDetail() {
               </div>
             </div>
           )}
-          {!client.notes ? (
-            <EmptyState icon={<Icon name="edit" size={28} />} title="No notes yet" message="Notes are timestamped and appended in order." />
+          {noteActivities.length === 0 && !client.notes ? (
+            <EmptyState icon={<Icon name="edit" size={28} />} title="No notes yet" message="Notes are timestamped and shown newest first." />
           ) : (
-            <div className="card">
-              <pre className="notes-pre">{client.notes}</pre>
+            <div className="note-list">
+              {noteActivities.map((n) => {
+                const author = n.authorUserId ? selectUserById(state, n.authorUserId) : null;
+                const isEditing = editingNoteId === n.id;
+                return (
+                  <div key={n.id} className="note-item">
+                    <div className="note-item-head">
+                      <div className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                        {author && <Avatar initials={author.initials} variant={author.avatar} size="sm" />}
+                        <div>
+                          <div className="note-item-author">{author?.name || 'Someone'}</div>
+                          <div className="note-item-time text-xs text-muted">
+                            {fmtRelative(n.occurredAt)}
+                            {n.editedAt && <> · edited {fmtRelative(n.editedAt)}</>}
+                          </div>
+                        </div>
+                      </div>
+                      {canEdit && !isEditing && (
+                        <div className="note-item-actions">
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => startEditNote(n)}>Edit</button>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmDeleteNoteId(n.id)}>Delete</button>
+                        </div>
+                      )}
+                    </div>
+                    {isEditing ? (
+                      <div style={{ marginTop: 8 }}>
+                        <FormField label="" as="textarea" value={editingNoteText} onChange={(e) => setEditingNoteText(e.target.value)} />
+                        <div className="flex-row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={cancelEditNote}>Cancel</button>
+                          <button type="button" className="btn btn-primary btn-sm" onClick={saveEditNote} disabled={!editingNoteText.trim()}>Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="note-item-body">{n.body}</div>
+                    )}
+                  </div>
+                );
+              })}
+              {noteActivities.length === 0 && client.notes && (
+                <div className="note-item">
+                  <div className="note-item-head">
+                    <div>
+                      <div className="note-item-author text-muted">Legacy notes</div>
+                      <div className="note-item-time text-xs text-muted">From before per-note editing was added</div>
+                    </div>
+                  </div>
+                  <pre className="note-item-body" style={{ whiteSpace: 'pre-wrap' }}>{client.notes}</pre>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -477,12 +650,37 @@ export default function ClientDetail() {
       />
       <ConfirmDialog
         open={confirmArchive}
-        title="Archive this client?"
-        message="They'll be marked inactive. You can reactivate anytime."
+        title="Archive this account?"
+        message="It'll be marked inactive. You can reactivate anytime."
         confirmLabel="Archive"
         onConfirm={archive}
         onClose={() => setConfirmArchive(false)}
       />
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${client.name}?`}
+        message="This permanently removes the account, its sites, jobs, and invoices. Contacts attached here will be unlinked but kept."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={del}
+        onClose={() => setConfirmDelete(false)}
+      />
+      <ConfirmDialog
+        open={confirmDeleteNoteId !== null}
+        title="Delete this note?"
+        message="This permanently removes the note. You can't undo this."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => deleteNote(confirmDeleteNoteId)}
+        onClose={() => setConfirmDeleteNoteId(null)}
+      />
+      {primaryContact && (
+        <NewConversationModal
+          open={newConvOpen}
+          defaultContactId={primaryContact.id}
+          onClose={() => setNewConvOpen(false)}
+        />
+      )}
     </div>
   );
 }

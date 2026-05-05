@@ -51,16 +51,16 @@ export default function AddClientModal({ open, onClose, mode = 'create', initial
     };
     if (mode === 'edit' && initialData) {
       dispatch({ type: ACTIONS.UPDATE_CLIENT, id: initialData.id, patch: payload });
-      toast.success('Client updated');
+      toast.success('Account updated');
     } else {
       dispatch({ type: ACTIONS.ADD_CLIENT, client: payload });
-      toast.success('Client added');
+      toast.success('Account added');
     }
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={mode === 'edit' ? 'Edit Client' : 'Add Client'}>
+    <Modal open={open} onClose={onClose} title={mode === 'edit' ? 'Edit Account' : 'Add Account'}>
       <form onSubmit={submit}>
         <FormField label="Company name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Acme Corp" />
         <FormField label="Primary contact" value={form.primaryContact} onChange={(e) => setForm({ ...form, primaryContact: e.target.value })} placeholder="Full name" />
@@ -82,7 +82,7 @@ export default function AddClientModal({ open, onClose, mode = 'create', initial
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary">{mode === 'edit' ? 'Save Changes' : 'Add Client'}</button>
+          <button type="submit" className="btn btn-primary">{mode === 'edit' ? 'Save Changes' : 'Add Account'}</button>
         </div>
       </form>
     </Modal>

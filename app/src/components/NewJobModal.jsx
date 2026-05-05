@@ -157,9 +157,9 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
     <Modal open={open} onClose={onClose} title={mode === 'edit' ? 'Edit Job' : 'New Job'}>
       <form onSubmit={submit}>
         <FormField
-          label="Client" as="select" required value={form.clientId}
+          label="Account" as="select" required value={form.clientId}
           onChange={(e) => setForm({ ...form, clientId: e.target.value, siteId: '' })}
-          options={[{ value: '', label: 'Select a client' }, ...clients.filter((c) => c.status === 'active' || (initialData && c.id === initialData.clientId)).map((c) => ({ value: c.id, label: c.name }))]}
+          options={[{ value: '', label: 'Select an account' }, ...clients.filter((c) => c.status === 'active' || (initialData && c.id === initialData.clientId)).map((c) => ({ value: c.id, label: c.name }))]}
         />
         {clientSites.length > 0 && (
           <FormField

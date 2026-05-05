@@ -797,6 +797,11 @@ select.input {
   .stat-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .msg-layout { grid-template-columns: minmax(0, 1fr); }
 
+  .settings-pill-wrap { padding: 20px 0 16px; }
+  .settings-pills { gap: 2px; padding: 4px; }
+  .settings-pill { padding: 6px 10px; font-size: 11px; gap: 4px; }
+  .settings-pill svg { width: 12px; height: 12px; }
+
   /* §3.1 Page head — vertical stack on mobile */
   .page-head { flex-direction: column; align-items: stretch; gap: 12px; }
   .page-head-actions { width: 100%; margin-left: 0; }
@@ -1529,27 +1534,36 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 /* Settings layout */
 .settings-shell {
-  display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: stretch;
+  display: flex; flex-direction: column;
 }
-.settings-nav {
-  background: linear-gradient(180deg, var(--primary-bg) 0%, var(--card-bg) 50%);
+.settings-page-head { margin-bottom: 0; }
+.settings-pill-wrap {
+  display: flex; justify-content: center;
+  padding: 20px 0 28px;
+}
+.settings-pills {
+  display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+  background: var(--tab-bg, rgba(255, 255, 255, 0.85));
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
-  border-radius: var(--card-radius); padding: 8px;
-  display: flex; flex-direction: column; gap: 2px;
-  position: sticky; top: 20px;
+  border-radius: 14px;
+  padding: 5px;
   box-shadow: var(--card-shadow);
+  max-width: 100%;
 }
-.settings-nav-link {
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-  font-size: 13px; color: var(--text-body); text-decoration: none;
-  border-radius: var(--btn-radius); cursor: pointer;
-  transition: all 0.15s;
+.settings-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; white-space: nowrap;
+  font-size: 13px; font-weight: 500; font-family: var(--font);
+  color: var(--text-muted); text-decoration: none;
+  border-radius: 10px;
+  transition: all 0.2s;
 }
-.settings-nav-link:hover {
-  background: var(--primary-bg);
+.settings-pill:hover {
   color: var(--primary-deep);
+  background: var(--primary-bg);
 }
-.settings-nav-link.active {
+.settings-pill.active {
   background: var(--btn-primary-grad, var(--primary));
   color: #fff; font-weight: 600;
   box-shadow: var(--tab-active-shadow);
@@ -1672,8 +1686,8 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 @media (max-width: 900px) {
   .detail-grid { grid-template-columns: minmax(0, 1fr); }
-  .settings-shell { grid-template-columns: minmax(0, 1fr); }
-  .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .settings-pill-wrap { padding: 32px 0 20px; }
+  .settings-pill { padding: 7px 12px; font-size: 12px; }
   .template-editor { grid-template-columns: minmax(0, 1fr); }
   .week-grid { grid-template-columns: minmax(0, 1fr); }
   .month-cell { min-height: 60px; }
@@ -2049,32 +2063,6 @@ tr.clickable:hover { background: var(--inset-bg); }
   .pipeline-board { grid-template-columns: minmax(0, 1fr); overflow-x: visible; }
 }
 
-/* Activity timeline (contact detail) */
-.activity-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
-.activity-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 10px; border-radius: var(--btn-radius);
-  border: 1px solid var(--border-light); background: var(--card-bg);
-}
-.activity-kind {
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--text-muted); background: var(--inset-bg);
-  padding: 4px 8px; border-radius: var(--badge-radius);
-  min-width: 80px; text-align: center; flex-shrink: 0;
-}
-.activity-stage_change .activity-kind { background: var(--primary-bg); color: var(--primary-deep); }
-.activity-note .activity-kind { background: var(--color-semantic-warning-50); color: var(--color-semantic-warning-700); }
-.activity-invoice .activity-kind { background: var(--color-semantic-success-50); color: var(--color-semantic-success-700); }
-.activity-email .activity-kind { background: var(--color-accent-purple-50); color: var(--color-accent-purple-600); }
-.activity-meeting .activity-kind { background: var(--color-accent-teal-50); color: var(--color-accent-teal-600); }
-.activity-complaint .activity-kind { background: var(--color-semantic-error-50); color: var(--color-semantic-error-700); }
-.activity-item.is-resolved { opacity: 0.62; }
-.activity-item.is-resolved .activity-kind { background: var(--color-semantic-success-50); color: var(--color-semantic-success-700); }
-.activity-item.is-resolved .activity-text { text-decoration: line-through; text-decoration-color: var(--color-neutral-400); }
-.activity-body { flex: 1; min-width: 0; }
-.activity-text { font-size: 13px; color: var(--text-primary); line-height: 1.45; }
-.activity-meta { margin-top: 4px; }
-
 /* Overrides table (TeamDetail) */
 .overrides-table { font-size: 13px; width: 100%; border-collapse: collapse; }
 .overrides-table th {
@@ -2105,6 +2093,109 @@ tr.clickable:hover { background: var(--inset-bg); }
   font-size: 13px; color: var(--text-primary);
 }
 .bulk-bar .tag-picker-row > .text-xs { font-size: 13px; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Contact detail — Activity tab (Service / Payment toggle + cards) and Notes
+   ───────────────────────────────────────────────────────────────────────── */
+.activity-toggle {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 12px; margin-bottom: 16px;
+  box-shadow: var(--card-shadow);
+}
+.activity-toggle-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border: none; background: transparent;
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  color: var(--text-muted); border-radius: 8px; cursor: pointer;
+  transition: all 0.15s;
+}
+.activity-toggle-btn:hover { color: var(--primary-deep); background: var(--primary-bg); }
+.activity-toggle-btn.active {
+  background: var(--btn-primary-grad, var(--primary));
+  color: #fff; font-weight: 600;
+  box-shadow: var(--tab-active-shadow);
+}
+.activity-toggle-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 18px; padding: 0 6px;
+  background: rgba(var(--color-neutral-rgb), 0.12);
+  color: inherit; border-radius: 9px;
+  font-size: 11px; font-weight: 600;
+}
+.activity-toggle-btn.active .activity-toggle-count {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.activity-card-grid {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.activity-card {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto;
+  gap: 12px; align-items: center;
+  width: 100%; padding: 14px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  cursor: pointer; text-align: left;
+  font-family: var(--font);
+  transition: all 0.15s;
+  box-shadow: var(--card-shadow);
+}
+.activity-card:hover {
+  border-color: rgba(var(--color-brand-primary-rgb), 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--color-brand-primary-rgb), 0.1);
+}
+.activity-card-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--primary-bg); color: var(--primary);
+}
+.activity-card-payment .activity-card-icon {
+  background: rgba(var(--color-brand-secondary-rgb, 93, 184, 127), 0.15);
+  color: var(--color-brand-secondary-600, #4a9e69);
+}
+.activity-card-body { min-width: 0; }
+.activity-card-title {
+  font-size: 14px; font-weight: 600; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.activity-card-meta {
+  font-size: 12px; color: var(--text-muted); margin-top: 2px;
+}
+
+/* Detail-page right-column stat cards */
+.stat-card-value {
+  font-size: 22px; font-weight: 700; color: var(--text-primary);
+  margin-top: 4px; line-height: 1.2;
+}
+.stat-card-value-sm {
+  font-size: 14px; font-weight: 600; color: var(--text-primary);
+  margin-top: 4px;
+}
+
+/* Notes — per-note items with edit/delete */
+.note-list { display: flex; flex-direction: column; gap: 10px; }
+.note-item {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 14px 16px;
+  box-shadow: var(--card-shadow);
+}
+.note-item-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-bottom: 8px;
+}
+.note-item-author { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.note-item-time { margin-top: 2px; }
+.note-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.note-item-body {
+  font-size: 13px; color: var(--text-body);
+  white-space: pre-wrap; word-wrap: break-word;
+  line-height: 1.5;
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    Messaging Phase 2a — header bar + 3-panel inbox

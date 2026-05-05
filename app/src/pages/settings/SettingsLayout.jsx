@@ -19,19 +19,25 @@ export default function SettingsLayout() {
 
   return (
     <div className="settings-shell">
-      <aside className="settings-nav">
-        <h2 className="settings-nav-title">Settings</h2>
-        {allowed.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) => `settings-nav-link ${isActive ? 'active' : ''}`}
-          >
-            <Icon name={item.icon} size={16} />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </aside>
+      <div className="page-head settings-page-head">
+        <div className="page-head-text">
+          <h1 className="page-head-title">Settings</h1>
+        </div>
+      </div>
+      <div className="settings-pill-wrap">
+        <nav className="settings-pills">
+          {allowed.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => `settings-pill ${isActive ? 'active' : ''}`}
+            >
+              <Icon name={item.icon} size={14} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </div>
       <div className="settings-content">
         <Outlet />
       </div>

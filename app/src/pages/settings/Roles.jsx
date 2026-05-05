@@ -7,7 +7,7 @@ import { ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS, PERMISSIONS } from '../../lib/ro
 // Permissions grouped by surface area for scannability. Order = display order.
 const PERM_GROUPS = [
   { id: 'schedule',     label: 'Schedule & Jobs',      keys: ['dashboard.view', 'schedule.view', 'schedule.edit', 'schedule.statusTransition'] },
-  { id: 'clients',      label: 'Clients & Sites',      keys: ['clients.view', 'clients.edit', 'clients.archive', 'sites.edit'] },
+  { id: 'clients',      label: 'Accounts & Sites',     keys: ['clients.view', 'clients.edit', 'clients.archive', 'sites.edit'] },
   { id: 'contacts',     label: 'Contacts & Pipeline',  keys: ['contacts.view', 'contacts.view.all', 'contacts.edit', 'contacts.edit.own', 'contacts.delete', 'contacts.assignOwner', 'tags.manage', 'pipeline.view', 'pipeline.edit'] },
   { id: 'invoices',     label: 'Invoices & Reminders', keys: ['invoices.view', 'invoices.edit', 'invoices.recordPayment', 'reminders.view', 'reminders.edit'] },
   { id: 'messaging',    label: 'Messaging',            keys: ['messaging.use', 'messaging.startConversation', 'messaging.internalComment', 'messaging.manageSnippets', 'messaging.assign', 'messaging.bulkActions'] },
