@@ -5,6 +5,8 @@
 1. **`CLAUDE.md`** (this file) — stable project context, conventions, file map. Auto-loaded.
 2. **`HANDOFF.md`** — session-to-session continuity: what just shipped, open issues, suggested next pickup.
 3. **`SHELL_ROADMAP.md`** — living roadmap with sprints + per-module Definition of Done checklists. Source of truth for what's done / in progress / pending.
+4. **`UI_RULES.md`** — cosmetic + interaction rules (container hygiene, persistent bulk bars, click-target ergonomics, toast policy, etc). Read before adding/modifying UI.
+5. **`app/src/STYLING.md`** — token vocabulary + three-bucket rule for colors/radii/shadows/typography. UI rules read from this vocabulary.
 
 ## Session Start Checklist (do this FIRST, every session)
 Before responding to any request in this folder:
@@ -69,6 +71,7 @@ Once shell Core is complete:
 | `app/src/components/` | Shared UI primitives + domain components (TagChip, TagPicker, ContactPicker, AddContactModal, VisibilitySelect, PipelineCard, PipelineBoard, DetailHeader, FormField, Modal, ConfirmDialog, Toast, Badge, Avatar, Icon, EmptyState, UserSwitcher, RequirePerm). |
 | `app/src/theme.css` | Token vocabulary — tokens → aliases → recipes. See `app/src/STYLING.md`. |
 | `app/src/STYLING.md` | The styling contract. Respect the three-bucket rule. |
+| `app/UI_RULES.md` | Cosmetic + interaction rules (layout, selection bars, click targets, toasts, etc). Update this file when establishing a new UI pattern. |
 | `shell.html` | Original static HTML wireframe. Kept for reference only — **the live product is `app/`**, not this file. |
 | `theme-polishpoint-blue.css` | PolishPoint Blue theme — can be linked into `shell.html` or adapted for the app. |
 | `rainier-facility-solutions.html` | Legacy — original Rainier hardcoded mockup. Reference only. |

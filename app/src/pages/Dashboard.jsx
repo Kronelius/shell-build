@@ -14,6 +14,8 @@ import {
   selectClientById, selectServiceById, selectSiteById, selectContactById,
   selectDashboardStats, selectJobsForUser, selectStaleLeads, selectUnansweredThreads,
   invoiceBalance, deriveInvoiceStatus,
+  selectMissedCleansThisMonth, selectLaborHoursThisWeek, selectOpenComplaints,
+  selectOutstandingQuotes, selectRevenueThisMonth,
 } from '../store/selectors';
 import { fmtRelative, fmtTime, fmtTimeRange, money, sameDay, startOfWeek } from '../lib/dates';
 
@@ -51,6 +53,13 @@ export default function Dashboard() {
   const upcoming = useMemo(() => userJobs.filter((j) => new Date(j.startAt) > new Date() && j.status === 'upcoming').sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, 5), [userJobs]);
 
   const stats = selectDashboardStats(state);
+
+  // Rainier KPIs (Q17 + Q18)
+  const missed = selectMissedCleansThisMonth(state);
+  const laborHrs = selectLaborHoursThisWeek(state);
+  const openComplaints = selectOpenComplaints(state);
+  const outstandingQuotes = selectOutstandingQuotes(state);
+  const revenueMonth = selectRevenueThisMonth(state);
 
   // Week revenue bucketed by day of the week (paid amounts)
   const weekRevenue = useMemo(() => {
@@ -182,6 +191,62 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {!isCrew && (
+            <>
+              <div className="dash-section-title">Operational Performance</div>
+              <div className="stat-grid">
+                <StatCard
+                  value={missed.count}
+                  label="Missed Cleans (30d)"
+                  trend={missed.revenueImpact > 0 ? `${money(missed.revenueImpact)} impact` : 'Clean week'}
+                  trendDirection={missed.count > 0 ? 'down' : 'up'}
+                />
+                <StatCard
+                  value={`${laborHrs} hrs`}
+                  label="Labor Hours (this week)"
+                  trend={laborHrs > 0 ? `${(laborHrs / 7).toFixed(1)} hrs/day avg` : 'No completed jobs yet'}
+                  trendDirection="up"
+                />
+                <StatCard
+                  value={openComplaints.length}
+                  label="Open Complaints (30d)"
+                  trend={openComplaints.length > 0 ? 'Needs follow-up' : 'All clear'}
+                  trendDirection={openComplaints.length > 0 ? 'down' : 'up'}
+                />
+              </div>
+            </>
+          )}
+
+          {!isCrew && canInvoices && (
+            <>
+              <div className="dash-section-title">Financial Snapshot</div>
+              <div className="stat-grid">
+                <StatCard
+                  value={money(revenueMonth)}
+                  label="Revenue (this month)"
+                  trendDirection="up"
+                />
+                <StatCard
+                  value={money(stats.outstanding)}
+                  label="Open Receivables"
+                  trend={`${stats.outstandingCount} pending invoice${stats.outstandingCount === 1 ? '' : 's'}`}
+                  trendDirection={stats.outstandingCount > 0 ? 'down' : 'up'}
+                />
+                <StatCard
+                  value={money(stats.collected)}
+                  label="$ Collected (all time)"
+                  trendDirection="up"
+                />
+                <StatCard
+                  value={money(outstandingQuotes.value)}
+                  label="Outstanding Quotes"
+                  trend={`${outstandingQuotes.count} quote${outstandingQuotes.count === 1 ? '' : 's'} sent`}
+                  trendDirection={outstandingQuotes.count > 0 ? 'up' : 'down'}
+                />
+              </div>
+            </>
+          )}
 
           <div className="dash-cols">
             <div>

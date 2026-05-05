@@ -46,7 +46,6 @@ export default function Reminders() {
 
   const toggle = (tpl) => () => {
     dispatch({ type: ACTIONS.UPDATE_REMINDER_TEMPLATE, id: tpl.id, patch: { enabled: !tpl.enabled } });
-    toast.success(`${STAGE_META[tpl.key]?.label || tpl.key} ${!tpl.enabled ? 'enabled' : 'disabled'}`);
   };
 
   return (
@@ -207,9 +206,7 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
     });
     const patch = await retryDelivery({ event: e, state, sendSMS, sendEmail });
     dispatch({ type: ACTIONS.UPDATE_REMINDER_EVENT, id: e.id, patch });
-    if (patch.status === 'sent') {
-      toast.success(`Resent ${STAGE_META[e.templateKey]?.label || e.templateKey}`);
-    } else {
+    if (patch.status !== 'sent') {
       toast.error(`Resend failed: ${patch.failureReason || 'Unknown error'}`);
     }
   };
@@ -272,8 +269,7 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
       {filtered.length === 0 ? (
         <EmptyState icon={<Icon name="bell" size={24} />} title="No deliveries match these filters" />
       ) : (
-        <div className="card">
-          <div className="table-wrap">
+        <div className="table-wrap">
             <table className="inbox-table">
               <thead>
                 <tr>
@@ -326,9 +322,8 @@ function InboxTab({ events, templates, state, dispatch, toast, canEdit, unreadCo
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+            </tbody>
+          </table>
         </div>
       )}
     </>

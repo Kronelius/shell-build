@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useStore } from '../../store';
 import { ACTIONS } from '../../store/reducer';
 import { selectPermissions } from '../../store/selectors';
-import { useToast } from '../../components/Toast';
 import { ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS, PERMISSIONS } from '../../lib/roles';
 
 // Permissions grouped by surface area for scannability. Order = display order.
@@ -33,23 +32,15 @@ const DANGER_KEYS = new Set([
 export default function SettingsRoles() {
   const permissions = selectPermissions(useStore());
   const dispatch = useDispatch();
-  const toast = useToast();
 
   const togglePerm = (perm, role) => {
     const next = perm.roles.includes(role)
       ? perm.roles.filter((r) => r !== role)
       : [...perm.roles, role];
     dispatch({ type: ACTIONS.UPDATE_PERMISSION, id: perm.id, patch: { roles: next } });
-    const verb = next.includes(role) ? 'granted to' : 'revoked from';
-    const isDangerous = DANGER_KEYS.has(perm.id) && next.includes(role) && role !== 'owner';
-    const msg = `${perm.label} ${verb} ${ROLE_LABELS[role]}`;
-    // Toast only exposes success/error/info; use error for the danger tone.
-    if (isDangerous) toast.error(msg);
-    else toast.success(msg);
   };
 
   const resetDefaults = () => {
-    let count = 0;
     permissions.forEach((p) => {
       const def = PERMISSIONS[p.id]?.defaultRoles;
       if (!def) return;
@@ -57,10 +48,8 @@ export default function SettingsRoles() {
       const sortedDef = [...def].sort().join(',');
       if (sortedCur !== sortedDef) {
         dispatch({ type: ACTIONS.UPDATE_PERMISSION, id: p.id, patch: { roles: [...def] } });
-        count++;
       }
     });
-    toast.success(count === 0 ? 'Already at defaults' : `Reset ${count} permission${count === 1 ? '' : 's'} to defaults`);
   };
 
   // Lookup: find a permission record by key
@@ -93,7 +82,7 @@ export default function SettingsRoles() {
   );
 
   const renderGroup = (label, rows) => (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 16 }}>
       <h3 className="perm-group-head">{label}</h3>
       <div className="table-wrap">
         <table className="roles-table">

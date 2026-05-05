@@ -95,7 +95,6 @@ export default function StageManagerModal({ open, onClose }) {
       return;
     }
     dispatch({ type: ACTIONS.DELETE_PIPELINE_STAGE, id: stage.id });
-    toast.success(`Stage "${stage.label}" deleted`);
   };
 
   const add = (e) => {

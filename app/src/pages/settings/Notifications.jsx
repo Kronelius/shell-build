@@ -72,7 +72,6 @@ export default function SettingsNotifications() {
         status: 'sent',
       },
     });
-    toast.success('Test sent (simulated)');
   };
 
   const insertToken = (token) => {

@@ -10,10 +10,9 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
-import { useToast } from '../components/Toast';
 import {
   selectJobs, selectClientById, selectServiceById, selectSiteById, selectServices,
-  selectActiveUsers, selectUserById, selectJobsForUser, selectCrewConflicts,
+  selectActiveUsers, selectUserById, selectJobsForUser,
 } from '../store/selectors';
 import { fmtTimeRange, sameDay, startOfWeek, startOfMonth, addDays, composeIso, splitIso } from '../lib/dates';
 
@@ -35,7 +34,6 @@ export default function Schedule() {
   const nav = useFromHere();
   const { currentUser } = useAuth();
   const canCreate = usePermission('schedule.edit');
-  const toast = useToast();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const setParam = (key, value, defaultValue) => {
@@ -175,12 +173,6 @@ export default function Schedule() {
     const eTime = splitIso(job.endAt);
     const newEnd = composeIso(targetIso, eTime.time);
     dispatch({ type: ACTIONS.UPDATE_JOB, id: jobId, patch: { startAt: newStart, endAt: newEnd } });
-    const conflicts = selectCrewConflicts(state, job.crewIds, newStart, newEnd, jobId);
-    if (conflicts.length > 0) {
-      toast.warn(`Moved — ${conflicts[0].userName} has a conflict at new time`);
-    } else {
-      toast.success('Job moved');
-    }
   };
 
   // Month cell click → Day view (set both params atomically)

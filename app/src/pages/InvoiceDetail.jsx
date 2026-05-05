@@ -104,7 +104,6 @@ export default function InvoiceDetail() {
 
   const removePayment = (paymentId) => {
     dispatch({ type: ACTIONS.REMOVE_INVOICE_PAYMENT, id: invoice.id, paymentId });
-    toast.success('Payment removed');
   };
 
   const markPaid = () => {
@@ -117,12 +116,10 @@ export default function InvoiceDetail() {
       });
     }
     dispatch({ type: ACTIONS.SET_INVOICE_STATUS, id: invoice.id, status: 'paid' });
-    toast.success('Marked paid');
   };
 
   const voidInvoice = () => {
     dispatch({ type: ACTIONS.SET_INVOICE_STATUS, id: invoice.id, status: 'void' });
-    toast.success('Invoice voided');
   };
 
   const sendInvoice = () => {
@@ -136,12 +133,10 @@ export default function InvoiceDetail() {
         status: 'sent',
       },
     });
-    toast.success('Invoice sent (simulated)');
   };
 
   const del = () => {
     dispatch({ type: ACTIONS.DELETE_INVOICE, id: invoice.id });
-    toast.success('Invoice deleted');
     navigate('/invoices');
   };
 
@@ -201,7 +196,7 @@ export default function InvoiceDetail() {
           </dl>
         </div>
 
-        <div className="card detail-card">
+        <div>
           <div className="section-head">
             <h3 className="dash-card-title">Line Items</h3>
             {editing && <button type="button" className="btn btn-outline btn-sm" onClick={addLineItem}><Icon name="plus" size={14} /> Add</button>}
@@ -290,7 +285,7 @@ export default function InvoiceDetail() {
           )}
         </div>
 
-        <div className="card detail-card">
+        <div>
           <div className="section-head">
             <h3 className="dash-card-title">Payments</h3>
             {canPay && derivedStatus !== 'void' && balance > 0 && !showPaymentForm && (

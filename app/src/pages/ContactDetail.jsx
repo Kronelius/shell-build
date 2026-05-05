@@ -88,7 +88,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const updateField = (patch) => {
     dispatch({ type: ACTIONS.UPDATE_CONTACT, id: contact.id, patch });
-    toast.success('Contact updated');
   };
 
   const appendNote = () => {
@@ -112,7 +111,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const del = () => {
     dispatch({ type: ACTIONS.DELETE_CONTACT, id: contact.id });
-    toast.success('Contact deleted');
     navigate('/clients');
   };
 
@@ -320,7 +318,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
                                 id: a.id,
                                 patch: { resolvedAt: isResolved ? null : new Date().toISOString() },
                               });
-                              toast.success(isResolved ? 'Complaint reopened' : 'Complaint resolved');
                             }}
                           >{isResolved ? 'Reopen' : 'Mark resolved'}</button></>
                         )}
@@ -336,12 +333,12 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
       {tab === 'related' && (
         <div>
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div className="section-head" style={{ padding: '12px 16px 4px' }}>
+          <div style={{ marginBottom: 12 }}>
+            <div className="section-head">
               <h3 className="section-title">Invoices ({invoices.length})</h3>
             </div>
             {invoices.length === 0 ? (
-              <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No invoices where this contact is billing-lead.</span></div>
+              <div><span className="text-muted text-sm">No invoices where this contact is billing-lead.</span></div>
             ) : (
               <>
                 <div className="table-wrap">
@@ -382,13 +379,13 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             )}
           </div>
 
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div className="section-head" style={{ padding: '12px 16px 4px' }}>
+          <div style={{ marginBottom: 12 }}>
+            <div className="section-head">
               <h3 className="section-title">Jobs ({relatedJobs.length})</h3>
               {contact.companyId && <span className="text-xs text-muted">via {companyLabel}</span>}
             </div>
             {relatedJobs.length === 0 ? (
-              <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No jobs linked.</span></div>
+              <div><span className="text-muted text-sm">No jobs linked.</span></div>
             ) : (
               <>
                 <div className="table-wrap">
@@ -429,14 +426,14 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
             )}
           </div>
 
-          <div className="card">
-            <div className="section-head" style={{ padding: '12px 16px 4px' }}>
+          <div>
+            <div className="section-head">
               <h3 className="section-title">Conversations ({conversations.length})</h3>
             </div>
             {conversations.length === 0 ? (
-              <div style={{ padding: '0 16px 16px' }}><span className="text-muted text-sm">No message threads yet.</span></div>
+              <div><span className="text-muted text-sm">No message threads yet.</span></div>
             ) : (
-              <div style={{ padding: '0 16px 16px' }}>
+              <div>
                 {conversations.map((cv) => (
                   <Link key={cv.id} to={`/messaging/${cv.id}`} state={nav} className="chip" style={{ marginRight: 6 }}>
                     {cv.channel.toUpperCase()} · {fmtRelative(cv.createdAt)}

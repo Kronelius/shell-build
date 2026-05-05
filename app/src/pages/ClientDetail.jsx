@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
@@ -19,6 +19,7 @@ import FormField from '../components/FormField';
 import AddSiteModal from '../components/AddSiteModal';
 import AddContactModal from '../components/AddContactModal';
 import ContactPicker from '../components/ContactPicker';
+import Select from '../components/Select';
 import Avatar from '../components/Avatar';
 import Icon from '../components/Icon';
 import { fmtDate, fmtTimeRange, money } from '../lib/dates';
@@ -55,7 +56,6 @@ export default function ClientDetail() {
   const primaryContact = client?.primaryContactId ? selectContactById(state, client.primaryContactId) : null;
 
   const [tab, setTab] = useState('overview');
-  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(client);
   const [addSiteOpen, setAddSiteOpen] = useState(false);
   const [editSite, setEditSite] = useState(null);
@@ -68,6 +68,19 @@ export default function ClientDetail() {
     const s = deriveInvoiceStatus(inv);
     return s === 'pending' || s === 'overdue' ? a + invoiceBalance(inv) : a;
   }, 0), [invoices]);
+
+  // Keep `form` in sync when the underlying client changes (e.g. external update,
+  // route change, or after a save resets it). This is what makes inline-edit
+  // pick up new state without forcing a remount.
+  useEffect(() => {
+    if (client) setForm(client);
+  }, [client?.id, client?.updatedAt]);
+
+  const dirty = useMemo(() => {
+    if (!form || !client) return false;
+    const fields = ['name', 'primaryContactId', 'email', 'phone', 'serviceId', 'frequencyId', 'status'];
+    return fields.some((f) => (form[f] ?? null) !== (client[f] ?? null));
+  }, [form, client]);
 
   if (!client) {
     return (
@@ -83,23 +96,21 @@ export default function ClientDetail() {
       serviceId: form.serviceId, frequencyId: form.frequencyId, status: form.status,
       primaryContactId: form.primaryContactId || null,
     }});
-    setEditing(false);
     toast.success('Account updated');
   };
 
+  const cancel = () => setForm(client);
+
   const setPrimary = (contactId) => {
     dispatch({ type: ACTIONS.UPDATE_CLIENT, id: client.id, patch: { primaryContactId: contactId } });
-    toast.success('Primary contact updated');
   };
 
   const archive = () => {
     dispatch({ type: ACTIONS.ARCHIVE_CLIENT, id: client.id });
-    toast.success('Client archived');
   };
 
   const unarchive = () => {
     dispatch({ type: ACTIONS.UNARCHIVE_CLIENT, id: client.id });
-    toast.success('Client reactivated');
   };
 
   const appendNote = () => {
@@ -121,7 +132,6 @@ export default function ClientDetail() {
         </Badge>}
         actions={
           <div className="flex-row" style={{ gap: 8 }}>
-            {canEdit && !editing && <button className="btn btn-outline btn-sm" onClick={() => { setEditing(true); setForm(client); }}>Edit</button>}
             {canArchive && client.status === 'active' && <button className="btn btn-outline btn-sm" onClick={() => setConfirmArchive(true)}>Archive</button>}
             {canArchive && client.status !== 'active' && <button className="btn btn-outline btn-sm" onClick={unarchive}>Reactivate</button>}
           </div>
@@ -136,62 +146,127 @@ export default function ClientDetail() {
 
       {tab === 'overview' && (
         <div className="card detail-card">
-          {!editing ? (
-            <dl className="detail-dl">
-              <div><dt>Primary contact</dt><dd>
-                {primaryContact ? (
-                  <Link to={`/clients/contact/${primaryContact.id}`} state={nav}>
-                    {primaryContact.firstName} {primaryContact.lastName}
-                    {primaryContact.title && <span className="text-muted"> — {primaryContact.title}</span>}
-                  </Link>
-                ) : (client.primaryContact || '—')}
-              </dd></div>
-              <div><dt>Email</dt><dd>{primaryContact?.email || client.email || '—'}</dd></div>
-              <div><dt>Phone</dt><dd>{primaryContact?.phone || client.phone || '—'}</dd></div>
-              <div><dt>Service</dt><dd>{selectServiceById(state, client.serviceId)?.name || '—'}</dd></div>
-              <div><dt>Frequency</dt><dd>{frequencies.find((f) => f.id === client.frequencyId)?.label || '—'}</dd></div>
-              <div><dt>Lifetime revenue</dt><dd>{money(client.revenue || 0)}</dd></div>
-              <div><dt>Outstanding</dt><dd>{outstanding > 0 ? <span className="text-danger">{money(outstanding)}</span> : money(0)}</dd></div>
-              <div><dt>Last service</dt><dd>{client.lastServiceAt ? fmtDate(client.lastServiceAt) : '—'}</dd></div>
-              <div><dt>Contacts</dt><dd>{contacts.length}</dd></div>
-              <div><dt>Sites</dt><dd>{sites.length}</dd></div>
-            </dl>
-          ) : (
-            <div>
-              <FormField label="Company name" name="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              <div className="form-group">
-                <label className="form-label">Primary contact</label>
+          <div className="inline-edit-grid">
+            <label className="inline-edit-label" htmlFor="cli-name">Company name</label>
+            <div className="inline-edit-value">
+              <input
+                id="cli-name"
+                className="input input-ghost"
+                value={form?.name || ''}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                disabled={!canEdit}
+              />
+            </div>
+
+            <label className="inline-edit-label">Primary contact</label>
+            <div className="inline-edit-value">
+              {canEdit ? (
                 <ContactPicker
-                  value={form.primaryContactId || null}
+                  value={form?.primaryContactId || null}
                   companyId={client.id}
                   onChange={(id) => setForm({ ...form, primaryContactId: id })}
                 />
-              </div>
-              <div className="form-row">
-                <FormField label="Email" type="email" name="email" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                <FormField label="Phone" name="phone" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              </div>
-              <div className="form-row">
-                <FormField
-                  label="Service" as="select" name="serviceId" required value={form.serviceId || ''}
-                  onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
-                  options={services.map((s) => ({ value: s.id, label: s.name }))}
-                />
-                <FormField
-                  label="Frequency" as="select" name="frequencyId" required value={form.frequencyId || ''}
-                  onChange={(e) => setForm({ ...form, frequencyId: e.target.value })}
-                  options={frequencies.map((f) => ({ value: f.id, label: f.label }))}
-                />
-                <FormField
-                  label="Status" as="select" name="status" value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]}
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-outline" onClick={() => { setEditing(false); setForm(client); }}>Cancel</button>
-                <button type="button" className="btn btn-primary" onClick={save}>Save Changes</button>
-              </div>
+              ) : (
+                <div className="inline-edit-readonly">
+                  {primaryContact ? (
+                    <Link to={`/clients/contact/${primaryContact.id}`} state={nav}>
+                      {primaryContact.firstName} {primaryContact.lastName}
+                      {primaryContact.title && <span className="text-muted"> — {primaryContact.title}</span>}
+                    </Link>
+                  ) : (client.primaryContact || '—')}
+                </div>
+              )}
+            </div>
+
+            <label className="inline-edit-label" htmlFor="cli-email">Email</label>
+            <div className="inline-edit-value">
+              <input
+                id="cli-email"
+                type="email"
+                className="input input-ghost"
+                value={form?.email || ''}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder={primaryContact?.email || '—'}
+                disabled={!canEdit}
+              />
+            </div>
+
+            <label className="inline-edit-label" htmlFor="cli-phone">Phone</label>
+            <div className="inline-edit-value">
+              <input
+                id="cli-phone"
+                className="input input-ghost"
+                value={form?.phone || ''}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder={primaryContact?.phone || '—'}
+                disabled={!canEdit}
+              />
+            </div>
+
+            <label className="inline-edit-label" id="cli-service-label">Service</label>
+            <div className="inline-edit-value">
+              <Select
+                ghost
+                ariaLabel="Service"
+                value={form?.serviceId || ''}
+                onChange={(v) => setForm({ ...form, serviceId: v })}
+                disabled={!canEdit}
+                options={services.map((s) => ({ value: s.id, label: s.name }))}
+              />
+            </div>
+
+            <label className="inline-edit-label" id="cli-frequency-label">Frequency</label>
+            <div className="inline-edit-value">
+              <Select
+                ghost
+                ariaLabel="Frequency"
+                value={form?.frequencyId || ''}
+                onChange={(v) => setForm({ ...form, frequencyId: v })}
+                disabled={!canEdit}
+                options={frequencies.map((f) => ({ value: f.id, label: f.label }))}
+              />
+            </div>
+
+            <label className="inline-edit-label" id="cli-status-label">Status</label>
+            <div className="inline-edit-value">
+              <Select
+                ghost
+                ariaLabel="Status"
+                value={form?.status || 'active'}
+                onChange={(v) => setForm({ ...form, status: v })}
+                disabled={!canEdit}
+                options={[
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                ]}
+              />
+            </div>
+
+            <label className="inline-edit-label">Lifetime revenue</label>
+            <div className="inline-edit-readonly">{money(client.revenue || 0)}</div>
+
+            <label className="inline-edit-label">Outstanding</label>
+            <div className="inline-edit-readonly">
+              {outstanding > 0 ? <span className="text-danger">{money(outstanding)}</span> : money(0)}
+            </div>
+
+            <label className="inline-edit-label">Last service</label>
+            <div className="inline-edit-readonly muted">
+              {client.lastServiceAt ? fmtDate(client.lastServiceAt) : '—'}
+            </div>
+
+            <label className="inline-edit-label">Contacts</label>
+            <div className="inline-edit-readonly">{contacts.length}</div>
+
+            <label className="inline-edit-label">Sites</label>
+            <div className="inline-edit-readonly">{sites.length}</div>
+          </div>
+
+          {canEdit && dirty && (
+            <div className="inline-edit-savebar">
+              <span className="save-hint">Unsaved changes</span>
+              <button type="button" className="btn btn-outline" onClick={cancel}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={save}>Save Changes</button>
             </div>
           )}
         </div>
@@ -214,10 +289,9 @@ export default function ClientDetail() {
               action={canEditContacts && <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>Add a contact</button>}
             />
           ) : (
-            <div className="card">
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th></th><th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th></th></tr></thead>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th></th><th>Name</th><th>Title</th><th>Email</th><th>Phone</th><th></th></tr></thead>
                   <tbody>
                     {contacts
                       .slice()
@@ -244,9 +318,8 @@ export default function ClientDetail() {
                           </tr>
                         );
                       })}
-                  </tbody>
-                </table>
-              </div>
+                </tbody>
+              </table>
             </div>
           )}
           <AddContactModal open={addContactOpen} onClose={() => setAddContactOpen(false)} lockCompanyId={client.id} />
@@ -306,59 +379,55 @@ export default function ClientDetail() {
       )}
 
       {tab === 'history' && (
-        <div className="card">
-          {jobs.length === 0 ? (
-            <EmptyState icon={<Icon name="schedule" size={28} />} title="No jobs yet" message="Jobs will appear here once scheduled." />
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Date</th><th>Service</th><th>Site</th><th>Status</th><th></th></tr></thead>
-                <tbody>
-                  {jobs.map((j) => (
-                    <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
-                      <td>{fmtDate(j.startAt)} <span className="text-muted text-sm">{fmtTimeRange(j.startAt, j.endAt)}</span></td>
-                      <td>{selectServiceById(state, j.serviceId)?.name || '—'}</td>
-                      <td>{state.sites.find((s) => s.id === j.siteId)?.name || '—'}</td>
-                      <td><Badge variant={statusBadgeVariant(j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Confirmed' : 'Pending')}>
-                        {j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Done' : j.status === 'cancelled' ? 'Cancelled' : 'Upcoming'}
-                      </Badge></td>
-                      <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        jobs.length === 0 ? (
+          <EmptyState icon={<Icon name="schedule" size={28} />} title="No jobs yet" message="Jobs will appear here once scheduled." />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Service</th><th>Site</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {jobs.map((j) => (
+                  <tr key={j.id} className="clickable" onClick={() => navigate(`/schedule/${j.id}`, { state: nav })}>
+                    <td>{fmtDate(j.startAt)} <span className="text-muted text-sm">{fmtTimeRange(j.startAt, j.endAt)}</span></td>
+                    <td>{selectServiceById(state, j.serviceId)?.name || '—'}</td>
+                    <td>{state.sites.find((s) => s.id === j.siteId)?.name || '—'}</td>
+                    <td><Badge variant={statusBadgeVariant(j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Confirmed' : 'Pending')}>
+                      {j.status === 'in_progress' ? 'In Progress' : j.status === 'done' ? 'Done' : j.status === 'cancelled' ? 'Cancelled' : 'Upcoming'}
+                    </Badge></td>
+                    <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {tab === 'invoices' && (
-        <div className="card">
-          {invoices.length === 0 ? (
-            <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" />
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead>
-                <tbody>
-                  {invoices.map((inv) => {
-                    const st = deriveInvoiceStatus(inv);
-                    return (
-                      <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                        <td className="name">{inv.id}</td>
-                        <td>{fmtDate(inv.issueDate)}</td>
-                        <td className="money">{money(invoiceTotal(inv))}</td>
-                        <td className="money">{money(invoiceBalance(inv))}</td>
-                        <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
-                        <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        invoices.length === 0 ? (
+          <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Invoice</th><th>Issued</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {invoices.map((inv) => {
+                  const st = deriveInvoiceStatus(inv);
+                  return (
+                    <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
+                      <td className="name">{inv.id}</td>
+                      <td>{fmtDate(inv.issueDate)}</td>
+                      <td className="money">{money(invoiceTotal(inv))}</td>
+                      <td className="money">{money(invoiceBalance(inv))}</td>
+                      <td><Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>{st.charAt(0).toUpperCase() + st.slice(1)}</Badge></td>
+                      <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {tab === 'notes' && (
@@ -403,7 +472,6 @@ export default function ClientDetail() {
         variant="danger"
         onConfirm={() => {
           dispatch({ type: ACTIONS.DELETE_SITE, id: confirmDeleteSite.id });
-          toast.success('Site deleted');
         }}
         onClose={() => setConfirmDeleteSite(null)}
       />

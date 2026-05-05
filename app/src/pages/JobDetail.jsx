@@ -116,19 +116,15 @@ export default function JobDetail() {
 
   const transition = (status) => {
     dispatch({ type: ACTIONS.SET_JOB_STATUS, id: job.id, status });
-    toast.success(`Marked ${STATUS_LABEL[status]}`);
   };
 
   const del = () => {
     if (deleteScope === 'future' && job.seriesId) {
       dispatch({ type: ACTIONS.DELETE_JOB_SERIES, seriesId: job.seriesId, fromDate: job.startAt });
-      toast.success('Deleted future jobs in series');
-      navigate('/schedule');
     } else {
       dispatch({ type: ACTIONS.DELETE_JOB, id: job.id });
-      toast.success('Job deleted');
-      navigate('/schedule');
     }
+    navigate('/schedule');
   };
 
   return (
@@ -240,12 +236,8 @@ export default function JobDetail() {
                 label="Site" as="select" name="siteId"
                 value={currentForm.siteId || ''}
                 onChange={(e) => setForm({ ...currentForm, siteId: e.target.value })}
-              >
-                <select className="input" name="siteId" value={currentForm.siteId || ''} onChange={(e) => setForm({ ...currentForm, siteId: e.target.value })}>
-                  <option value="">— No specific site —</option>
-                  {clientSites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </FormField>
+                options={[{ value: '', label: '— No specific site —' }, ...clientSites.map((s) => ({ value: s.id, label: s.name }))]}
+              />
               <FormField
                 label="Service" as="select" name="serviceId" required
                 value={currentForm.serviceId}
@@ -257,7 +249,7 @@ export default function JobDetail() {
                 <FormField label="Start" type="time" name="startTime" required value={currentForm.startTime} onChange={(e) => setForm({ ...currentForm, startTime: e.target.value })} />
                 <FormField label="End" type="time" name="endTime" required value={currentForm.endTime} onChange={(e) => setForm({ ...currentForm, endTime: e.target.value })} />
               </div>
-              <FormField label="Crew">
+              <FormField label="Crew" help="Click a crew member to assign or unassign them from this job. Highlighted chips are assigned.">
                 <div className="chip-picker">
                   {users.filter((u) => u.status === 'active').map((u) => {
                     const on = currentForm.crewIds.includes(u.id);

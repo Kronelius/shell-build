@@ -5,7 +5,6 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { selectPipelineContacts, selectUsers, selectPipelineStages } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
-import { useToast } from './Toast';
 import { money } from '../lib/dates';
 import PipelineCard from './PipelineCard';
 import FormField from './FormField';
@@ -17,7 +16,6 @@ export default function PipelineBoard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const nav = useFromHere();
-  const toast = useToast();
   const canEdit = usePermission('pipeline.edit');
   const canAssignOwner = usePermission('contacts.assignOwner');
   const canDelete = usePermission('contacts.delete');
@@ -83,8 +81,6 @@ export default function PipelineBoard() {
     effectiveSelected.forEach((id) => {
       dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey });
     });
-    const label = stages.find((s) => s.key === stageKey)?.label || stageKey;
-    toast.success(`Moved ${effectiveSelected.size} to ${label}`);
     clearSelection();
   };
 
@@ -94,17 +90,14 @@ export default function PipelineBoard() {
     effectiveSelected.forEach((id) => {
       dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId: resolved });
     });
-    toast.success(`Owner assigned to ${effectiveSelected.size} contact${effectiveSelected.size === 1 ? '' : 's'}`);
     clearSelection();
   };
 
   const bulkArchive = () => {
     if (!canDelete) return;
-    const count = effectiveSelected.size;
     effectiveSelected.forEach((id) => {
       dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id });
     });
-    toast.success(`Archived ${count} contact${count === 1 ? '' : 's'}`);
     clearSelection();
   };
 
@@ -165,10 +158,6 @@ export default function PipelineBoard() {
     }
 
     dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey, insertBeforeId });
-    if (current.stage !== stageKey) {
-      const label = stages.find((s) => s.key === stageKey)?.label || stageKey;
-      toast.success(`${current.firstName} ${current.lastName} → ${label}`);
-    }
   };
 
   const selectionCount = effectiveSelected.size;
@@ -193,34 +182,36 @@ export default function PipelineBoard() {
         )}
       </div>
 
-      {selectionCount > 0 && (
-        <div className="bulk-bar">
-          <span className="text-sm font-semi">{selectionCount} selected</span>
-          <div style={{ flex: 1 }} />
-          {canEdit && (
-            <FormField
-              label=""
-              as="select"
-              value=""
-              onChange={(e) => bulkMoveStage(e.target.value)}
-              options={[{ value: '', label: 'Move to stage…' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
-            />
-          )}
-          {canAssignOwner && (
-            <FormField
-              label=""
-              as="select"
-              value=""
-              onChange={(e) => bulkAssignOwner(e.target.value)}
-              options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
-            />
-          )}
-          {canDelete && (
-            <button className="btn btn-outline btn-sm" onClick={bulkArchive}>Archive</button>
-          )}
-          <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
-        </div>
-      )}
+      <div className={`bulk-bar ${selectionCount === 0 ? 'is-empty' : ''}`}>
+        <span className="text-sm font-semi">
+          {selectionCount > 0 ? `${selectionCount} selected` : 'Select cards for bulk actions'}
+        </span>
+        <div style={{ flex: 1 }} />
+        {canEdit && (
+          <FormField
+            label=""
+            as="select"
+            value=""
+            disabled={selectionCount === 0}
+            onChange={(e) => bulkMoveStage(e.target.value)}
+            options={[{ value: '', label: 'Move to stage…' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
+          />
+        )}
+        {canAssignOwner && (
+          <FormField
+            label=""
+            as="select"
+            value=""
+            disabled={selectionCount === 0}
+            onChange={(e) => bulkAssignOwner(e.target.value)}
+            options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
+          />
+        )}
+        {canDelete && (
+          <button className="btn btn-outline btn-sm" disabled={selectionCount === 0} onClick={bulkArchive}>Archive</button>
+        )}
+        <button className="btn btn-outline btn-sm" disabled={selectionCount === 0} onClick={clearSelection}>Cancel</button>
+      </div>
 
       <StageManagerModal open={manageStagesOpen} onClose={() => setManageStagesOpen(false)} />
 

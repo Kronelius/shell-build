@@ -155,7 +155,6 @@ export default function SettingsServices() {
           if (!confirm) return;
           if (confirm.kind === 'service') dispatch({ type: ACTIONS.DELETE_SERVICE, id: confirm.item.id });
           else dispatch({ type: ACTIONS.DELETE_FREQUENCY, id: confirm.item.id });
-          toast.success('Deleted');
         }}
         onClose={() => setConfirm(null)}
       />

@@ -1,23 +1,12 @@
 import { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import NewJobModal from '../components/NewJobModal';
 import { useStore } from '../store';
 import { selectCompany } from '../store/selectors';
-import { usePermission } from '../hooks/usePermission';
 
 export default function AppLayout() {
   const company = selectCompany(useStore());
-  const canCreateJob = usePermission('schedule.edit');
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [newJobOpen, setNewJobOpen] = useState(false);
-  const navigate = useNavigate();
-
-  const handleNewJob = () => {
-    if (!canCreateJob) return;
-    setNewJobOpen(true);
-    setMobileOpen(false);
-  };
 
   return (
     <>
@@ -38,13 +27,10 @@ export default function AppLayout() {
       <Sidebar
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
-        onNewJob={handleNewJob}
-        canCreateJob={canCreateJob}
       />
       <main className="main">
-        <Outlet context={{ onNewJob: handleNewJob, navigate }} />
+        <Outlet />
       </main>
-      <NewJobModal open={newJobOpen} onClose={() => setNewJobOpen(false)} />
     </>
   );
 }

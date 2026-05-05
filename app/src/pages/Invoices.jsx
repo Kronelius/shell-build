@@ -11,7 +11,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { usePermission } from '../hooks/usePermission';
-import { useToast } from '../components/Toast';
 import {
   selectInvoices, selectClients, selectClientById, invoiceTotal, invoiceBalance,
   invoicePaid, deriveInvoiceStatus,
@@ -21,7 +20,6 @@ import { fmtDate, money, todayIso } from '../lib/dates';
 export default function Invoices() {
   const state = useStore();
   const dispatch = useDispatch();
-  const toast = useToast();
   const navigate = useNavigate();
   const nav = useFromHere();
   const canCreate = usePermission('invoices.edit');
@@ -87,7 +85,6 @@ export default function Invoices() {
       }
       dispatch({ type: ACTIONS.SET_INVOICE_STATUS, id, status: 'paid' });
     });
-    toast.success(`${selection.size} invoice${selection.size === 1 ? '' : 's'} marked paid`);
     setSelection(new Set());
     setConfirmPaid(false);
   };
@@ -104,7 +101,6 @@ export default function Invoices() {
     const a = document.createElement('a');
     a.href = url; a.download = 'invoices.csv'; a.click();
     URL.revokeObjectURL(url);
-    toast.success('CSV exported');
   };
 
   return (
@@ -133,16 +129,16 @@ export default function Invoices() {
           options={[{ value: 'all', label: 'All time' }, { value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
       </div>
 
-      {selection.size > 0 && (
-        <div className="bulk-bar">
-          <span className="text-sm">{selection.size} selected</span>
-          <div className="flex-row" style={{ gap: 6, marginLeft: 'auto' }}>
-            {canPay && <button className="btn btn-primary btn-sm" onClick={() => setConfirmPaid(true)}>Mark Paid</button>}
-            <button className="btn btn-outline btn-sm" onClick={exportCsv}>Export CSV</button>
-            <button className="btn btn-outline btn-sm" onClick={() => setSelection(new Set())}>Clear</button>
-          </div>
+      <div className={`bulk-bar ${selection.size === 0 ? 'is-empty' : ''}`}>
+        <span className="text-sm">
+          {selection.size > 0 ? `${selection.size} selected` : 'Select invoices for bulk actions'}
+        </span>
+        <div className="flex-row" style={{ gap: 6, marginLeft: 'auto' }}>
+          {canPay && <button className="btn btn-primary btn-sm" disabled={selection.size === 0} onClick={() => setConfirmPaid(true)}>Mark Paid</button>}
+          <button className="btn btn-outline btn-sm" disabled={selection.size === 0} onClick={exportCsv}>Export CSV</button>
+          <button className="btn btn-outline btn-sm" disabled={selection.size === 0} onClick={() => setSelection(new Set())}>Clear</button>
         </div>
-      )}
+      </div>
 
       {filtered.length === 0 ? (
         invoices.length === 0 ? (
@@ -151,48 +147,46 @@ export default function Invoices() {
           <EmptyState title="No matches" message="Try adjusting filters or date range." />
         )
       ) : (
-        <div className="card">
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: 32 }}>
-                    <input type="checkbox" checked={selection.size === filtered.length && filtered.length > 0} onChange={toggleAll} />
-                  </th>
-                  <th>Invoice</th>
-                  <th>Client</th>
-                  <th>Issued</th>
-                  <th>Due</th>
-                  <th>Total</th>
-                  <th>Balance</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((inv) => {
-                  const client = selectClientById(state, inv.clientId);
-                  return (
-                    <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selection.has(inv.id)} onChange={() => toggleSelect(inv.id)} />
-                      </td>
-                      <td className="name">{inv.id}</td>
-                      <td>{client?.name || '—'}</td>
-                      <td>{fmtDate(inv.issueDate)}</td>
-                      <td>{fmtDate(inv.dueDate)}</td>
-                      <td className="money">{money(invoiceTotal(inv))}</td>
-                      <td className="money">{money(invoiceBalance(inv))}</td>
-                      <td><Badge variant={statusBadgeVariant(inv.derivedStatus === 'paid' ? 'Paid' : inv.derivedStatus === 'overdue' ? 'Overdue' : inv.derivedStatus === 'void' ? 'Inactive' : 'Pending')}>
-                        {inv.derivedStatus.charAt(0).toUpperCase() + inv.derivedStatus.slice(1)}
-                      </Badge></td>
-                      <td className="text-right"><Icon name="chevronRight" size={14} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 32 }}>
+                  <input type="checkbox" checked={selection.size === filtered.length && filtered.length > 0} onChange={toggleAll} />
+                </th>
+                <th>Invoice</th>
+                <th>Client</th>
+                <th>Issued</th>
+                <th>Due</th>
+                <th>Total</th>
+                <th>Balance</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((inv) => {
+                const client = selectClientById(state, inv.clientId);
+                return (
+                  <tr key={inv.id} className="clickable" onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selection.has(inv.id)} onChange={() => toggleSelect(inv.id)} />
+                    </td>
+                    <td className="name">{inv.id}</td>
+                    <td>{client?.name || '—'}</td>
+                    <td>{fmtDate(inv.issueDate)}</td>
+                    <td>{fmtDate(inv.dueDate)}</td>
+                    <td className="money">{money(invoiceTotal(inv))}</td>
+                    <td className="money">{money(invoiceBalance(inv))}</td>
+                    <td><Badge variant={statusBadgeVariant(inv.derivedStatus === 'paid' ? 'Paid' : inv.derivedStatus === 'overdue' ? 'Overdue' : inv.derivedStatus === 'void' ? 'Inactive' : 'Pending')}>
+                      {inv.derivedStatus.charAt(0).toUpperCase() + inv.derivedStatus.slice(1)}
+                    </Badge></td>
+                    <td className="text-right"><Icon name="chevronRight" size={14} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

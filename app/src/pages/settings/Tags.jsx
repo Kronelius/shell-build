@@ -57,10 +57,8 @@ export default function SettingsTags() {
   };
 
   const deleteTag = (tag) => {
-    const used = usageCount(tag.id);
     dispatch({ type: ACTIONS.DELETE_TAG, id: tag.id });
     setConfirm(null);
-    toast.success(used > 0 ? `Tag deleted; removed from ${used} contact${used === 1 ? '' : 's'}` : 'Tag deleted');
   };
 
   return (

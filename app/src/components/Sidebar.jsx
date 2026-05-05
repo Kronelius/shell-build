@@ -15,7 +15,7 @@ const NAV = [
   { to: '/reminders', label: 'Reminders',  icon: 'reminders', perm: 'reminders.view' },
 ];
 
-export default function Sidebar({ mobileOpen, onCloseMobile, onNewJob, canCreateJob }) {
+export default function Sidebar({ mobileOpen, onCloseMobile }) {
   const company = selectCompany(useStore());
   const check = usePermissionChecker();
 
@@ -23,12 +23,18 @@ export default function Sidebar({ mobileOpen, onCloseMobile, onNewJob, canCreate
 
   return (
     <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
-      <div className="sidebar-brand">
-        <div className="sidebar-logo">{company.logoInitials}</div>
-        <div className="sidebar-brand-text">
-          <h1>{company.name}</h1>
-          <p>Platform</p>
-        </div>
+      <div className={`sidebar-brand${company.logoUrl ? ' sidebar-brand-image' : ''}`}>
+        {company.logoUrl ? (
+          <img className="sidebar-brand-img" src={company.logoUrl} alt={company.name} />
+        ) : (
+          <>
+            <div className="sidebar-logo">{company.logoInitials}</div>
+            <div className="sidebar-brand-text">
+              <h1>{company.name}</h1>
+              <p>Platform</p>
+            </div>
+          </>
+        )}
       </div>
 
       <nav className="sidebar-nav">
@@ -48,24 +54,21 @@ export default function Sidebar({ mobileOpen, onCloseMobile, onNewJob, canCreate
         </div>
 
         {check('settings.account') && (
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `nav-btn nav-btn-solo ${isActive ? 'active' : ''}`}
-            onClick={onCloseMobile}
-          >
-            <Icon name="settings" />
-            <span className="nav-btn-label">Settings</span>
-          </NavLink>
+          <div className="nav-group">
+            <NavLink
+              to="/settings"
+              className={({ isActive }) => `nav-btn nav-btn-solo ${isActive ? 'active' : ''}`}
+              onClick={onCloseMobile}
+            >
+              <Icon name="settings" />
+              <span className="nav-btn-label">Settings</span>
+            </NavLink>
+          </div>
         )}
       </nav>
 
       <div className="sidebar-footer">
         <UserSwitcher />
-        {canCreateJob && (
-          <button className="sidebar-footer-btn" onClick={onNewJob}>
-            <Icon name="plus" size={16} /> New Job
-          </button>
-        )}
       </div>
     </aside>
   );

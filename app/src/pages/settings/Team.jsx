@@ -44,8 +44,7 @@ export default function SettingsTeam() {
       {users.length === 0 ? (
         <EmptyState icon={<Icon name="clients" size={28} />} title="No team members yet" />
       ) : (
-        <div className="card">
-          <div className="table-wrap">
+        <div className="table-wrap">
             <table>
               <thead>
                 <tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th><th>Status</th><th></th></tr>
@@ -74,9 +73,8 @@ export default function SettingsTeam() {
                     <td className="text-right"><Icon name="chevronRight" size={14} /></td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+            </tbody>
+          </table>
         </div>
       )}
 

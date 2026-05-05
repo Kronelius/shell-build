@@ -84,7 +84,6 @@ export default function SettingsIntegrations() {
     try {
       await disconnectTwilio();
       dispatch({ type: ACTIONS.DISCONNECT_TWILIO });
-      toast.success('Twilio disconnected.');
     } catch (err) {
       toast.error(err.message || 'Disconnect failed.');
     }
@@ -95,24 +94,20 @@ export default function SettingsIntegrations() {
       const reason = window.prompt('Rejection reason (carrier message)?', '');
       if (reason === null) return;
       dispatch({ type: ACTIONS.UPDATE_A2P_STATUS, status: 'rejected', rejectionReason: reason });
-      toast.success('A2P marked rejected.');
       return;
     }
     dispatch({ type: ACTIONS.UPDATE_A2P_STATUS, status: nextStatus });
-    toast.success(`A2P marked ${nextStatus}.`);
   };
 
   const handleA2PReset = () => {
     if (!window.confirm('Reset A2P registration? The captured form data will be cleared.')) return;
     dispatch({ type: ACTIONS.RESET_A2P });
-    toast.success('A2P reset.');
   };
 
   const copyWebhook = async () => {
     if (!twilio?.inboundWebhookUrl) return;
     try {
       await navigator.clipboard.writeText(twilio.inboundWebhookUrl);
-      toast.success('Webhook URL copied.');
     } catch {
       toast.error('Could not copy. Select the URL and copy manually.');
     }
@@ -165,7 +160,6 @@ export default function SettingsIntegrations() {
       body: payload.body,
       messageSid: payload.messageSid,
     });
-    toast.success('Inbound SMS routed.');
     setSimBody('');
   };
 

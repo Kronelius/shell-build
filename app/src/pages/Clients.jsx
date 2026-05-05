@@ -15,7 +15,6 @@ import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
-import { useToast } from '../components/Toast';
 import {
   selectClients, selectClientById, selectServiceById, selectFrequencies, selectServices,
   selectContacts, selectTags, selectTagById, selectPermissions, selectUsers, selectUserById,
@@ -39,7 +38,6 @@ export default function Clients() {
   const navigate = useNavigate();
   const nav = useFromHere();
   const dispatch = useDispatch();
-  const toast = useToast();
   const { currentUser } = useAuth();
   const canCreateClient = usePermission('clients.edit');
   const canCreateContact = usePermission('contacts.edit');
@@ -141,7 +139,6 @@ export default function Clients() {
     selectedIds.forEach((id) => {
       dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId: userId || null });
     });
-    toast.success(`Owner assigned to ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}`);
     clearSelection();
   };
   const bulkApplyTags = () => {
@@ -149,13 +146,11 @@ export default function Clients() {
     selectedIds.forEach((id) => {
       bulkTagIds.forEach((tagId) => dispatch({ type: ACTIONS.TAG_CONTACT, id, tagId }));
     });
-    toast.success(`Tagged ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}`);
     setBulkTagIds([]);
     clearSelection();
   };
   const bulkArchive = () => {
     selectedIds.forEach((id) => dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id }));
-    toast.success(`Archived ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}`);
     clearSelection();
   };
 
@@ -205,22 +200,22 @@ export default function Clients() {
               options={VISIBILITIES.map((v) => ({ value: v, label: v === 'all' ? 'All visibility' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
           </div>
 
-          {selectedIds.size > 0 && (
-            <div className="bulk-bar">
-              <span className="text-sm font-semi">{selectedIds.size} selected</span>
-              <div style={{ flex: 1 }} />
-              <div style={{ minWidth: 200 }}>
-                <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Tag selected…" />
-              </div>
-              <button className="btn btn-outline btn-sm" disabled={bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
-              {canAssignOwner && (
-                <FormField label="" as="select" value="" onChange={(e) => bulkAssignOwner(e.target.value)}
-                  options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
-              )}
-              <button className="btn btn-outline btn-sm" onClick={bulkArchive}>Archive</button>
-              <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
+          <div className={`bulk-bar ${selectedIds.size === 0 ? 'is-empty' : ''}`}>
+            <span className="text-sm font-semi">
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select contacts for bulk actions'}
+            </span>
+            <div style={{ flex: 1 }} />
+            <div style={{ minWidth: 200 }}>
+              <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Tag selected…" disabled={selectedIds.size === 0} />
             </div>
-          )}
+            <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0 || bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
+            {canAssignOwner && (
+              <FormField label="" as="select" value="" disabled={selectedIds.size === 0} onChange={(e) => bulkAssignOwner(e.target.value)}
+                options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
+            )}
+            <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0} onClick={bulkArchive}>Archive</button>
+            <button className="btn btn-outline btn-sm" disabled={selectedIds.size === 0} onClick={clearSelection}>Cancel</button>
+          </div>
 
           {filteredContacts.length === 0 ? (
             allContacts.length === 0 ? (
@@ -235,30 +230,29 @@ export default function Clients() {
             )
           ) : (
             <>
-              <div className="card">
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th style={{ width: 36 }}>
-                          <input
-                            type="checkbox"
-                            aria-label="Select all"
-                            checked={selectedIds.size > 0 && selectedIds.size === filteredContacts.length}
-                            onChange={toggleSelectAll}
-                          />
-                        </th>
-                        <th>Name</th>
-                        <th>Company</th>
-                        <th>Lifecycle</th>
-                        <th>Owner</th>
-                        <th>Tags</th>
-                        <th>Updated</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredContacts.map((c) => {
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 36 }}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select all"
+                          checked={selectedIds.size > 0 && selectedIds.size === filteredContacts.length}
+                          onChange={toggleSelectAll}
+                        />
+                      </th>
+                      <th>Name</th>
+                      <th>Company</th>
+                      <th>Lifecycle</th>
+                      <th>Owner</th>
+                      <th>Tags</th>
+                      <th>Updated</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredContacts.map((c) => {
                         const owner = c.ownerUserId ? selectUserById(state, c.ownerUserId) : null;
                         const company = c.companyId ? selectClientById(state, c.companyId) : null;
                         const companyLabel = company?.name || c.customFields?.company || '—';
@@ -312,9 +306,8 @@ export default function Clients() {
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                  </tbody>
+                </table>
               </div>
 
               <div className="mobile-card-list">
@@ -399,23 +392,22 @@ export default function Clients() {
             )
           ) : (
             <>
-              <div className="card">
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Account</th>
-                        <th>Primary contact</th>
-                        <th>Service</th>
-                        <th>Frequency</th>
-                        <th>Last Service</th>
-                        <th>Revenue</th>
-                        <th>Status</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredClients.map((c) => {
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Account</th>
+                      <th>Primary contact</th>
+                      <th>Service</th>
+                      <th>Frequency</th>
+                      <th>Last Service</th>
+                      <th>Revenue</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClients.map((c) => {
                         const primary = c.primaryContactId ? allContacts.find((ct) => ct.id === c.primaryContactId) : null;
                         const primaryLabel = primary ? `${primary.firstName} ${primary.lastName}` : (c.primaryContact || '—');
                         return (
@@ -433,9 +425,8 @@ export default function Clients() {
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                  </tbody>
+                </table>
               </div>
 
               <div className="mobile-card-list">

@@ -60,7 +60,6 @@ export default function SettingsTeamDetail() {
 
   const del = () => {
     dispatch({ type: ACTIONS.DELETE_USER, id: user.id });
-    toast.success('Member removed');
     navigate('/settings/team');
   };
 
@@ -92,7 +91,6 @@ export default function SettingsTeamDetail() {
 
   const clearOverrides = () => {
     dispatch({ type: ACTIONS.SET_USER_PERMISSION_OVERRIDE, userId: user.id, grants: [], revokes: [] });
-    toast.success('Overrides cleared');
   };
 
   const hasOverrides = (override.grants?.length || 0) + (override.revokes?.length || 0) > 0;
