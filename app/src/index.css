@@ -988,14 +988,14 @@ label:has(> input[type="checkbox"]) {
 .tab-container .tab-btn { flex-shrink: 0; }
 .tab-container-line {
   border-bottom: 1px solid var(--border-light);
-  background: var(--card-bg); border-radius: var(--card-radius);
+  background: var(--card-bg); border-radius: var(--radius-full);
   padding: 4px; border: 1px solid var(--card-border);
   margin-bottom: 20px;
 }
 .tab-btn {
   background: transparent; border: none; padding: 6px 14px;
   font-size: 13px; color: var(--text-muted); cursor: pointer;
-  border-radius: var(--btn-radius); font-weight: 500;
+  border-radius: var(--radius-full); font-weight: 500;
 }
 .tab-btn:hover { color: var(--text-primary); }
 .tab-btn.active { background: var(--primary); color: #fff; }
@@ -2159,7 +2159,7 @@ tr.clickable:hover { background: var(--inset-bg); }
 .segmented {
   display: inline-flex;
   border: 1px solid var(--tab-border);
-  border-radius: var(--btn-radius);
+  border-radius: var(--radius-full);
   overflow: hidden;
   background: var(--tab-bg);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
