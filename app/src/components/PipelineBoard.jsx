@@ -243,7 +243,7 @@ export default function PipelineBoard() {
                       onChange={() => toggleSelectStage(stage.key)}
                     />
                   )}
-                  {stage.label}
+                  <span className="pipeline-col-label">{stage.label}</span>
                 </div>
                 <div className="pipeline-col-meta">
                   <span className="pipeline-col-count">{cards.length}</span>

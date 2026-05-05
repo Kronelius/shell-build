@@ -880,23 +880,82 @@ select.input {
   border-radius: var(--card-radius); padding: 12px 14px;
 }
 .filter-bar > * { min-width: 160px; flex: 0 1 auto; }
+.filter-bar > .filter-client-search { flex: 1 1 100%; min-width: 0; max-width: 480px; }
+.filter-bar > .filter-client-search > .form-group { width: 100%; }
 
-/* Checkbox click targets — global rule.
-   Native checkboxes are ~13px which makes precise clicking clunky. We bump
-   the visual size and extend the hit area via padding so the click target is
-   ~50% larger linearly (more forgiving). The visual box grows from ~13px to
-   18px; the surrounding 4px padding adds further hit-area on each side via
-   the wrapping label/cell. */
+/* Checkbox — modern custom skin with extended hit area.
+   Visible box: 20x20. Real click area: 32x32 (extended via ::before, which
+   is part of the input's hit-test region). That's ~60% larger linearly than
+   the visible box without changing layout. */
 input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  accent-color: var(--primary);
+  position: relative;
   flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  background: #fff;
+  border: 1.5px solid var(--border-mid, #cbd5e1);
+  border-radius: 6px;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  vertical-align: middle;
 }
-/* When a checkbox is the only thing in its cell, expand the cell as a click
-   surface. The cell already responds to clicks via stopPropagation patterns
-   on rows; this adds the ergonomic surface area the user asked for. */
+/* Invisible hit-area extension. The pseudo-element is part of the input's
+   hit-test region, so a click anywhere in this ~36x36 zone counts as a click
+   on the checkbox itself. z-index keeps it above adjacent sibling content
+   that would otherwise win the hit test on the right/bottom edges. */
+input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  z-index: 1;
+}
+input[type="checkbox"]:hover {
+  border-color: var(--primary);
+}
+input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-soft, rgba(33, 34, 105, 0.2));
+  border-color: var(--primary);
+}
+input[type="checkbox"]:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+input[type="checkbox"]:checked:hover {
+  background-color: var(--primary-hover, var(--primary));
+  border-color: var(--primary-hover, var(--primary));
+}
+/* Checkmark — drawn with two borders rotated into a tick. */
+input[type="checkbox"]:checked::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+/* Indeterminate (mixed) state — used by table "select all" headers. */
+input[type="checkbox"]:indeterminate {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+input[type="checkbox"]:indeterminate::after {
+  content: "";
+  width: 10px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+}
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Wrapping label/cell still gets pointer cursor so the broader region reads
+   as interactive even outside the 32x32 hit zone. */
 td:has(> input[type="checkbox"]:only-child),
 th:has(> input[type="checkbox"]:only-child),
 label:has(> input[type="checkbox"]) {
@@ -1588,8 +1647,8 @@ tr.clickable:hover { background: var(--inset-bg); }
 .role-legend { display: flex; gap: 14px; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
 .role-legend-item { display: inline-flex; align-items: center; gap: 4px; }
 .role-checkbox {
-  width: 18px; height: 18px; margin: 0 auto;
-  accent-color: var(--primary);
+  margin: 0 auto;
+  display: block;
 }
 .perm-group-head {
   font-size: 13px; font-weight: 600; color: var(--text-primary);
@@ -1735,7 +1794,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   display: flex; flex-direction: column; gap: 6px;
 }
 .contact-picker-toggle {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 10px;
   font-size: 11px; color: var(--text-muted); padding: 4px 2px;
 }
 .contact-picker-clear {
@@ -1797,9 +1856,23 @@ tr.clickable:hover { background: var(--inset-bg); }
   background: var(--primary-bg);
   box-shadow: inset 0 0 0 1px rgba(var(--color-brand-primary-rgb), 0.25);
 }
-.pipeline-col-head { display: flex; align-items: center; gap: 6px; padding: 4px 4px 8px; border-bottom: 1px solid rgba(var(--color-brand-primary-rgb), 0.12); margin-bottom: 4px; }
-.pipeline-col-title { font-size: 12px; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.04em; }
-.pipeline-col-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.pipeline-col-head { display: flex; align-items: flex-start; gap: 6px; padding: 4px 4px 8px; border-bottom: 1px solid rgba(var(--color-brand-primary-rgb), 0.12); margin-bottom: 4px; }
+.pipeline-col-title {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 12px; font-weight: 700; color: var(--text-primary);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  flex: 1 1 auto; min-width: 0;
+}
+.pipeline-col-label {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+  min-height: calc(2 * 1.25em);
+  flex: 1 1 auto;
+}
+.pipeline-col-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .pipeline-col-count {
   background: var(--badge-blue-grad);
   color: #fff; border: none;
@@ -1807,7 +1880,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   font-size: 10px; font-weight: 700;
   box-shadow: var(--badge-blue-shadow);
 }
-.pipeline-col-sum { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+.pipeline-col-sum { font-size: 14px; color: var(--text-primary); font-weight: 700; }
 .pipeline-col-body { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 100px; }
 .pipeline-col-empty {
   display: flex; align-items: center; justify-content: center;
@@ -1848,12 +1921,12 @@ tr.clickable:hover { background: var(--inset-bg); }
 .pipeline-card.is-dragging { opacity: 0.4; }
 .pipeline-card.is-selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg), var(--drip-node-shadow); }
 .pipeline-card-check {
-  flex: 0 0 auto; margin: 0 2px 0 0; cursor: pointer;
+  flex: 0 0 auto; margin: 0 10px 0 0; cursor: pointer;
   opacity: 0.35; transition: opacity 0.15s;
 }
 .pipeline-card:hover .pipeline-card-check,
 .pipeline-card.is-selected .pipeline-card-check { opacity: 1; }
-.pipeline-col-check { margin-right: 6px; cursor: pointer; vertical-align: middle; }
+.pipeline-col-check { margin-right: 10px; cursor: pointer; vertical-align: middle; }
 
 /* Stage Manager modal */
 .stage-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
@@ -1896,7 +1969,7 @@ tr.clickable:hover { background: var(--inset-bg); }
 .inbox-table td .btn + .btn-link { margin-left: 4px; }
 .pipeline-card-head {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 6px; min-height: 20px;
+  gap: 10px; min-height: 20px;
 }
 .pipeline-card-name {
   font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3;
@@ -2919,7 +2992,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   display: flex; align-items: center; justify-content: space-between;
 }
 .filter-starred-row {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 10px;
   cursor: pointer;
   font-size: 12px; color: var(--text-primary);
 }

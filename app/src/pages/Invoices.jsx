@@ -38,18 +38,28 @@ export default function Invoices() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const statusFilter = searchParams.get('status') || 'all';
-  const clientFilter = searchParams.get('client') || 'all';
+  const clientFilter = searchParams.get('client') || '';
   const dateRange = searchParams.get('range') || '30';
   const [selection, setSelection] = useState(new Set());
   const [confirmPaid, setConfirmPaid] = useState(false);
 
   const withStatus = useMemo(() => invoices.map((inv) => ({ ...inv, derivedStatus: deriveInvoiceStatus(inv) })), [invoices]);
 
+  const clientById = useMemo(() => {
+    const m = new Map();
+    clients.forEach((c) => m.set(c.id, c));
+    return m;
+  }, [clients]);
+
   const filtered = useMemo(() => {
     const now = new Date();
+    const clientQuery = clientFilter.trim().toLowerCase();
     return withStatus.filter((inv) => {
       if (statusFilter !== 'all' && inv.derivedStatus !== statusFilter) return false;
-      if (clientFilter !== 'all' && inv.clientId !== clientFilter) return false;
+      if (clientQuery) {
+        const c = clientById.get(inv.clientId);
+        if (!c?.name?.toLowerCase().includes(clientQuery)) return false;
+      }
       if (dateRange !== 'all') {
         const days = Number(dateRange);
         const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - days);
@@ -57,7 +67,7 @@ export default function Invoices() {
       }
       return true;
     });
-  }, [withStatus, statusFilter, clientFilter, dateRange]);
+  }, [withStatus, statusFilter, clientFilter, dateRange, clientById]);
 
   const collected = withStatus.reduce((a, inv) => a + invoicePaid(inv), 0);
   const outstanding = withStatus.reduce((a, inv) => inv.derivedStatus === 'pending' ? a + invoiceBalance(inv) : a, 0);
@@ -123,10 +133,12 @@ export default function Invoices() {
       <div className="filter-bar">
         <FormField label="Status" as="select" value={statusFilter} onChange={(e) => setParam('status', e.target.value, 'all')}
           options={[{ value: 'all', label: 'All statuses' }, { value: 'draft', label: 'Draft' }, { value: 'pending', label: 'Pending' }, { value: 'overdue', label: 'Overdue' }, { value: 'paid', label: 'Paid' }, { value: 'void', label: 'Void' }]} />
-        <FormField label="Client" as="select" value={clientFilter} onChange={(e) => setParam('client', e.target.value, 'all')}
-          options={[{ value: 'all', label: 'All clients' }, ...clients.filter((c) => c.status !== 'inactive').map((c) => ({ value: c.id, label: c.name }))]} />
         <FormField label="Date range" as="select" value={dateRange} onChange={(e) => setParam('range', e.target.value, '30')}
           options={[{ value: 'all', label: 'All time' }, { value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
+        <div className="filter-client-search">
+          <FormField label="Client" type="text" placeholder="Search by client name…" value={clientFilter}
+            onChange={(e) => setParam('client', e.target.value, '')} />
+        </div>
       </div>
 
       <div className={`bulk-bar ${selection.size === 0 ? 'is-empty' : ''}`}>
