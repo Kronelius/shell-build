@@ -1,238 +1,157 @@
-# Session Handoff
+# Rainier Facility Solutions — Deployment Handoff
 
-**Last session end:** **Permission defaults audit + Roles editor discoverability shipped** (Friday meeting follow-up). Tightened 5 default permissions, restructured the Roles editor into 8 grouped tables with sensitive-pills + precedence callout + reset button, relabeled the sidebar "Roles" → "Roles & Permissions", added Team-page cross-link, bumped storage v9 → v10. The shell is now ready to clone to a Rainier-credentialed repo.
+**Last session end:** **Theme + seed swap shipped.** Cloned `Kronelius/shell-build@ba53172` into the Rainier app dir, applied PolishPoint Blue theme comprehensively (every component now consumes swatchboard recipes — sidebar gradient + edge notch + triangle nav indicator, body aurora, gradient cards/badges/buttons/inputs/tabs/hero/metric-strip/messaging/calendar, rounded-corner tables), then replaced the demo seed with Rainier-flavored data. Storage `pp.store.v10 → v11`.
 
-Current branch: `main`, working tree clean.
+The repo is **ready for the next per-client config pass** (logo wiring, labor-focused dashboard cards, CSV migration, Twilio provisioning).
+
+Source of truth for what's in scope: [`RAINIER_SCOPE.md`](RAINIER_SCOPE.md). Read it first.
 
 ---
 
-## What shipped this session
+## What shipped in this clone session
 
-### Permission defaults audit (5 flips in `app/src/lib/roles.js`)
+### 1. Theme application — every-component-themed
+Per the contract in [shell `app/src/STYLING.md`](app/src/STYLING.md). Touched [`app/src/index.css`](app/src/index.css) end-to-end so every component reads the recipes in [`app/src/theme-polishpoint-blue.css`](app/src/theme-polishpoint-blue.css):
 
-The audit asked: are the current defaults sensible for a cleaning company? Conclusion was mostly yes, but 5 specific flips:
+- **Body** — aurora radial-gradient layers + fixed bg attachment + body::before aurora
+- **Sidebar** — white→light-blue→primary gradient, soft-shadow edge notch, RTL-flipped scrollbar
+- **Nav buttons** — SVG-mask triangle pill extending past sidebar's right edge, hover/active gradients with drop-shadow filter
+- **Cards / detail-cards** — primary-bg→white gradient + triple-layer shadow (white inset highlight + colored ring + outer blue glow)
+- **Buttons** — `.btn-primary` gradient + glow ring; `.btn-secondary` neumorphic two-direction shadow; `.btn-danger` red gradient + red glow
+- **Badges** (green/amber/red/blue/purple/slate) — gradient + matching colored shadow
+- **Inputs** — gradient borders via `linear-gradient + padding-box/border-box`, focus shifts to richer gradient + colored glow
+- **Tables** — gradient blue header + alternating striped rows, **rounded corners on `.table-wrap`** (border + border-radius + overflow-y: hidden)
+- **Tabs / dash-switcher / filter-chip / chip / segmented** — glass background (`backdrop-filter: blur`) + active blue gradient
+- **Dashboard hero** — diagonal gradient + radial orb (top-right) + faint white orb (bottom-right) + colored glow shadow
+- **Stat cards / pipeline cards / drip nodes / timeline cards / schedule blocks** — primary-soft→primary-bg gradient + colored ring + outer glow
+- **Pipeline columns** — subtle blue tint, gradient stage count badges with shadows
+- **Metric strip** — per-cell gradient (blue / purple / neutral) + 2px gradient top bar + neumorphic surface shadow
+- **Mobile header / hamburger / modal / toast / notif-chip / settings nav / week-grid / month-grid** — all consume theme recipes
+- **User-switcher chip** — glass-pill with backdrop-blur + colored border
 
-| Key | Before | After | Why |
-|---|---|---|---|
-| `pipeline.view` | owner+admin+crew | owner+admin | Sales pipeline is office-tier; field crew has no business reason to see deal stages. |
-| `messaging.startConversation` | owner+admin+crew | owner+admin | Crew can still **reply** via `messaging.use`. Outbound to clients from the field is a liability. Owner re-grants per trusted senior tech via override. |
-| `messaging.internalComment` | owner+admin | owner+admin+crew | Internal notes ("done", "running late", "client wasn't home") are exactly what crew should post. Not visible to clients. |
-| `settings.services` | owner+admin | owner | Service catalog = pricing. Owner-only by default; office manager gets it via override if they own pricing. |
-| `integrations.view` | owner+admin | owner | Reduces blast radius if an admin account is compromised. Still grantable per-user. |
+### 2. Seed swap — Rainier-flavored demo data
+[`app/src/data/seed.js`](app/src/data/seed.js) full rewrite (v10 → v11):
 
-### Roles editor restructure (`app/src/pages/settings/Roles.jsx`)
+- **Company**: Rainier Facility Solutions, RFS logo, `office@rainierfs.com`, `(253) 555-0100`, Cascade Ave S Seattle WA address
+- **Users** (per Q7, Q11, Q20):
+  - Kyle Whitfield — Super Admin (default current user)
+  - Steve Whitfield — Super Admin
+  - Heather Cole — Admin
+  - Lauren Park — Admin
+  - Marcus Greene, Riley Diaz, Jamie Sato, Casey Vega — Crew
+- **Services** (per Q23, three lines):
+  - Commercial: Janitorial, Floor Care, Restroom Sanitation
+  - Residential: Cleaning, Move-In/Out, Deep Clean
+  - Specialized: Carpet & Upholstery, Window, Pressure Washing, Post-Construction
+- **Pipeline stages** (per Q2, Q3 — mirrors GHL): Hot Lead → Drip Campaign → Walkthrough Scheduled → Quote Sent → Won / Lost
+- **Lead-source tags** (per Q1): Referral, Call-In, Web Form, Email Campaign (plus VIP, Hot Lead, Net-30, Needs Quote, Commercial, Residential, Specialized, DND)
+- **Reminder templates** (per Q10):
+  - `welcome_email` — auto-sends on lifecycle change to "customer"
+  - `post_service` rewritten as first-clean recap
+  - `booking_confirmation`, `reminder_24h`, `day_of_eta` retained
+- **Internal messaging channels** (per Q14, Q6): pinned `Time Off Requests` + `Accounting Handoffs` threads with seeded conversation starters
+- **Demo accounts**: Evergreen Medical, Lakeside Office Park, Cascade Logistics, Mt. Baker HOA, Pacific Ridge, Olympic Senior Living, Salishan Townhomes (rebranded; replace via CSV import once Rainier's GHL contacts land)
 
-Was a flat 39-row table. Now:
+### 3. Permission tightening — Q24 admin financial revoke
+[`app/src/lib/roles.js`](app/src/lib/roles.js):
 
-- **8 grouped tables** — Schedule & Jobs / Clients & Sites / Contacts & Pipeline / Invoices & Reminders / Messaging / Settings / Integrations / Super Admin Only.
-- **"Sensitive" pill** (amber, uppercase, badge-style) on 8 high-impact keys: `clients.archive`, `contacts.delete`, `invoices.edit`, `invoices.recordPayment`, `integrations.manage`, `settings.roles.edit`, `staff.assignRoles`, `staff.editOverrides`. When granted to a non-owner role, toast renders in error tone (no `warn` variant in Toast component; `error` is the closest "attention" tone).
-- **Precedence callout** above the matrix: "For each user we check, in order: per-user revoke → per-user grant → role default below."
-- **"Reset all to defaults"** button (header, secondary style). Dispatches `UPDATE_PERMISSION` for any key whose roles diverge from `PERMISSIONS[id].defaultRoles`. Toasts "Reset N permission(s)" or "Already at defaults".
-- **"Other" fallback section** — renders any permission keys present in store but not in `PERM_GROUPS`. Guards against silent invisibility if someone adds a key to `roles.js` and forgets to group it.
+- `invoices.view`, `invoices.edit`, `invoices.recordPayment` → owner-only
+- `reminders.view`, `reminders.edit` → owner-only
+- Updated `admin` `ROLE_DESCRIPTIONS`: "Cannot see financials or assign roles."
+- Heather/Lauren get specific grants via per-user override at `/settings/team/[user]` if/when needed.
 
-### Discoverability touches
-
-- `app/src/pages/settings/SettingsLayout.jsx` — sidebar item relabeled `Roles` → `Roles & Permissions`. Same icon, same gate.
-- `app/src/pages/settings/Team.jsx` — added "Edit role defaults →" cross-link in the page header (right of subtitle, left of "Invite Member"). Gated on `settings.roles.edit`.
-
-### Storage / seed bump
-
-- `app/src/data/seed.js` — `version: 9` → `version: 10`
-- `app/src/store/persist.js` — `STORAGE_KEY: 'pp.store.v9'` → `'pp.store.v10'`
-- Existing dev installs reseed on next load. Old `v9` localStorage key is left in place as a recovery breadcrumb (not auto-removed).
-
-### CSS additions (`app/src/index.css`)
-
-- `.perm-group-head` — h3 inside the grouped permission cards (border-bottom separator).
-- `.perm-sensitive-pill` — small amber uppercase pill. Falls back to `#fef3c7` / `#92400e` if `--badge-amber-bg` / `--badge-amber-text` tokens don't resolve.
-
-### Verified end-to-end
-
-- Storage migrates `v9` → `v10` on next load (confirmed via Claude Preview).
-- All 5 default flips persist correctly in the new v10 store.
-- `can()` resolves the new defaults correctly per role:
-  - **Owner**: full access (pipeline, messaging, settings, integrations all true)
-  - **Admin**: pipeline + messaging unchanged; `settings.services` and `integrations.view` now denied
-  - **Crew**: `pipeline.view` and `messaging.startConversation` denied; `messaging.internalComment` granted
-- Roles editor renders all 8 grouped tables, all 8 sensitive pills, precedence callout, reset button.
-- Reset button works: mutate a permission → click reset → permission returns to default + toast appears.
-- Team page shows "Edit role defaults →" cross-link in section-head.
+### 4. Storage version bump
+- `INITIAL_STATE.version`: 10 → 11
+- `STORAGE_KEY`: `pp.store.v10` → `pp.store.v11`
+- Existing dev caches force a fresh reseed on next load.
 
 ---
 
 ## Files touched this session
 
-- `app/src/lib/roles.js` — 5 default array flips
-- `app/src/pages/settings/Roles.jsx` — full restructure (PERM_GROUPS, DANGER_KEYS, callout, grouped tables, sensitive pill, reset button, smarter toast)
-- `app/src/pages/settings/SettingsLayout.jsx` — sidebar label
-- `app/src/pages/settings/Team.jsx` — cross-link in section-head
-- `app/src/data/seed.js` — version 9 → 10
-- `app/src/store/persist.js` — STORAGE_KEY v9 → v10 + bump comment
-- `app/src/index.css` — `.perm-group-head` + `.perm-sensitive-pill`
-- `SHELL_ROADMAP.md` — added `[x]` Permission defaults audit + Roles editor discoverability item
+- `app/src/index.css` — comprehensive theme wire-up (every component → recipes); table border-radius on `.table-wrap`
+- `app/src/theme-polishpoint-blue.css` — copied into `app/src/` (was at repo root) so it bundles with the app
+- `app/src/data/seed.js` — full Rainier seed rewrite
+- `app/src/lib/roles.js` — admin financial revoke + role description
+- `app/src/store/persist.js` — STORAGE_KEY v10 → v11 with bump notes
+- `app/.claude/launch.json` (parent's, not in repo) — `rainier-app` config on port 5175
+- New top-level docs: `RAINIER_SCOPE.md` (the spec)
+- This file (`HANDOFF.md`) replaced shell handoff with Rainier deployment context
 
 ---
 
----
+## Running the app
+
+```bash
+npm --prefix app install
+npm --prefix app run dev   # → http://localhost:5175 (or whatever Vite picks)
+```
+
+Storage key: `pp.store.v11` / seed version 11. Default user is Kyle Whitfield (Super Admin). Switch via the user chip in the sidebar footer.
 
 ---
 
-## Session start checklist (first thing, every session)
+## Next-session pickup — what's left for Rainier
 
-Per `CLAUDE.md`:
-1. `git rev-parse --is-inside-work-tree && git remote -v` — verify clone + origin.
-2. `git fetch` — compare local HEAD vs `origin/main`. Report sync status.
-3. If behind + clean → offer fast-forward. If diverged → flag; don't auto-merge.
-4. Read [`SHELL_ROADMAP.md`](SHELL_ROADMAP.md) — Core is complete; the only remaining work is **deployment** (clone to Rainier repo) and per-client tweaks.
-5. Dev server: `npm --prefix app run dev` → http://localhost:5173. **Storage key: `'pp.store.v10'` / seed version 10.**
+These are **per-client repo work**, all listed in [`RAINIER_SCOPE.md`](RAINIER_SCOPE.md) §3. Pick whichever the user prioritizes:
 
----
+### 1. Logo wiring
+- Place `Rainier-Facilities_logo.PNG` (already in `Clients\Rainier Facility Solutions\Rainier-Facilities_logo.PNG`) into `app/public/`.
+- Update the brand component (sidebar logo) to render the image instead of the "RFS" initials text. The current sidebar logo CSS (`.sidebar-logo`) uses initials by default; either make the component conditional on `company.logoUrl`, or hard-code the img for Rainier.
+- Update `seed.js` `company` to add `logoUrl: '/Rainier-Facilities_logo.PNG'`.
 
-## Prior session reference (already committed in `237db27`)
+### 2. Labor-focused dashboard cards (Q17 / Q18)
+Rainier wants on-load metrics: missed cleans, labor report, client complaints (Q17) plus revenue, open receivables, $ collected, outstanding quotes (Q18). The first three need new data plumbing:
+- **Missed cleans**: jobs.status already supports `missed` (or a `missed_at` timestamp) — add a selector + a Dashboard card that surfaces past-week missed count + revenue impact.
+- **Labor report**: needs a labor-hours model (currently no entity). Options: (a) compute from `jobs.endAt - jobs.startAt` × crew size as a proxy; (b) add a `timeEntries` entity. Confirm with client before building (b).
+- **Client complaints**: needs a `complaints` entity (linked to client + job). Or repurpose `contactActivities` with a `kind: 'complaint'` filter and a complaint-tagged badge.
+- **Revenue / open receivables / $ collected / outstanding quotes**: data already exists; add cards that surface them on the dashboard.
 
-### 1. Scheduling & Calendar (Core deliverable)
+Note: AR aging / P&L / unpaid invoice sync (per Q22) is QuickBooks-add-on territory — **don't build until sold**.
 
-Built RRULE recurrence, conflict detection, drag-drop reschedule, series management, month-click-to-day, schema bump v8 → v9. See prior HANDOFF entries for full module details. Bug fix: `monthCellClick` was racing two `setSearchParams` calls — fixed to atomic single update.
+### 3. CSV migration ($200 add-on)
+Rainier's existing GoHighLevel contacts get imported via the shell's CSV import wizard at `/contacts` → "Import CSV". Run after they sign the migration add-on. Wizard handles dedup, field mapping, and batch dispatch.
 
-### 2. Mobile audit + responsive fixes (Core deliverable)
+### 4. Twilio + A2P 10DLC provisioning (per Q16)
+- Provision the **employee line first** on a new Twilio number (Settings → Integrations → Connect Twilio).
+- Customer line stays on GHL until later port. The shell's Twilio adapter (`lib/twilio.js`) is wired; just supply real credentials via `VITE_TWILIO_BACKEND_URL` + the backend env vars.
+- Submit A2P 10DLC registration via Settings → Integrations → A2P registration modal once Rainier has their EIN + brand info ready.
 
-**Root cause of most overflow issues:** `1fr` grid templates default to `minmax(auto, 1fr)`, where `auto` is content's intrinsic min-content size. When content is wider than the track, the grid expands to fit. Fixed by changing to `minmax(0, 1fr)` everywhere mobile grids stack to one column.
-
-**Files modified:**
-- `app/src/index.css` — many fixes:
-  - `.main { min-width: 0 }` so flex item can shrink below content size
-  - `.card { min-width: 0 }` for grid/flex contexts
-  - `.dash-cols`, `.metric-strip`, `.detail-grid`, `.settings-shell`, `.template-editor`, `.week-grid`, `.detail-dl`, `.pipeline-board`, `.stat-grid`, `.msg-layout`, `.msg-3pane` — all converted from `1fr` to `minmax(0, 1fr)` in mobile media queries
-  - `.tab-container` — added `overflow-x: auto` + `flex-shrink: 0` on tab buttons so tab strips scroll horizontally instead of overflowing
-  - `.detail-head-actions` — removed `flex-shrink: 0`, added `min-width: 0`, `max-width: 100%`, `flex-wrap: wrap` so action buttons wrap on mobile
-  - `.pipeline-toolbar` — added `flex-wrap: wrap`; form-group children get `min-width: 0; flex: 1 1 200px`
-  - `.modal-card-lg` — new size variant for the CSV import modal (max-width 800px)
-  - New `.csv-*` styles for the import UI
-- `app/src/pages/Messaging.jsx` — mobile auto-select guard:
-  - Don't auto-select first conversation on mobile when no `paramId` (lets user see inbox first)
-  - Clear `activeId` when navigating from `/messaging/:id` back to `/messaging` on mobile
-  - Pass `onBack={handleBackToInbox}` to message panel
-  - Add `has-active` class to `.msg-3pane` based on activeId for CSS targeting
-- `app/src/components/ConversationMessagePanel.jsx` — added `onBack` prop + back button in panel header (uses existing `chevronLeft` icon)
-- `app/src/components/Modal.jsx` — added `size` prop; renders `modal-card-${size}` class
-
-**Mobile messaging pattern:** at ≤768px viewport, the 3-pane grid collapses to 1 column. CSS uses the `.has-active` class to toggle between showing the thread list (when no active conversation) and the message panel (when one is selected). Back button in panel header navigates to `/messaging` and clears activeId.
-
-**Verified at 375px and 768px:** Dashboard, Schedule (Day/Week/Month), Contacts, Pipeline, Messaging, Reminders, Invoices, all Settings sub-pages, ContactDetail, ClientDetail, JobDetail, InvoiceDetail. All 17 pages have `scrollWidth === viewportWidth` (no horizontal scroll).
-
-### 3. CSV Import for Contacts/Accounts (Core deliverable)
-
-Replaces the gap in "Migration tooling" — now a real feature any client can use to load existing data.
-
-**New files:**
-- `app/src/lib/csv.js` — pure utilities:
-  - `parseCsv(text)` — RFC-4180 CSV parser (handles quoted fields, escaped quotes `""`, CRLF/LF). No external deps.
-  - `guessField(header, fieldDefs)` — heuristic header-to-field matching (exact then partial alias match)
-  - `applyMapping(row, headers, mapping)` — maps a parsed row to entity fields
-  - `CONTACT_FIELDS`, `CLIENT_FIELDS` — field definitions with aliases (e.g., `email` matches `Email`, `Email Address`, `e-mail`)
-  - `normalizeContact`, `normalizeClient` — coerce values (lowercase email, validate lifecycle)
-  - `validateContactRow`, `validateClientRow` — required-field + email-shape checks
-- `app/src/components/CsvImportModal.jsx` — 4-step wizard:
-  - **Upload**: file picker (max 5 MB) + paste-text fallback
-  - **Map**: auto-guesses column mappings; user can override; required-field validation
-  - **Preview**: stats card (Ready/Duplicate/Invalid) + table with status colors; first 50 rows shown, all processed
-  - **Result**: imported / skipped counts
-
-**Files modified:**
-- `app/src/pages/Clients.jsx` — added "Import CSV" button next to "+ Add Contact" / "+ Add Account" on both tabs; mounted `CsvImportModal` with appropriate `entity` prop
-
-**Dedupe rules:**
-- Contacts: lowercased email; checks against existing + within-batch
-- Accounts: lowercased trimmed name; same checks
-- Invalid rows (missing required field, invalid email format) are skipped, not blocked
-
-**Company-name resolution for contacts:** when a CSV has a `company` column, the import looks up an existing client by name (case-insensitive); if found, sets `companyId` on the new contact. If no match, the company is dropped (we don't auto-create accounts from contact import — that should be a separate intentional flow).
-
-**Verified end-to-end:**
-- Test CSV with 5 rows (3 valid, 1 duplicate of seed `pat@metromed.com`, 1 invalid email) → preview shows correct stats; import adds 3 contacts (13 → 16); skipped count 2
-- Account import: 3 rows (2 new, 1 duplicate of seed Metro Medical) → 2 imported, 1 skipped
-- Auto-mapping correctly matches `First Name → firstName`, `Email Address → email`, `Mailing Address → address`, etc.
-- Mobile (375px) — wizard renders cleanly, table scrolls horizontally inside its container
-
-### 4. Role label naming decision (Core trivial)
-
-Decision documented in `app/src/lib/roles.js`: **keep schema keys** (`owner / admin / crew`); UI display via `ROLE_LABELS` (`Super Admin / Admin / Crew`). Renaming the schema is high-cost / zero-benefit. For per-client label customization, edit `ROLE_LABELS` only.
+### 5. GitHub remote setup (deployment milestone)
+Currently the clone's `origin` points at `Kronelius/shell-build`. Per [shell `CLAUDE.md` deployment model](CLAUDE.md):
+1. Create `RainierFacilitySolutions/app` repo under Rainier's GitHub credentials.
+2. `git remote set-url origin https://github.com/RainierFacilitySolutions/app.git`
+3. `git push -u origin main`
+4. Add Kronelius as collaborator with admin/write access.
 
 ---
 
-## Core is complete
+## Out of scope — push back if requested
 
-| Module | Status |
-|---|---|
-| Operations Dashboard | `[x]` |
-| Scheduling & Calendar | `[x]` |
-| Client Database (incl. CSV import) | `[x]` |
-| Automated Reminders | `[x]` |
-| Messaging Suite (incl. mobile) | `[x]` |
-| SMS via Twilio + A2P | `[x]` |
-| Logging invoices | `[x]` |
-| Role label naming | `[x]` |
-| Mobile responsive | `[x]` |
+Per `RAINIER_SCOPE.md` §5 and the user's explicit direction:
 
-The shell is ready to clone to a Rainier-credentialed repo. Per-client work that remains (in the Rainier repo, not shell):
-- Theme tokens (PolishPoint Blue or custom)
-- Users seeded: Heather (admin), Lauren (admin), Kyle (super admin), Steve (super admin), cleaner roster
-- Service catalog (residential / commercial / specialized)
-- Existing contact migration from GHL ($200 migration add-on — uses the new CSV import)
-- Phone line porting from GHL
-- Admin permission default tweak: hide financials by default (per Rainier Q24)
-- Any Rainier-specific dashboard cards from their dashboard-elements attachment
+- **Key inventory / key toggle** — tabled as a future extra feature; not in this engagement
+- **QuickBooks add-on** — not sold; per Q21 invoicing stays in QB; in-app dashboard widgets for AR/P&L/unpaid invoices need the QB integration sold first
+- **Quotes / estimates** — Sales Automation add-on, not sold
+- **7-day sales sequence automation** — Sales Automation add-on, not sold
+- **Department-handoff onboarding workflow** — workflow add-on, not sold (manual logging only in Core)
+- **Employee onboarding docs (handbook, I-9, W-4, SOPs)** — EMS $800, not sold
+- **Hours worked / pay stubs / time-off as workflow** — EMS $800, not sold (time-off-as-channel above is the Core stand-in)
+- **Field ops (checklists, photos, GPS)** — Field Ops $600, not sold
+- **Stack consolidation (replace Swept, Gusto, GHL outright)** — multiple add-ons; not sold
 
 ---
 
-## Patterns to preserve (copy these for future work)
+## Patterns preserved from the shell
 
-- **Adapter pattern for external services**: `lib/twilio.js` and `lib/email.js` are the models. Branch on env var; fully-shaped stub for dev that simulates timings + failure modes. Production swap is just env var configuration.
-- **Background scheduler / dispatcher mounted at app root**: `ReminderScheduler.jsx` and `TwilioInboundListener.jsx` are the models.
-- **Concrete instance expansion for recurring jobs**: don't virtualize. Generate N real job records with shared `seriesId`. First instance carries `recurrence` metadata. Edit/delete scope via ConfirmDialog ("this one" vs "all future").
-- **Conflict = warning, not hard block**: cleaning companies may intentionally double-book. Amber warnings, never gating submission.
-- **Atomic URL param updates**: when setting multiple search params (e.g. date + view), build one `URLSearchParams` and call `setSearchParams` once. Separate calls race.
-- **Module-level dedup for StrictMode races**: never delete entries from the dedup Set; state-based dedup covers refires.
-- **CSS grid mobile pattern**: when collapsing multi-column grids to 1 column on mobile, use `minmax(0, 1fr)` not `1fr`. The default `1fr` (= `minmax(auto, 1fr)`) lets content widen the track past viewport. Same goes for `.main { min-width: 0 }` so the flex container can shrink under wide content.
-- **Mobile single-pane navigation**: when a desktop split-view (list + detail) needs to collapse on mobile, toggle a class like `has-active` on the container based on selection state, then use CSS to show/hide the appropriate pane. Add a "back" button that navigates to the listing URL and clears the selection.
-- **Storage-key bump on seed-shape change**: bump both `INITIAL_STATE.version` in `seed.js` AND `STORAGE_KEY` in `persist.js` in lockstep. Currently **v9 / `'pp.store.v9'`**.
-- **Permission gating**: `canEditAll || entity.ownerUserId === currentUser?.id` — "edit all OR own."
-- **CSV parsing**: write your own RFC-4180 parser (~50 lines) — papaparse and friends are overkill and add weight. State machine over chars handles quotes/escapes correctly.
-- **Schema-key vs UI-label split**: keep schema keys stable and short (`owner`, `admin`, `crew`); render labels through a separate map. Per-client label tweaks edit only the map, never the schema.
-- **Design tokens**: no hardcoded colors. Token → alias → recipe. See `app/src/STYLING.md`.
+These are the load-bearing conventions inherited from the shell. Don't fork them — backport changes through PRs from `Kronelius/shell-build`:
 
----
-
-## Gotchas / known issues
-
-- **Pre-existing lint errors** (don't fix unless asked):
-  - `ContactDetail.jsx`: hooks-after-early-return — runtime is fine.
-  - `Messaging.jsx`: three `setState-in-effect` warnings in URL/inbox sync effects.
-  - `MessagingHeader.jsx` + `PipelineBoard.jsx`: Fast-refresh warnings for non-component exports.
-- **Twilio stub failure rate**: ~8% of stubbed outbound sends fail. Email stub fails ~5%. Intentional — exercises failure UI.
-- **localStorage size**: well within 5MB quota.
-- **CSV import doesn't auto-create accounts from contact rows**: if a contact CSV has a company name not found in existing clients, it's silently dropped. Importer can re-run accounts CSV first, then contacts.
-- **`window.matchMedia` checks at 768px**: matched against `(max-width: 768px)`. Resizing the window after navigating won't re-evaluate the auto-select effect — it only runs on visibleConversations / paramId changes. Acceptable for the mobile/desktop boundary; users typically don't resize across that line mid-session.
-- **Reminder template content stored on event**: each fired reminder snapshots rendered content. Template edits don't retroactively change fired events.
-
----
-
-## What's NOT in scope
-
-- **Inventory Management ($400 add-on)** — keys, supplies tracking. **Don't build.**
-- **Employee Management System ($800)** — time-off, time tracking, document storage, training, GPS clock-in, e-sign onboarding, supervisor inspections, promotion workflow, Gusto. **Don't build.**
-- **Field Ops ($600)** — checklists, before/after photos, offline mode, job verification. **Don't build.**
-- **Invoice & Payment Routing ($400)** — Stripe Connect, recurring billing, tipping, customizable templates, automated invoice reminders. **Don't build.**
-- **QuickBooks Integration ($300)** — bidirectional sync. **Don't build.**
-- **3-page branded website** — separate repo, already shipped.
-- **Sequences engine, Quotes module, Lifecycle email engine, Operational KPI cards** — speculation that wasn't promised.
-
-If any of these get requested mid-session, **stop and confirm a sale** before building.
-
----
-
-## Suggested next-session opener
-
-Working tree clean (this session's permission audit committed and pushed). Next session is the deployment step:
-
-> "All Core shell items are complete. Per `CLAUDE.md` deployment model: tag the shell-build baseline, then create `RainierFacilitySolutions/app` repo (under Rainier's GitHub credentials), push the shell as initial commit, add Kronelius as collaborator. Then begin Rainier-specific config: theme tokens, user seeds (Heather/Lauren admins, Kyle/Steve super admins, cleaner roster), service catalog (residential/commercial/specialized), Rainier-specific dashboard cards. The CSV import is in place — Rainier's existing contact migration from GHL goes through that ($200 add-on). The Q24 'hide financials from admin' tweak now needs less work since shell already locked `settings.services` and `integrations.view` to owner-only."
+- **Adapter pattern for external services**: `lib/twilio.js`, `lib/email.js` — env-var-branched stubs in dev, real backend in prod
+- **Background scheduler dispatched at app root**: `ReminderScheduler.jsx`, `TwilioInboundListener.jsx`
+- **Concrete instance expansion for recurring jobs**: don't virtualize — generate N real job records with shared `seriesId`
+- **Conflict = warning, not hard block**: cleaning companies may intentionally double-book; amber warning, never gate submission
+- **Atomic URL param updates**: build one `URLSearchParams`, call `setSearchParams` once; separate calls race
+- **Storage-key bump on seed-shape change**: bump both `INITIAL_STATE.version` AND `STORAGE_KEY` in lockstep (currently **v11 / `pp.store.v11`**)
+- **Permission gating**: `canEditAll || entity.ownerUserId === currentUser?.id`
+- **Schema-key vs UI-label split**: keep schema keys stable (`owner`, `admin`, `crew`); render labels through `ROLE_LABELS` only
+- **Design tokens — every-component-themed contract**: see [shell `app/src/STYLING.md`](app/src/STYLING.md). No bare flat colors anywhere. Every component reads the theme's recipes.
