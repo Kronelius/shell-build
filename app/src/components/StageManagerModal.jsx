@@ -7,7 +7,7 @@ import { ACTIONS } from '../store/reducer';
 import { selectActivePipeline, selectActivePipelineStages, selectContactsByStageKey } from '../store/selectors';
 import { useToast } from './Toast';
 
-function StageRow({ stage, count, index, total, onRename, onMove, onDelete }) {
+function StageRow({ stage, count, index, total, onRename, onMove, onDelete, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDragOver }) {
   const [label, setLabel] = useState(stage.label);
 
   useEffect(() => { setLabel(stage.label); }, [stage.label]);
@@ -21,7 +21,21 @@ function StageRow({ stage, count, index, total, onRename, onMove, onDelete }) {
   const blockDelete = count > 0;
 
   return (
-    <div className="stage-row">
+    <div
+      className={`stage-row ${isDragging ? 'is-dragging' : ''} ${isDragOver ? 'is-drag-over' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onDragOver(stage.id); }}
+      onDrop={(e) => { e.preventDefault(); onDrop(stage.id); }}
+    >
+      <span
+        className="stage-row-grip"
+        draggable
+        onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(stage.id); }}
+        onDragEnd={onDragEnd}
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+      >
+        <Icon name="grip" size={16} />
+      </span>
       <div className="stage-row-order">
         <button
           className="btn-icon-sm"
@@ -70,13 +84,22 @@ export default function StageManagerModal({ open, onClose }) {
   const pipelineId = pipeline?.id;
 
   const [newLabel, setNewLabel] = useState('');
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (!open) setNewLabel('');
+    if (!open) {
+      setNewLabel('');
+      setDraggingId(null);
+      setDragOverId(null);
+      setHasChanges(false);
+    }
   }, [open]);
 
   const rename = (id, label) => {
     dispatch({ type: ACTIONS.UPDATE_PIPELINE_STAGE, pipelineId, id, patch: { label } });
+    setHasChanges(true);
   };
 
   const move = (id, delta) => {
@@ -87,6 +110,7 @@ export default function StageManagerModal({ open, onClose }) {
     const next = stages.slice();
     [next[i], next[j]] = [next[j], next[i]];
     dispatch({ type: ACTIONS.REORDER_PIPELINE_STAGES, pipelineId, ids: next.map((s) => s.id) });
+    setHasChanges(true);
   };
 
   const remove = (stage) => {
@@ -96,6 +120,7 @@ export default function StageManagerModal({ open, onClose }) {
       return;
     }
     dispatch({ type: ACTIONS.DELETE_PIPELINE_STAGE, pipelineId, id: stage.id });
+    setHasChanges(true);
   };
 
   const add = (e) => {
@@ -107,8 +132,39 @@ export default function StageManagerModal({ open, onClose }) {
       return;
     }
     dispatch({ type: ACTIONS.ADD_PIPELINE_STAGE, pipelineId, label });
-    toast.success(`Stage "${label}" added`);
     setNewLabel('');
+    setHasChanges(true);
+  };
+
+  const handleDragStart = (id) => setDraggingId(id);
+  const handleDragOver = (id) => { if (id !== dragOverId) setDragOverId(id); };
+  const handleDragEnd = () => { setDraggingId(null); setDragOverId(null); };
+  const handleDrop = (targetId) => {
+    if (!draggingId || draggingId === targetId) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+    const ids = stages.map((s) => s.id);
+    const fromIdx = ids.indexOf(draggingId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx < 0 || toIdx < 0) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+    const next = ids.slice();
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, draggingId);
+    dispatch({ type: ACTIONS.REORDER_PIPELINE_STAGES, pipelineId, ids: next });
+    setHasChanges(true);
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const handleSave = () => {
+    toast.success('Stages saved');
+    onClose();
   };
 
   return (
@@ -127,6 +183,12 @@ export default function StageManagerModal({ open, onClose }) {
             onRename={rename}
             onMove={move}
             onDelete={remove}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onDragEnd={handleDragEnd}
+            isDragging={draggingId === stage.id}
+            isDragOver={dragOverId === stage.id && draggingId !== stage.id}
           />
         ))}
       </div>
@@ -141,8 +203,8 @@ export default function StageManagerModal({ open, onClose }) {
         <button type="submit" className="btn btn-primary" disabled={!newLabel.trim()}>+ Add Stage</button>
       </form>
 
-      <div className="modal-actions">
-        <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+      <div className={`stage-save-bar ${hasChanges ? 'is-visible' : ''}`}>
+        <button type="button" className="btn btn-primary" onClick={handleSave} disabled={!hasChanges}>Save changes</button>
       </div>
     </Modal>
   );
