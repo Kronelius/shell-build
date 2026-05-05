@@ -145,11 +145,13 @@ export default function Invoices() {
         <span className="text-sm">
           {selection.size > 0 ? `${selection.size} selected` : 'Select invoices for bulk actions'}
         </span>
-        <div className="flex-row" style={{ gap: 6, marginLeft: 'auto' }}>
-          {canPay && <button className="btn btn-primary btn-sm" disabled={selection.size === 0} onClick={() => setConfirmPaid(true)}>Mark Paid</button>}
-          <button className="btn btn-outline btn-sm" disabled={selection.size === 0} onClick={exportCsv}>Export CSV</button>
-          <button className="btn btn-outline btn-sm" disabled={selection.size === 0} onClick={() => setSelection(new Set())}>Clear</button>
-        </div>
+        {selection.size > 0 && (
+          <>
+            {canPay && <button className="btn btn-primary btn-sm" onClick={() => setConfirmPaid(true)}>Mark Paid</button>}
+            <button className="btn btn-outline btn-sm" onClick={exportCsv}>Export CSV</button>
+            <button className="btn btn-danger btn-sm" onClick={() => setSelection(new Set())}>Clear</button>
+          </>
+        )}
       </div>
 
       {filtered.length === 0 ? (
