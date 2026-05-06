@@ -16,6 +16,7 @@ import ConversationThreadList from '../components/ConversationThreadList';
 import ConversationMessagePanel from '../components/ConversationMessagePanel';
 import ConversationContextPanel from '../components/ConversationContextPanel';
 import NewConversationModal from '../components/NewConversationModal';
+import NewDmModal from '../components/NewDmModal';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
@@ -189,11 +190,21 @@ export default function Messaging() {
   const blockers = selectTwilioBlockers(state);
   const twilioPhone = selectTwilioPhone(state);
 
-  const [selectedInbox, setSelectedInbox] = useState(canViewExternalInbox ? 'inbox' : 'internal');
+  // Read ?inbox=… from the URL once on mount so deep-links from "New DM" land on the DMs tab.
+  const initialInbox = (() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const v = sp.get('inbox');
+      if (v === 'inbox' || v === 'internal' || v === 'dm') return v;
+    } catch { /* ignore */ }
+    return canViewExternalInbox ? 'inbox' : 'internal';
+  })();
+  const [selectedInbox, setSelectedInbox] = useState(initialInbox);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState(paramId || null);
   const [newConvOpen, setNewConvOpen] = useState(false);
+  const [newDmOpen, setNewDmOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const paneContainerRef = useRef(null);
   const panes = usePaneSizes(paneContainerRef);
@@ -213,11 +224,19 @@ export default function Messaging() {
   const inboxUnread = useMemo(() => ({
     inbox:    selectUnreadCountForInbox(state, 'inbox',    currentUser),
     internal: selectUnreadCountForInbox(state, 'internal', currentUser),
+    dm:       selectUnreadCountForInbox(state, 'dm',       currentUser),
   }), [state, currentUser]);
 
   const visibleInboxes = canViewExternalInbox
-    ? [{ key: 'inbox', label: 'Inbox' }, { key: 'internal', label: 'Internal Chat' }]
-    : [{ key: 'internal', label: 'Internal Chat' }];
+    ? [
+        { key: 'inbox',    label: 'Inbox' },
+        { key: 'internal', label: 'Internal Chat' },
+        { key: 'dm',       label: 'DMs' },
+      ]
+    : [
+        { key: 'internal', label: 'Internal Chat' },
+        { key: 'dm',       label: 'DMs' },
+      ];
 
   // Force crew into Internal Chat when they can't see the external inbox.
   useEffect(() => {
@@ -265,7 +284,11 @@ export default function Messaging() {
   // Mark incoming messages as read when opening a thread.
   useEffect(() => {
     if (activeConversation && selectUnreadForConversation(state, activeConversation.id) > 0) {
-      dispatch({ type: ACTIONS.MARK_CONVERSATION_READ, id: activeConversation.id });
+      dispatch({
+        type: ACTIONS.MARK_CONVERSATION_READ,
+        id: activeConversation.id,
+        currentUserId: currentUser?.id,
+      });
     }
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -281,7 +304,9 @@ export default function Messaging() {
 
   const handleSend = (text, opts) => {
     if (!activeConversation) return;
-    const direction = opts?.channel === 'internal' ? 'internal' : 'out';
+    const isDmThread = activeConversation.channel === 'dm';
+    // DM messages all carry direction='internal' (peer-to-peer, no external counterpart).
+    const direction = isDmThread || opts?.channel === 'internal' ? 'internal' : 'out';
     const isSMS = activeConversation.channel === 'sms' && direction === 'out';
 
     // Optimistically insert the outbound message so the UI updates immediately.
@@ -444,6 +469,7 @@ export default function Messaging() {
           onFiltersChange={setFilters}
           canStart={canStart}
           onNewConversation={() => setNewConvOpen(true)}
+          onNewDm={() => setNewDmOpen(true)}
           visibleInboxes={visibleInboxes}
         />
         <div
@@ -469,6 +495,7 @@ export default function Messaging() {
             onBulkArchive={handleBulkArchive}
             canAssign={canAssign}
             canBulk={canBulk}
+            selectedInbox={selectedInbox}
           />
           <div
             className={`msg-pane-handle msg-pane-handle-left ${panes.dragging === 'left' ? 'is-dragging' : ''}`}
@@ -512,6 +539,11 @@ export default function Messaging() {
       <NewConversationModal
         open={newConvOpen}
         onClose={() => setNewConvOpen(false)}
+      />
+
+      <NewDmModal
+        open={newDmOpen}
+        onClose={() => setNewDmOpen(false)}
       />
     </>
   );

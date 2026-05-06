@@ -17,8 +17,10 @@ import { useAuth } from '../hooks/useAuth';
 import {
   selectClientById, selectInvoicesForContact, selectJobsForClient,
   selectSynthesizedActivityForContact, selectTagById, selectUserById,
-  selectUsers, selectPipelineStages, invoiceTotal, deriveInvoiceStatus,
+  selectUsers, selectPipelineStages, selectOtherParticipant,
+  invoiceTotal, deriveInvoiceStatus,
 } from '../store/selectors';
+import { ROLE_LABELS } from '../lib/roles';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
 
 const LIFECYCLE_VARIANTS = {
@@ -273,6 +275,59 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
   );
 }
 
+function DmContextPanel({ conversation }) {
+  const state = useStore();
+  const { currentUser } = useAuth();
+  const other = selectOtherParticipant(state, conversation, currentUser?.id);
+
+  return (
+    <aside className="context-pane">
+      <div className="context-head">
+        {other ? (
+          <Avatar initials={other.initials} variant={other.avatar} size="md" />
+        ) : (
+          <Avatar initials="?" variant={1} size="md" />
+        )}
+        <div className="context-head-text">
+          <div className="context-head-name">{other ? other.name : 'Unknown user'}</div>
+          <div className="text-xs text-muted">
+            {other ? (ROLE_LABELS[other.role] || other.role) : 'Participant not found'}
+          </div>
+          <div className="context-head-badges">
+            <Badge variant="blue">Direct Message</Badge>
+            {other?.status === 'disabled' && <Badge variant="slate">Inactive</Badge>}
+          </div>
+        </div>
+      </div>
+      <div className="context-body">
+        <div className="context-card">
+          <div className="context-card-title">Participant</div>
+          {other ? (
+            <dl className="context-dl">
+              <div><dt>Name</dt><dd>{other.name}</dd></div>
+              <div><dt>Role</dt><dd>{ROLE_LABELS[other.role] || other.role}</dd></div>
+              <div><dt>Email</dt><dd>{other.email || <span className="text-muted">—</span>}</dd></div>
+              <div><dt>Phone</dt><dd>{other.phone || <span className="text-muted">—</span>}</dd></div>
+              <div><dt>Status</dt><dd>{other.status === 'active' ? 'Active' : (other.status || '—')}</dd></div>
+            </dl>
+          ) : (
+            <div className="text-xs text-muted">
+              The other participant could not be found. They may have been removed.
+            </div>
+          )}
+        </div>
+        <div className="context-card">
+          <div className="context-card-title">Privacy</div>
+          <div className="text-xs text-muted">
+            Direct messages are visible only to the two participants. Owners and admins
+            cannot read this thread unless they're a participant.
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function InternalContextPanel({ conversation }) {
   const state = useStore();
   const participantIds = Array.from(new Set(
@@ -354,6 +409,11 @@ export default function ConversationContextPanel({ conversation, contact, onLink
         <EmptyState message="Select a conversation to see contact details." />
       </aside>
     );
+  }
+
+  // DM threads use a 1:1-participant panel (other user's profile + privacy notice).
+  if (conversation.channel === 'dm') {
+    return <DmContextPanel conversation={conversation} />;
   }
 
   // Internal threads use a different panel entirely (participants list, no contact surface).

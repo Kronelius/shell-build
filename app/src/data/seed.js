@@ -45,7 +45,7 @@ const inHours = (n) => {
 const company = {
   id: seedId('co', 'main'),
   name: 'Rainier Facility Solutions',
-  owner: 'Kyler Boyden',
+  owner: 'Kyle Boyden',
   logoInitials: 'RFS',
   logoUrl: '/rainier-facilities-logo.png',
   invoicePrefix: 'RFS',
@@ -80,12 +80,12 @@ const company = {
 };
 
 // ---------- Users ----------
-// Per Q24 & questionnaire: Kyler + Steve own the business (Super Admin);
+// Per Q24 & questionnaire: Kyle + Steve own the business (Super Admin);
 // Heather runs hiring/onboarding/accounting; Lauren runs scheduling.
 // Cleaner roster names are placeholders — Rainier's actual roster lands
 // post-clone via Settings → Team → Add Member.
 const users = [
-  { id: seedId('u', 'kyler'),   name: 'Kyler Boyden',    email: 'kyler@rainierfs.com',    phone: '(253) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'KB', createdAt: daysAgo(720) },
+  { id: seedId('u', 'kyler'),   name: 'Kyle Boyden',     email: 'kyle@rainierfs.com',     phone: '(253) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'KB', createdAt: daysAgo(720) },
   { id: seedId('u', 'steve'),   name: 'Steve Whitfield', email: 'steve@rainierfs.com',    phone: '(253) 555-0102', role: 'owner', status: 'active', avatar: 2, initials: 'SW', createdAt: daysAgo(720) },
   { id: seedId('u', 'heather'), name: 'Heather Cole',    email: 'heather@rainierfs.com',  phone: '(253) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'HC', createdAt: daysAgo(540) },
   { id: seedId('u', 'lauren'),  name: 'Lauren Park',     email: 'lauren@rainierfs.com',   phone: '(253) 555-0104', role: 'admin', status: 'active', avatar: 4, initials: 'LP', createdAt: daysAgo(420) },
@@ -320,6 +320,10 @@ const conversations = [
   // Internal — incident channels (transactional)
   { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[4].id] },
   { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[7].id] },
+
+  // DM — 1:1 between Heather (admin) and Lauren (admin). Privacy is gated to participants;
+  // owners/other admins/crew not in participantUserIds will not see this thread.
+  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', archived: false, title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
 ];
 
 const messages = [
@@ -357,7 +361,7 @@ const messages = [
   // c7 Jamie Park (lead, SMS)
   { id: seedId('m', 'c7-m1'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: seedId('sn', 'welcome'), text: 'Hi Jamie — thanks for reaching out to Rainier Facility Solutions! Someone from our team will follow up shortly.', sentAt: daysAgo(2), readAt: daysAgo(2) },
   { id: seedId('m', 'c7-m2'), conversationId: conversations[6].id, direction: 'in',       authorUserId: null,        snippetId: null,                    text: 'Thursday afternoon works for a walkthrough.',                                                                       sentAt: daysAgo(2), readAt: daysAgo(2) },
-  { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Kyler will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readAt: daysAgo(2) },
+  { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Kyle will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readAt: daysAgo(2) },
   { id: seedId('m', 'c7-m4'), conversationId: conversations[6].id, direction: 'internal', authorUserId: users[2].id, snippetId: null,                    text: 'Good lead — use the 4-operatory rate card when you draft the quote.',                                              sentAt: daysAgo(2), readAt: daysAgo(2) },
 
   // c8 Robin Vega (lead, Email)
@@ -387,6 +391,13 @@ const messages = [
   { id: seedId('m', 'pb-m1'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Kim needs a badge for the new crew member. Who can pick it up from the front desk?', sentAt: daysAgo(3), readAt: daysAgo(3) },
   { id: seedId('m', 'pb-m2'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: "I'm at Tower A tomorrow — can grab it.",                                              sentAt: daysAgo(3), readAt: daysAgo(3) },
   { id: seedId('m', 'pb-m3'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Perfect, thanks Casey.',                                                              sentAt: daysAgo(3), readAt: daysAgo(3) },
+
+  // DM Heather ↔ Lauren — 1:1 staff direct message. direction='internal' (DMs aren't external);
+  // authorUserId distinguishes the sender. The last Lauren message is unread so Heather has a
+  // demo unread badge when the user switches to her account.
+  { id: seedId('m', 'dm-hl-m1'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Hey — quick Q on the Lakeside swap. Was the substitute supposed to be Marcus or Riley?', sentAt: daysAgo(2),  readAt: daysAgo(2) },
+  { id: seedId('m', 'dm-hl-m2'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Riley — Marcus is on the Cascade route Friday.',                                            sentAt: daysAgo(2),  readAt: daysAgo(2) },
+  { id: seedId('m', 'dm-hl-m3'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Also, can you confirm the new badge for Casey is here? I'll grab it on my way in.",       sentAt: hoursAgo(6), readAt: null      },
 ];
 
 // ---------- Reminder templates ----------
@@ -424,11 +435,11 @@ const reminderEvents = (() => {
 const contactActivities = [];
 const userPermissionOverrides = [];
 
-// Default current user is Kyler (super admin). Switcher in UI changes this.
+// Default current user is Kyle (super admin). Switcher in UI changes this.
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 19,
+  version: 20,
   company,
   currentUserId,
   users,

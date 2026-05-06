@@ -121,7 +121,7 @@
   --radius-lg:       20px;     /* cards */
 
   /* ── Alias overrides — avatar accents for Rainier theme ── */
-  /* Avatar 1 = navy (Kyler/owners), 2 = brand green (Steve), 3 = purple
+  /* Avatar 1 = navy (Kyle/owners), 2 = brand green (Steve), 3 = purple
      (Heather), 4 = orange (Lauren), 5 = teal (crew rotation). */
   --color-avatar-1:  var(--color-brand-primary-500);
   --color-avatar-2:  var(--color-brand-secondary-500);

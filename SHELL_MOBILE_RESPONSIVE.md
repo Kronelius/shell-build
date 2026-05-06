@@ -468,7 +468,7 @@ Whole card is tappable → `/clients/contact/:id`. Checkbox stops propagation.
 | Updated | Row 3 timestamp |
 | Chevron | Row 1, rightmost |
 
-If the user pushes back on hiding Company / Owner: add a small line under the email — `Acme Cleaning · Owner: Kyler` — but watch the vertical density. Default is to keep it lean.
+If the user pushes back on hiding Company / Owner: add a small line under the email — `Acme Cleaning · Owner: Kyle` — but watch the vertical density. Default is to keep it lean.
 
 ---
 

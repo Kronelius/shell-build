@@ -3,15 +3,17 @@ import EmptyState from './EmptyState';
 import Icon from './Icon';
 import BulkActionBar from './BulkActionBar';
 import { useStore } from '../store';
+import { useAuth } from '../hooks/useAuth';
 import {
   selectContactById, selectMessagesForConversation, selectUnreadForConversation,
-  selectEffectiveStatus,
+  selectEffectiveStatus, selectOtherParticipant,
 } from '../store/selectors';
 import { fmtRelative } from '../lib/dates';
 
-function previewText(msg) {
+function previewText(msg, channel) {
   if (!msg) return '';
-  const prefix = msg.direction === 'internal' ? '[Internal] ' : '';
+  // DMs are already a private channel — don't double-label them with [Internal].
+  const prefix = msg.direction === 'internal' && channel !== 'dm' ? '[Internal] ' : '';
   return `${prefix}${msg.text || ''}`;
 }
 
@@ -44,8 +46,9 @@ function StatusChip({ status, snoozedUntil }) {
   return null;
 }
 
-function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, onToggleStar }) {
+function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, onToggleStar, hideCheckbox = false }) {
   const state = useStore();
+  const { currentUser } = useAuth();
   const contact = conversation.contactId ? selectContactById(state, conversation.contactId) : null;
   const msgs = selectMessagesForConversation(state, conversation.id);
   const last = msgs[msgs.length - 1];
@@ -53,11 +56,25 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
   const effectiveStatus = selectEffectiveStatus(conversation);
 
   const isInternal = conversation.channel === 'internal';
-  const displayName = isInternal
-    ? (conversation.title || 'Team discussion')
-    : (contact ? `${contact.firstName} ${contact.lastName}` : 'Unlinked');
-  const initials = isInternal ? 'T' : initialsFromContact(contact);
-  const avatarVariant = isInternal ? 3 : ((contact?.id?.length || 0) % 5) + 1;
+  const isDm = conversation.channel === 'dm';
+  const dmOther = isDm ? selectOtherParticipant(state, conversation, currentUser?.id) : null;
+
+  let displayName;
+  let initials;
+  let avatarVariant;
+  if (isDm) {
+    displayName = dmOther ? dmOther.name : 'Unknown user';
+    initials = dmOther?.initials || '?';
+    avatarVariant = dmOther?.avatar || 1;
+  } else if (isInternal) {
+    displayName = conversation.title || 'Team discussion';
+    initials = 'T';
+    avatarVariant = 3;
+  } else {
+    displayName = contact ? `${contact.firstName} ${contact.lastName}` : 'Unlinked';
+    initials = initialsFromContact(contact);
+    avatarVariant = ((contact?.id?.length || 0) % 5) + 1;
+  }
 
   return (
     <div
@@ -66,18 +83,20 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
       role="button"
       tabIndex={0}
     >
-      <label className="thread-row-check" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggleSelect(conversation.id)}
-          aria-label={`Select ${displayName}`}
-        />
-      </label>
+      {!hideCheckbox && (
+        <label className="thread-row-check" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(conversation.id)}
+            aria-label={`Select ${displayName}`}
+          />
+        </label>
+      )}
       <Avatar initials={initials} variant={avatarVariant} size="sm" />
       <div className="thread-row-body">
         <div className="thread-row-name">{displayName}</div>
-        <div className="thread-row-preview">{previewText(last) || 'No messages yet'}</div>
+        <div className="thread-row-preview">{previewText(last, conversation.channel) || 'No messages yet'}</div>
       </div>
       <div className="thread-row-right">
         <button
@@ -117,7 +136,9 @@ export default function ConversationThreadList({
   onBulkArchive,
   canAssign,
   canBulk,
+  selectedInbox,
 }) {
+  const isDmInbox = selectedInbox === 'dm';
   const selectedCount = selectedIds?.size || 0;
   const allSelected = selectedCount > 0 && conversations.every((c) => selectedIds.has(c.id));
 
@@ -134,22 +155,30 @@ export default function ConversationThreadList({
           />
         </div>
         <div className="thread-list-subhead">
-          <label className="thread-list-selectall" title="Select all visible">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={() => (allSelected ? onClearSelection() : onSelectAll(conversations.map((c) => c.id)))}
-              aria-label="Select all visible"
-            />
+          {isDmInbox ? (
             <span className="text-xs text-muted">
               {conversations.length === totalBeforeFilter
                 ? `${conversations.length} thread${conversations.length === 1 ? '' : 's'}`
                 : `${conversations.length} of ${totalBeforeFilter}`}
             </span>
-          </label>
+          ) : (
+            <label className="thread-list-selectall" title="Select all visible">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={() => (allSelected ? onClearSelection() : onSelectAll(conversations.map((c) => c.id)))}
+                aria-label="Select all visible"
+              />
+              <span className="text-xs text-muted">
+                {conversations.length === totalBeforeFilter
+                  ? `${conversations.length} thread${conversations.length === 1 ? '' : 's'}`
+                  : `${conversations.length} of ${totalBeforeFilter}`}
+              </span>
+            </label>
+          )}
         </div>
       </div>
-      {selectedCount > 0 && (
+      {!isDmInbox && selectedCount > 0 && (
         <BulkActionBar
           selectedCount={selectedCount}
           onClear={onClearSelection}
@@ -182,6 +211,7 @@ export default function ConversationThreadList({
               onSelect={onSelect}
               onToggleSelect={onToggleSelect}
               onToggleStar={onToggleStar}
+              hideCheckbox={isDmInbox}
             />
           );
           if (pinned.length === 0) return conversations.map(renderRow);

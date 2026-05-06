@@ -87,6 +87,7 @@ export const ACTIONS = {
 
   // Conversations / messages
   ADD_CONVERSATION: 'ADD_CONVERSATION',
+  ADD_DM_CONVERSATION: 'ADD_DM_CONVERSATION',
   UPDATE_CONVERSATION: 'UPDATE_CONVERSATION',
   ADD_MESSAGE: 'ADD_MESSAGE',
   MARK_CONVERSATION_READ: 'MARK_CONVERSATION_READ',
@@ -614,6 +615,38 @@ export function reducer(state, action) {
       };
       return { ...state, conversations: [...state.conversations, { ...base, ...action.conversation }] };
     }
+    case ACTIONS.ADD_DM_CONVERSATION: {
+      const pair = Array.isArray(action.participantUserIds) ? [...action.participantUserIds] : [];
+      if (pair.length !== 2) return state;
+      if (pair[0] === pair[1]) return state; // self-DM guard
+      const sorted = [...pair].sort();
+      // Dedupe: if a non-archived DM between the same pair exists, don't create another.
+      const existing = state.conversations.find((c) => {
+        if (c.archived) return false;
+        if (c.channel !== 'dm') return false;
+        const p = (c.participantUserIds || []).slice().sort();
+        return p.length === 2 && p[0] === sorted[0] && p[1] === sorted[1];
+      });
+      if (existing) return state;
+      const now = nowIso();
+      const conversation = {
+        id: action.id || newId('cv'),
+        channel: 'dm',
+        participantUserIds: sorted,
+        clientId: null,
+        contactId: null,
+        title: null,
+        archived: false,
+        createdAt: now,
+        lastMessageAt: now,
+        assignedUserId: null,
+        status: 'open',
+        snoozedUntil: null,
+        starred: false,
+        followedUserIds: [],
+      };
+      return { ...state, conversations: [...state.conversations, conversation] };
+    }
     case ACTIONS.UPDATE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, action.patch) };
     case ACTIONS.ADD_MESSAGE: {
@@ -631,17 +664,33 @@ export function reducer(state, action) {
     }
     case ACTIONS.MARK_CONVERSATION_READ: {
       const t = nowIso();
+      const conv = state.conversations.find((c) => c.id === action.id);
+      const uid = action.currentUserId || state.currentUserId;
+      const isDm = conv?.channel === 'dm';
       return {
         ...state,
-        messages: state.messages.map((m) => (m.conversationId === action.id && !m.readAt && m.direction === 'in' ? { ...m, readAt: t } : m)),
+        messages: state.messages.map((m) => {
+          if (m.conversationId !== action.id || m.readAt) return m;
+          if (isDm) {
+            return m.authorUserId && m.authorUserId !== uid ? { ...m, readAt: t } : m;
+          }
+          return m.direction === 'in' ? { ...m, readAt: t } : m;
+        }),
       };
     }
     case ACTIONS.MARK_CONVERSATION_UNREAD: {
-      // Unset readAt on the most recent inbound message so the thread surfaces again.
-      const inbound = state.messages
-        .filter((m) => m.conversationId === action.id && m.direction === 'in')
+      // Unset readAt on the most recent inbound (or DM-from-other) message so the thread surfaces again.
+      const conv = state.conversations.find((c) => c.id === action.id);
+      const uid = action.currentUserId || state.currentUserId;
+      const isDm = conv?.channel === 'dm';
+      const candidates = state.messages
+        .filter((m) => {
+          if (m.conversationId !== action.id) return false;
+          if (isDm) return m.authorUserId && m.authorUserId !== uid;
+          return m.direction === 'in';
+        })
         .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
-      const target = inbound[0];
+      const target = candidates[0];
       if (!target) return state;
       return {
         ...state,
@@ -708,23 +757,40 @@ export function reducer(state, action) {
       const set = new Set(action.ids || []);
       if (set.size === 0) return state;
       const t = nowIso();
+      const uid = action.currentUserId || state.currentUserId;
+      const dmIds = new Set(
+        state.conversations.filter((c) => set.has(c.id) && c.channel === 'dm').map((c) => c.id)
+      );
       return {
         ...state,
-        messages: state.messages.map((m) =>
-          set.has(m.conversationId) && m.direction === 'in' && !m.readAt ? { ...m, readAt: t } : m
-        ),
+        messages: state.messages.map((m) => {
+          if (!set.has(m.conversationId) || m.readAt) return m;
+          if (dmIds.has(m.conversationId)) {
+            return m.authorUserId && m.authorUserId !== uid ? { ...m, readAt: t } : m;
+          }
+          return m.direction === 'in' ? { ...m, readAt: t } : m;
+        }),
       };
     }
     case ACTIONS.BULK_MARK_CONVERSATIONS_UNREAD: {
       const set = new Set(action.ids || []);
       if (set.size === 0) return state;
-      // Clear readAt on each conversation's most recent inbound message.
+      const uid = action.currentUserId || state.currentUserId;
+      const dmIds = new Set(
+        state.conversations.filter((c) => set.has(c.id) && c.channel === 'dm').map((c) => c.id)
+      );
+      // Clear readAt on each conversation's most recent inbound (or DM-from-other) message.
       const targets = new Set();
       set.forEach((convId) => {
-        const inbound = state.messages
-          .filter((m) => m.conversationId === convId && m.direction === 'in')
+        const isDm = dmIds.has(convId);
+        const candidates = state.messages
+          .filter((m) => {
+            if (m.conversationId !== convId) return false;
+            if (isDm) return m.authorUserId && m.authorUserId !== uid;
+            return m.direction === 'in';
+          })
           .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
-        if (inbound[0]) targets.add(inbound[0].id);
+        if (candidates[0]) targets.add(candidates[0].id);
       });
       return {
         ...state,

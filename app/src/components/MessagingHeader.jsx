@@ -18,6 +18,7 @@ export const EMPTY_FILTERS = {
 const INBOXES = [
   { key: 'inbox',    label: 'Inbox' },
   { key: 'internal', label: 'Internal Chat' },
+  { key: 'dm',       label: 'DMs' },
 ];
 
 const DATE_OPTIONS = [
@@ -31,6 +32,7 @@ const CHANNEL_CHIPS = [
   { key: 'sms',      label: 'SMS' },
   { key: 'email',    label: 'Email' },
   { key: 'internal', label: 'Internal' },
+  { key: 'dm',       label: 'DM' },
 ];
 
 const STATUS_CHIPS = [
@@ -191,6 +193,7 @@ export default function MessagingHeader({
   onFiltersChange,
   canStart,
   onNewConversation,
+  onNewDm,
   visibleInboxes,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -246,16 +249,28 @@ export default function MessagingHeader({
           )}
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          onClick={onNewConversation}
-          disabled={!canStart}
-          title={canStart ? 'Start a new conversation' : 'You lack permission to start conversations'}
-        >
-          <Icon name="plus" size={14} />
-          <span>New conversation</span>
-        </button>
+        {selectedInbox === 'dm' ? (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onNewDm}
+            title="Start a direct message with another user"
+          >
+            <Icon name="plus" size={14} />
+            <span>New DM</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onNewConversation}
+            disabled={!canStart}
+            title={canStart ? 'Start a new conversation' : 'You lack permission to start conversations'}
+          >
+            <Icon name="plus" size={14} />
+            <span>New conversation</span>
+          </button>
+        )}
       </div>
     </header>
   );

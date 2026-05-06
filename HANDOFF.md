@@ -1,6 +1,8 @@
 # Rainier Facility Solutions — Deployment Handoff
 
-**Last session end:** **Theme + seed swap shipped.** Cloned `Kronelius/shell-build@ba53172` into the Rainier app dir, applied PolishPoint Blue theme comprehensively (every component now consumes swatchboard recipes — sidebar gradient + edge notch + triangle nav indicator, body aurora, gradient cards/badges/buttons/inputs/tabs/hero/metric-strip/messaging/calendar, rounded-corner tables), then replaced the demo seed with Rainier-flavored data. Storage `pp.store.v10 → v11`.
+**Last session end:** **User-to-user DMs shipped on the Messaging suite.** Added a third inbox bucket ("DMs") alongside Inbox + Internal Chat — 1:1 staff direct messaging, available to all roles (owner / admin / crew). Privacy is enforced at the selector layer: only participants see a DM thread (admins / owners are NOT exempt). Reuses the existing `conversations` + `messages` plumbing via a new `channel: 'dm'` value + a new `participantUserIds: [a, b]` field. Storage bumped `pp.store.v19 → v20` with an additive migrator.
+
+**Earlier this engagement:** Theme + seed swap shipped. Cloned `Kronelius/shell-build@ba53172` into the Rainier app dir, applied PolishPoint Blue theme comprehensively (every component now consumes swatchboard recipes — sidebar gradient + edge notch + triangle nav indicator, body aurora, gradient cards/badges/buttons/inputs/tabs/hero/metric-strip/messaging/calendar, rounded-corner tables), then replaced the demo seed with Rainier-flavored data. Storage `pp.store.v10 → v11`.
 
 The repo is **ready for the next per-client config pass** (logo wiring, labor-focused dashboard cards, CSV migration, Twilio provisioning).
 
@@ -8,7 +10,53 @@ Source of truth for what's in scope: [`RAINIER_SCOPE.md`](RAINIER_SCOPE.md). Rea
 
 ---
 
-## What shipped in this clone session
+## What shipped this session — DMs
+
+### 1. New schema (additive)
+- `conversations`: new `channel: 'dm'` value (joins existing `'sms' | 'email' | 'internal'`).
+- `conversations`: new `participantUserIds: [userIdA, userIdB]` field — sorted ascending, length always 2. Only set on DM conversations.
+- `messages`: shape unchanged. DM messages use `direction: 'internal'` with `authorUserId` set to the sender.
+
+### 2. Reducer ([app/src/store/reducer.js](app/src/store/reducer.js))
+- New action `ADD_DM_CONVERSATION` with payload `{ id?, participantUserIds: [a, b] }`. Sorts the pair, rejects self-DMs, dedups against an existing non-archived DM with the same pair, and accepts an optional `id` so callers can navigate deterministically.
+- `MARK_CONVERSATION_READ` / `MARK_CONVERSATION_UNREAD` now accept an optional `currentUserId` and switch predicate when the conversation is a DM: "unread for me" = messages authored by the *other* participant. Existing sms/email/internal behavior unchanged. Bulk variants follow the same logic.
+
+### 3. Selectors ([app/src/store/selectors.js](app/src/store/selectors.js))
+- `selectConversationsForInbox` extended with an `inbox === 'dm'` branch — filters `channel === 'dm'` AND `participantUserIds` includes the current user. **The participant filter IS the privacy gate** and applies to every role; owners and admins do NOT see DMs they aren't party to.
+- New `selectDmConversationBetween(s, userIdA, userIdB)` — used by the New-DM flow for dedup before dispatch.
+- New `selectOtherParticipant(s, conv, currentUserId)` — used by thread list (other-participant name + avatar) and context panel.
+- `selectUnreadForConversation` made DM-aware (counts messages where `authorUserId !== currentUserId && !readAt` for DMs).
+
+### 4. Storage migration v19 → v20
+- [app/src/store/persist.js](app/src/store/persist.js): `STORAGE_KEY` `'pp.store.v19'` → `'pp.store.v20'`. New `migrateV19toV20()` is additive (no data backfill — DMs are a new channel + new field). Existing chains terminate at the new migrator: v17 → v18 → v19 → v20, v18 → v19 → v20, v19 → v20.
+- [app/src/data/seed.js](app/src/data/seed.js): `INITIAL_STATE.version` `19` → `20`. Plus one seeded DM thread between Heather and Lauren (with 3 messages — last one unread on Heather's side) so the demo is non-empty on first load.
+
+### 5. UI
+- [app/src/components/MessagingHeader.jsx](app/src/components/MessagingHeader.jsx) — third inbox toggle "DMs". When DMs is the active inbox, the header swaps "New conversation" for "New DM". The filter "Channels" chip group also gained a `dm` chip so users can filter the broader inbox by channel if they ever want a global view.
+- [app/src/components/NewDmModal.jsx](app/src/components/NewDmModal.jsx) — **NEW.** Modal that lists active users (excludes self), supports search-by-name-or-email, dedups via `selectDmConversationBetween` before dispatch, and navigates to the thread (existing or new) on pick.
+- [app/src/components/ConversationThreadList.jsx](app/src/components/ConversationThreadList.jsx) — DM rows render with the *other* participant's name + Avatar (computed via `selectOtherParticipant`). The bulk-action checkbox column and select-all are hidden in the DMs bucket; the BulkActionBar never shows for DMs (assignment/snooze concepts don't apply). DM message preview drops the `[Internal]` prefix (DMs are inherently private — double-labeling was noise).
+- [app/src/components/ConversationContextPanel.jsx](app/src/components/ConversationContextPanel.jsx) — new `DmContextPanel` shows the other participant's profile (name, role, email, phone, status) plus a Privacy callout. Replaces the contact/client/pipeline cards for DMs.
+- [app/src/components/ConversationMessagePanel.jsx](app/src/components/ConversationMessagePanel.jsx) — DM threads render `DmBubble` (left/right by `authorUserId === currentUserId`). Snippet picker, Assign menu, and Follow toggle are hidden for DMs. Composer placeholder personalized: "Message {first name}…". Star + Archive remain.
+- [app/src/components/ChannelBadge.jsx](app/src/components/ChannelBadge.jsx) — added `dm` variant ("DM" label, blue badge).
+- [app/src/pages/Messaging.jsx](app/src/pages/Messaging.jsx) — `visibleInboxes` now includes `dm` for both the canViewExternalInbox and crew-only paths (DMs are accessible to all roles per user request). Reads `?inbox=` query param on mount so deep-links from "New DM" land on the DMs tab. Sends from a DM thread set `direction: 'internal'`. `MARK_CONVERSATION_READ` is dispatched with `currentUserId` so the new DM read-tracking branch fires correctly.
+- [app/src/index.css](app/src/index.css) — minimal `.dm-picker-list` / `.dm-picker-row` styles for the New-DM modal.
+
+### 6. Permissions — no schema change
+Per the user's clarification, DMs are gated on the existing `messaging.use` permission. No new permission key was added. `messaging.startConversation` (which gates external SMS/Email outreach for cost/brand-voice reasons) intentionally does NOT gate DMs — internal staff comms have no such concern.
+
+### 7. Verified end-to-end
+Used the preview tools from a fresh v20 reseed:
+- DMs tab + "New DM" button visible to all roles.
+- Heather sees the seeded Heather↔Lauren DM with "Lauren Park" as the row name + 1-unread badge; opening it clears the badge; sending a reply appears as outgoing.
+- Lauren switched in: row name becomes "Heather Cole", row + tab show 1 unread badge for Heather's reply.
+- Kyle (owner, not a participant) sees zero DMs — privacy gate verified for owner role.
+- "New DM" picker excludes the current user. Picking a brand-new teammate creates a thread; picking the same teammate again from a fresh modal routes to the existing thread (no duplicate).
+- v19 → v20 migration: synthesized v19 blob, reload → v20 key written, version 20, DMs preserved.
+- Inbox + Internal Chat regression-checked: 9 external threads + 4 internal threads still render correctly with no DM bleed-through.
+
+---
+
+## What shipped in the prior clone session
 
 ### 1. Theme application — every-component-themed
 Per the contract in [shell `app/src/STYLING.md`](app/src/STYLING.md). Touched [`app/src/index.css`](app/src/index.css) end-to-end so every component reads the recipes in [`app/src/theme-polishpoint-blue.css`](app/src/theme-polishpoint-blue.css):
@@ -87,7 +135,7 @@ npm --prefix app install
 npm --prefix app run dev   # → http://localhost:5175 (or whatever Vite picks)
 ```
 
-Storage key: `pp.store.v11` / seed version 11. Default user is Kyle Whitfield (Super Admin). Switch via the user chip in the sidebar footer.
+Storage key: `pp.store.v20` / seed version 20. Default user is Kyle Boyden (Super Admin). Switch via the user chip in the sidebar footer.
 
 ---
 
@@ -151,7 +199,7 @@ These are the load-bearing conventions inherited from the shell. Don't fork them
 - **Concrete instance expansion for recurring jobs**: don't virtualize — generate N real job records with shared `seriesId`
 - **Conflict = warning, not hard block**: cleaning companies may intentionally double-book; amber warning, never gate submission
 - **Atomic URL param updates**: build one `URLSearchParams`, call `setSearchParams` once; separate calls race
-- **Storage-key bump on seed-shape change**: bump both `INITIAL_STATE.version` AND `STORAGE_KEY` in lockstep (currently **v11 / `pp.store.v11`**)
+- **Storage-key bump on seed-shape change**: bump both `INITIAL_STATE.version` AND `STORAGE_KEY` in lockstep (currently **v20 / `pp.store.v20`**)
 - **Permission gating**: `canEditAll || entity.ownerUserId === currentUser?.id`
 - **Schema-key vs UI-label split**: keep schema keys stable (`owner`, `admin`, `crew`); render labels through `ROLE_LABELS` only
 - **Design tokens — every-component-themed contract**: see [shell `app/src/STYLING.md`](app/src/STYLING.md). No bare flat colors anywhere. Every component reads the theme's recipes.

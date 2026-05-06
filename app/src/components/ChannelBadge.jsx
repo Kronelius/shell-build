@@ -4,12 +4,14 @@ const CHANNEL_VARIANTS = {
   sms:      'green',
   email:    'blue',
   internal: 'purple',
+  dm:       'blue',
 };
 
 const CHANNEL_LABELS = {
   sms:      'SMS',
   email:    'Email',
   internal: 'Internal',
+  dm:       'DM',
 };
 
 export default function ChannelBadge({ channel, label }) {

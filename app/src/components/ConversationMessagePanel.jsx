@@ -8,7 +8,7 @@ import Icon from './Icon';
 import SnippetPicker from './SnippetPicker';
 import AssignMenu from './AssignMenu';
 import { useStore } from '../store';
-import { selectUserById } from '../store/selectors';
+import { selectUserById, selectOtherParticipant } from '../store/selectors';
 import { fmtTime, fmtRelative } from '../lib/dates';
 
 function initialsFor(contact) {
@@ -45,6 +45,19 @@ function ChatBubble({ message }) {
   );
 }
 
+function DmBubble({ message, currentUserId }) {
+  const state = useStore();
+  const author = message.authorUserId ? selectUserById(state, message.authorUserId) : null;
+  const isMine = author?.id === currentUserId;
+  return (
+    <div className={`chat-bubble ${isMine ? 'outgoing' : 'incoming'}`}>
+      {!isMine && author && <div className="chat-bubble-author">{author.name}</div>}
+      <div>{message.text}</div>
+      <div className="chat-time">{fmtTime(message.sentAt)}</div>
+    </div>
+  );
+}
+
 export default function ConversationMessagePanel({
   conversation,
   contact,
@@ -63,6 +76,7 @@ export default function ConversationMessagePanel({
   const scrollRef = useRef(null);
   const navigate = useNavigate();
   const nav = useFromHere();
+  const state = useStore();
 
   const composeChannel = conversation?.channel || 'sms';
   const [draft, setDraft] = useState('');
@@ -90,14 +104,28 @@ export default function ConversationMessagePanel({
   }
 
   const isInternalThread = conversation.channel === 'internal';
-  const headerName = isInternalThread
-    ? (conversation.title || 'Team discussion')
-    : (contact ? `${contact.firstName} ${contact.lastName}` : 'Unlinked');
-  const headerSub = isInternalThread
-    ? 'Internal team thread'
-    : (contact?.email || contact?.phone || 'No contact info');
-  const initials = isInternalThread ? 'T' : initialsFor(contact);
-  const avatarVariant = isInternalThread ? 3 : ((contact?.id?.length || 0) % 5) + 1;
+  const isDmThread = conversation.channel === 'dm';
+  const dmOther = isDmThread ? selectOtherParticipant(state, conversation, currentUser?.id) : null;
+  let headerName;
+  let headerSub;
+  let initials;
+  let avatarVariant;
+  if (isDmThread) {
+    headerName = dmOther ? dmOther.name : 'Unknown user';
+    headerSub = 'Direct message · only the two of you can see this';
+    initials = dmOther?.initials || '?';
+    avatarVariant = dmOther?.avatar || 1;
+  } else if (isInternalThread) {
+    headerName = conversation.title || 'Team discussion';
+    headerSub = 'Internal team thread';
+    initials = 'T';
+    avatarVariant = 3;
+  } else {
+    headerName = contact ? `${contact.firstName} ${contact.lastName}` : 'Unlinked';
+    headerSub = contact?.email || contact?.phone || 'No contact info';
+    initials = initialsFor(contact);
+    avatarVariant = ((contact?.id?.length || 0) % 5) + 1;
+  }
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -154,16 +182,20 @@ export default function ConversationMessagePanel({
           >
             <Icon name="star" size={14} />
           </button>
-          <button
-            type="button"
-            className={`icon-btn ${isFollowing ? 'following' : ''}`}
-            onClick={onToggleFollow}
-            title={isFollowing ? 'Unfollow' : 'Follow'}
-            aria-label={isFollowing ? 'Unfollow' : 'Follow'}
-          >
-            <Icon name="bell" size={14} />
-          </button>
-          <AssignMenu conversation={conversation} onAssign={onAssign} disabled={!canAssign} />
+          {!isDmThread && (
+            <>
+              <button
+                type="button"
+                className={`icon-btn ${isFollowing ? 'following' : ''}`}
+                onClick={onToggleFollow}
+                title={isFollowing ? 'Unfollow' : 'Follow'}
+                aria-label={isFollowing ? 'Unfollow' : 'Follow'}
+              >
+                <Icon name="bell" size={14} />
+              </button>
+              <AssignMenu conversation={conversation} onAssign={onAssign} disabled={!canAssign} />
+            </>
+          )}
           <button type="button" className="btn btn-outline btn-sm" onClick={onArchiveToggle}>
             <Icon name="archive" size={14} />
             {conversation.archived ? 'Unarchive' : 'Archive'}
@@ -174,24 +206,34 @@ export default function ConversationMessagePanel({
       <div className="message-pane-scroll" ref={scrollRef}>
         {messages.length === 0 ? (
           <EmptyState message="No messages yet." />
-        ) : messages.map((m) =>
-          m.direction === 'internal'
-            ? <InternalBubble key={m.id} message={m} />
-            : <ChatBubble key={m.id} message={m} />
-        )}
+        ) : messages.map((m) => {
+          if (isDmThread) {
+            return <DmBubble key={m.id} message={m} currentUserId={currentUser?.id} />;
+          }
+          if (m.direction === 'internal') {
+            return <InternalBubble key={m.id} message={m} />;
+          }
+          return <ChatBubble key={m.id} message={m} />;
+        })}
       </div>
 
       <form className="compose-bar" onSubmit={handleSend}>
-        <div className="compose-channel-row">
-          <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
-          {snippetId && <span className="text-xs text-muted">Snippet inserted</span>}
-        </div>
+        {!isDmThread && (
+          <div className="compose-channel-row">
+            <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
+            {snippetId && <span className="text-xs text-muted">Snippet inserted</span>}
+          </div>
+        )}
         <div className="compose-row">
           <textarea
             className="compose-input"
-            placeholder={composeChannel === 'internal'
-              ? 'Internal note — only your team can see this.'
-              : `Type a ${composeChannel === 'email' ? 'message' : 'text'}…  (Enter to send, Shift+Enter for newline)`}
+            placeholder={
+              isDmThread
+                ? `Message ${dmOther ? dmOther.name.split(' ')[0] : 'teammate'}…  (Enter to send, Shift+Enter for newline)`
+                : composeChannel === 'internal'
+                ? 'Internal note — only your team can see this.'
+                : `Type a ${composeChannel === 'email' ? 'message' : 'text'}…  (Enter to send, Shift+Enter for newline)`
+            }
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKey}

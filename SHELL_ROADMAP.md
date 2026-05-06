@@ -94,6 +94,7 @@ Built. Audit:
 - Pinned threads — **[x]**
 - Context panel with inline editing — **[x]**
 - Mobile-friendly behavior — **[x]** Single-pane mobile pattern: inbox by default, tap thread → message panel with back button, tap back → inbox. No auto-select on mobile.
+- User-to-user DMs — **[x]** Third inbox bucket alongside Inbox + Internal Chat. Channel `dm` + `participantUserIds: [a, b]` on `conversations`; privacy gated to participants in `selectConversationsForInbox` (owners/admins do NOT see DMs they aren't party to). `NewDmModal` reuses the AssignMenu-style picker. Storage bumped v19 → v20.
 
 ## `[x]` SMS via Twilio + A2P setup `[Core]`
 

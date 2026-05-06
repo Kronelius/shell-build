@@ -461,8 +461,17 @@ export function selectReminderStats(s) {
   };
 }
 
-// Unread messages count per conversation
+// Unread messages count per conversation. For DMs, "unread for me" means messages
+// authored by the *other* participant that I haven't read yet — not direction='in'
+// (DM messages all carry direction='internal').
 export function selectUnreadForConversation(s, conversationId) {
+  const conv = s.conversations.find((c) => c.id === conversationId);
+  if (conv?.channel === 'dm') {
+    const uid = s.currentUserId;
+    return s.messages.filter(
+      (m) => m.conversationId === conversationId && m.authorUserId && m.authorUserId !== uid && !m.readAt
+    ).length;
+  }
   return s.messages.filter((m) => m.conversationId === conversationId && m.direction === 'in' && !m.readAt).length;
 }
 
@@ -504,6 +513,9 @@ function crewCanSee(conv, s, currentUser) {
 //   'inbox'    — all external (sms/email) conversations.
 //   'internal' — internal-only team chats (channel === 'internal').
 //                Crew users only see internal threads they follow or authored into.
+//   'dm'       — 1:1 direct messages (channel === 'dm'). Visibility is gated to
+//                participants for ALL roles (owner/admin/crew) — admins do NOT
+//                see DMs they aren't party to.
 export function selectConversationsForInbox(s, inbox, currentUser) {
   const convos = (s.conversations || []).filter((c) => !c.archived);
   const isCrew = currentUser?.role === 'crew';
@@ -514,9 +526,40 @@ export function selectConversationsForInbox(s, inbox, currentUser) {
     return sortConversationsByRecency(list);
   }
 
+  if (inbox === 'dm') {
+    const uid = currentUser?.id;
+    if (!uid) return [];
+    const list = convos.filter(
+      (c) => c.channel === 'dm' && (c.participantUserIds || []).includes(uid)
+    );
+    return sortConversationsByRecency(list);
+  }
+
   // 'inbox' — all external threads.
   const external = convos.filter((c) => c.channel === 'sms' || c.channel === 'email');
   return sortConversationsByRecency(external);
+}
+
+// Find an existing non-archived DM thread between two users (order-independent).
+// Used by the New-DM flow for dedup.
+export function selectDmConversationBetween(s, userIdA, userIdB) {
+  if (!userIdA || !userIdB || userIdA === userIdB) return null;
+  const sorted = [userIdA, userIdB].sort();
+  return (s.conversations || []).find((c) => {
+    if (c.archived) return false;
+    if (c.channel !== 'dm') return false;
+    const p = (c.participantUserIds || []).slice().sort();
+    return p.length === 2 && p[0] === sorted[0] && p[1] === sorted[1];
+  }) || null;
+}
+
+// For a DM conversation, returns the user record for the *other* participant
+// (the one who isn't the current user). Returns null if none found.
+export function selectOtherParticipant(s, conv, currentUserId) {
+  if (!conv || conv.channel !== 'dm') return null;
+  const otherId = (conv.participantUserIds || []).find((id) => id !== currentUserId);
+  if (!otherId) return null;
+  return selectUserById(s, otherId);
 }
 
 // Unread count for a whole inbox bucket (used by the rail badges).
