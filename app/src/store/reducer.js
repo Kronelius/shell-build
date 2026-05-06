@@ -306,13 +306,15 @@ export function reducer(state, action) {
     // ---------- Contacts ----------
     case ACTIONS.ADD_CONTACT: {
       const email = (action.contact?.email || '').trim().toLowerCase();
-      if (!email) return state; // email is required
-      // Uniqueness guard — reject if email is already used.
-      const exists = (state.contacts || []).some((c) => (c.email || '').toLowerCase() === email);
-      if (exists) return state;
+      // Email-keyed uniqueness guard only runs when an email is provided.
+      // Email-less contacts (phone-only / name-only) are accepted by design — see CSV import flow.
+      if (email) {
+        const exists = (state.contacts || []).some((c) => (c.email || '').toLowerCase() === email);
+        if (exists) return state;
+      }
       const base = {
         id: newId('ct'),
-        email,
+        email: '',
         firstName: '', lastName: '', title: '', phone: '',
         companyId: null,
         tagIds: [],
