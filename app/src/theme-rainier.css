@@ -198,13 +198,13 @@
   --btn-primary-grad-hover:
     linear-gradient(135deg, var(--color-brand-primary-500) 0%, var(--color-brand-primary-700) 100%);
   --btn-primary-glow:
-    inset 0 1px 0 rgba(var(--color-white-rgb), 0.25),
-    0 0 22px rgba(var(--color-brand-primary-rgb), 0.35),
-    0 4px 14px rgba(var(--color-brand-primary-600-rgb), 0.28);
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.125),
+    0 0 22px rgba(var(--color-brand-primary-rgb), 0.175),
+    0 4px 14px rgba(var(--color-brand-primary-600-rgb), 0.14);
   --btn-primary-glow-hover:
-    inset 0 1px 0 rgba(var(--color-white-rgb), 0.3),
-    0 0 28px rgba(var(--color-brand-primary-rgb), 0.45),
-    0 6px 18px rgba(var(--color-brand-primary-600-rgb), 0.35);
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.15),
+    0 0 28px rgba(var(--color-brand-primary-rgb), 0.225),
+    0 6px 18px rgba(var(--color-brand-primary-600-rgb), 0.175);
   --btn-secondary-shadow:
     2px 2px 6px rgba(var(--color-neutral-rgb), 0.04),
     -1px -1px 4px rgba(var(--color-white-rgb), 0.8);
