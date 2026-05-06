@@ -325,9 +325,27 @@ export function invoiceBalance(invoice) {
   return Math.round((invoiceTotal(invoice) - invoicePaid(invoice)) * 100) / 100;
 }
 
+// Generate the next invoice id following `<prefix>-<n>`. Mirrors the
+// reducer's internal allocator so callers can pre-compute an id (needed when
+// the same dispatch chain creates an invoice and then references it — e.g.
+// the Log Payment flow auto-creates a stub invoice and immediately appends a
+// payment to it).
+export function nextInvoiceId(state) {
+  const prefix = state.company.invoicePrefix || 'INV';
+  const numbers = (state.invoices || [])
+    .map((inv) => {
+      const m = String(inv.id).match(new RegExp(`^${prefix}-(\\d+)$`));
+      return m ? Number(m[1]) : 0;
+    })
+    .filter(Boolean);
+  const next = (numbers.length ? Math.max(...numbers) : 1000) + 1;
+  return `${prefix}-${next}`;
+}
+
 export function deriveInvoiceStatus(invoice, now = new Date()) {
-  // Keep manual statuses ('draft', 'void', 'paid') authoritative; otherwise derive.
-  if (invoice.status === 'draft' || invoice.status === 'void') return invoice.status;
+  // Manual 'void' is authoritative; everything else is derived from balance + due date.
+  // ('draft' was removed when Invoices was rescoped to manual tracking.)
+  if (invoice.status === 'void') return 'void';
   const balance = invoiceBalance(invoice);
   if (balance <= 0 && invoiceTotal(invoice) > 0) return 'paid';
   if (invoice.dueDate && new Date(invoice.dueDate) < now && balance > 0) return 'overdue';

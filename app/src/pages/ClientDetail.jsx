@@ -20,6 +20,7 @@ import FormField from '../components/FormField';
 import AddSiteModal from '../components/AddSiteModal';
 import AddContactModal from '../components/AddContactModal';
 import NewConversationModal from '../components/NewConversationModal';
+import LogPaymentModal from '../components/LogPaymentModal';
 import ContactPicker from '../components/ContactPicker';
 import Select from '../components/Select';
 import Avatar from '../components/Avatar';
@@ -70,6 +71,8 @@ export default function ClientDetail() {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState('');
   const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState(null);
+  const [logPaymentOpen, setLogPaymentOpen] = useState(false);
+  const canRecordPayment = usePermission('invoices.recordPayment');
 
   const activities = useMemo(() => (client ? selectActivitiesForClient(state, client.id) : []), [state, client?.id]);
   const noteActivities = useMemo(() => activities.filter((a) => a.kind === 'note'), [activities]);
@@ -512,37 +515,52 @@ export default function ClientDetail() {
           )}
 
           {activitySubTab === 'payment' && (
-            invoices.length === 0 ? (
-              <EmptyState icon={<Icon name="invoices" size={28} />} title="No payment history" message="Invoices issued to this account will appear here." />
-            ) : (
-              <div className="activity-card-grid">
-                {invoices.map((inv) => {
-                  const st = deriveInvoiceStatus(inv);
-                  const balance = invoiceBalance(inv);
-                  return (
-                    <button
-                      key={inv.id}
-                      type="button"
-                      className="activity-card activity-card-payment"
-                      onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}
-                    >
-                      <div className="activity-card-icon"><Icon name="invoices" size={18} /></div>
-                      <div className="activity-card-body">
-                        <div className="activity-card-title">{inv.id}</div>
-                        <div className="activity-card-meta">
-                          {fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}
-                          {balance > 0 && <> · <span className="text-danger">Balance {money(balance)}</span></>}
+            <>
+              {canRecordPayment && (
+                <div className="section-head" style={{ marginBottom: 12 }}>
+                  <span className="text-muted text-sm">Manual payment tracking</span>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setLogPaymentOpen(true)}>
+                    <Icon name="plus" size={14} /> Log Payment
+                  </button>
+                </div>
+              )}
+              {invoices.length === 0 ? (
+                <EmptyState
+                  icon={<Icon name="invoices" size={28} />}
+                  title="No payment history"
+                  message="Invoices and payments logged for this account will appear here."
+                  action={canRecordPayment && <button className="btn btn-primary" onClick={() => setLogPaymentOpen(true)}>Log Payment</button>}
+                />
+              ) : (
+                <div className="activity-card-grid">
+                  {invoices.map((inv) => {
+                    const st = deriveInvoiceStatus(inv);
+                    const balance = invoiceBalance(inv);
+                    return (
+                      <button
+                        key={inv.id}
+                        type="button"
+                        className="activity-card activity-card-payment"
+                        onClick={() => navigate(`/invoices/${inv.id}`, { state: nav })}
+                      >
+                        <div className="activity-card-icon"><Icon name="invoices" size={18} /></div>
+                        <div className="activity-card-body">
+                          <div className="activity-card-title">{inv.id}</div>
+                          <div className="activity-card-meta">
+                            {fmtDate(inv.issueDate)} · {money(invoiceTotal(inv))}
+                            {balance > 0 && <> · <span className="text-danger">Balance {money(balance)}</span></>}
+                          </div>
                         </div>
-                      </div>
-                      <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>
-                        {st.charAt(0).toUpperCase() + st.slice(1)}
-                      </Badge>
-                      <Icon name="chevronRight" size={14} />
-                    </button>
-                  );
-                })}
-              </div>
-            )
+                        <Badge variant={statusBadgeVariant(st === 'paid' ? 'Paid' : st === 'overdue' ? 'Overdue' : 'Pending')}>
+                          {st.charAt(0).toUpperCase() + st.slice(1)}
+                        </Badge>
+                        <Icon name="chevronRight" size={14} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -664,6 +682,11 @@ export default function ClientDetail() {
           onClose={() => setNewConvOpen(false)}
         />
       )}
+      <LogPaymentModal
+        open={logPaymentOpen}
+        onClose={() => setLogPaymentOpen(false)}
+        presetClientId={client.id}
+      />
     </div>
   );
 }

@@ -6,7 +6,8 @@ import StatCard from '../components/StatCard';
 import EmptyState from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Icon from '../components/Icon';
-import CreateInvoiceModal from '../components/CreateInvoiceModal';
+import LogInvoiceModal from '../components/LogInvoiceModal';
+import LogPaymentModal from '../components/LogPaymentModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
@@ -37,6 +38,7 @@ export default function Invoices() {
   };
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const statusFilter = searchParams.get('status') || 'all';
   const clientFilter = searchParams.get('client') || '';
   const dateRange = searchParams.get('range') || '30';
@@ -117,11 +119,18 @@ export default function Invoices() {
     <>
       <div className="page-head">
         <h1>Invoices</h1>
-        {canCreate && (
-          <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setModalOpen(true)}>
-            + Create Invoice
-          </button>
-        )}
+        <div className="page-head-actions" style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {canPay && (
+            <button className="btn btn-success" onClick={() => setPaymentModalOpen(true)}>
+              + Log Payment
+            </button>
+          )}
+          {canCreate && (
+            <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
+              + Log Invoice
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="stat-grid">
@@ -132,7 +141,7 @@ export default function Invoices() {
 
       <div className="filter-bar">
         <FormField label="Status" as="select" value={statusFilter} onChange={(e) => setParam('status', e.target.value, 'all')}
-          options={[{ value: 'all', label: 'All statuses' }, { value: 'draft', label: 'Draft' }, { value: 'pending', label: 'Pending' }, { value: 'overdue', label: 'Overdue' }, { value: 'paid', label: 'Paid' }, { value: 'void', label: 'Void' }]} />
+          options={[{ value: 'all', label: 'All statuses' }, { value: 'pending', label: 'Pending' }, { value: 'overdue', label: 'Overdue' }, { value: 'paid', label: 'Paid' }, { value: 'void', label: 'Void' }]} />
         <FormField label="Date range" as="select" value={dateRange} onChange={(e) => setParam('range', e.target.value, '30')}
           options={[{ value: 'all', label: 'All time' }, { value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
         <div className="filter-client-search">
@@ -156,7 +165,7 @@ export default function Invoices() {
 
       {filtered.length === 0 ? (
         invoices.length === 0 ? (
-          <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" message="Create your first invoice to track payments." action={canCreate && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Create Invoice</button>} />
+          <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" message="Log your first invoice to start tracking payments." action={canCreate && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Log Invoice</button>} />
         ) : (
           <EmptyState title="No matches" message="Try adjusting filters or date range." />
         )
@@ -186,7 +195,16 @@ export default function Invoices() {
                     <td onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={selection.has(inv.id)} onChange={() => toggleSelect(inv.id)} />
                     </td>
-                    <td className="name">{inv.id}</td>
+                    <td className="name">
+                      <span className="invoice-id-cell">
+                        {inv.id}
+                        {inv.attachment && (
+                          <span className="attachment-glyph" title={inv.attachment.name} aria-label="Has attachment">
+                            <Icon name="paperclip" size={12} />
+                          </span>
+                        )}
+                      </span>
+                    </td>
                     <td>{client?.name || '—'}</td>
                     <td>{fmtDate(inv.issueDate)}</td>
                     <td>{fmtDate(inv.dueDate)}</td>
@@ -204,7 +222,8 @@ export default function Invoices() {
         </div>
       )}
 
-      <CreateInvoiceModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <LogInvoiceModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <LogPaymentModal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} />
       <ConfirmDialog
         open={confirmPaid}
         title={`Mark ${selection.size} invoice${selection.size === 1 ? '' : 's'} paid?`}

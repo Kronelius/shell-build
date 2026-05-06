@@ -1,9 +1,14 @@
+// v22: Invoices rescoped to manual tracking. Drops the 'draft' status (any
+// existing drafts migrate to 'pending') and adds two additive fields per
+// invoice: `attachment` (metadata for the PDF stored in IndexedDB) and `notes`
+// (free-form text shown alongside the summary).
+//
 // v21: Drop archive concept entirely (only deletion). Purges currently-archived
 // conversations/contacts/clients and strips archive flags from the schema.
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v21';
+const STORAGE_KEY = 'pp.store.v22';
 
 function migrateV14toV15(state) {
   const defaultPipelineId = 'pl_seed_default';
@@ -138,39 +143,59 @@ function migrateV20toV21(state) {
   };
 }
 
+// v22: Invoices rescope. Drop the 'draft' status (→ 'pending') and add the two
+// additive fields the new UI reads: `attachment` (null when no PDF on file) and
+// `notes` (empty string by default). Purely additive — existing payments,
+// line items, statuses and FKs are untouched.
+function migrateV21toV22(state) {
+  const invoices = (state.invoices || []).map((inv) => ({
+    ...inv,
+    status: inv.status === 'draft' ? 'pending' : inv.status,
+    attachment: inv.attachment ?? null,
+    notes: typeof inv.notes === 'string' ? inv.notes : '',
+  }));
+  return { ...state, version: 22, invoices };
+}
+
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 21) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 22) return parsed;
     }
-    // Attempt v20 → v21 migration
+    // Attempt v21 → v22 migration
+    const v21Raw = window.localStorage.getItem('pp.store.v21');
+    if (v21Raw) {
+      const v21 = JSON.parse(v21Raw);
+      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV21toV22(v21);
+    }
+    // Attempt v20 → v21 → v22 migration chain
     const v20Raw = window.localStorage.getItem('pp.store.v20');
     if (v20Raw) {
       const v20 = JSON.parse(v20Raw);
-      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV20toV21(v20);
+      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV21toV22(migrateV20toV21(v20));
     }
-    // Attempt v19 → v20 → v21 migration chain
+    // Attempt v19 → v20 → v21 → v22 migration chain
     const v19Raw = window.localStorage.getItem('pp.store.v19');
     if (v19Raw) {
       const v19 = JSON.parse(v19Raw);
-      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV20toV21(migrateV19toV20(v19));
+      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV21toV22(migrateV20toV21(migrateV19toV20(v19)));
     }
-    // Attempt v18 → v19 → v20 → v21 migration chain
+    // Attempt v18 → v19 → v20 → v21 → v22 migration chain
     const v18Raw = window.localStorage.getItem('pp.store.v18');
     if (v18Raw) {
       const v18 = JSON.parse(v18Raw);
       if (v18 && typeof v18 === 'object' && v18.version === 18) {
-        return migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)));
+        return migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18))));
       }
     }
-    // Attempt v17 → v18 → v19 → v20 → v21 migration chain
+    // Attempt v17 → v18 → v19 → v20 → v21 → v22 migration chain
     const v17Raw = window.localStorage.getItem('pp.store.v17');
     if (v17Raw) {
       const v17 = JSON.parse(v17Raw);
       if (v17 && typeof v17 === 'object' && v17.version === 17) {
-        return migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))));
+        return migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17)))));
       }
     }
     return null;

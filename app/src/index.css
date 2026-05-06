@@ -166,6 +166,12 @@ body::before {
   transform: translateY(-1px);
 }
 .btn-primary:active { transform: translateY(0); }
+.btn-success {
+  background: var(--success); color: #fff; border: none;
+  position: relative;
+}
+.btn-success:hover { filter: brightness(0.94); transform: translateY(-1px); }
+.btn-success:active { transform: translateY(0); }
 .btn-secondary {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
@@ -3375,4 +3381,114 @@ tr.clickable:hover { background: var(--inset-bg); }
 @media (max-width: 640px) {
   .csv-map-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .csv-stats { flex-direction: column; }
+}
+
+/* ============================================================
+   Invoices — manual tracking + attachment styles
+   ============================================================ */
+
+/* Inline attachment glyph next to invoice id in the list */
+.invoice-id-cell {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.attachment-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  border-radius: var(--badge-radius, 4px);
+  padding: 2px 4px;
+  background: var(--card-bg);
+}
+
+/* Attachment dropzone (Log Invoice modal) */
+.attachment-dropzone {
+  border: 1px dashed var(--card-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--inset-bg, var(--card-bg));
+}
+.attachment-picker-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--card-bg);
+  color: var(--text-body);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s;
+}
+.attachment-picker-label:hover { border-color: var(--primary); color: var(--primary); }
+.attachment-picker-label:disabled,
+.attachment-picker-label[disabled] { opacity: 0.55; cursor: not-allowed; }
+.attachment-picker-empty { width: 100%; justify-content: center; padding: 12px; }
+
+.attachment-pending {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-body);
+}
+.attachment-pending-name {
+  font-weight: 500;
+  word-break: break-word;
+  flex: 1 1 auto; min-width: 0;
+}
+
+/* Attachment card on InvoiceDetail */
+.attachment-card { display: flex; flex-direction: column; gap: 12px; }
+.attachment-card-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  color: var(--text-body);
+}
+.attachment-card-info { min-width: 0; flex: 1 1 auto; }
+.attachment-card-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.attachment-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.attachment-empty {
+  padding: 4px 0;
+}
+
+/* Disabled "Billing Suite" teaser button */
+.btn.btn-suite-locked,
+.btn.btn-suite-locked:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.btn.btn-suite-locked:hover { border-color: var(--card-border); color: var(--text-muted); }
+
+/* Disclosure toggle in Log Invoice modal */
+.disclosure-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 8px 0 4px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px dashed var(--card-border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.disclosure-toggle:hover { color: var(--primary); border-color: var(--primary); }
+.disclosure-body {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Wrap notes nicely inside the summary dl */
+.invoice-notes {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-body);
+}
+
+@media (max-width: 640px) {
+  .attachment-card-actions .btn { flex: 1 1 calc(50% - 4px); }
 }

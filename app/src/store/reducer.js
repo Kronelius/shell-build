@@ -78,6 +78,7 @@ export const ACTIONS = {
   ADD_INVOICE: 'ADD_INVOICE',
   UPDATE_INVOICE: 'UPDATE_INVOICE',
   ADD_INVOICE_PAYMENT: 'ADD_INVOICE_PAYMENT',
+  UPDATE_INVOICE_PAYMENT: 'UPDATE_INVOICE_PAYMENT',
   REMOVE_INVOICE_PAYMENT: 'REMOVE_INVOICE_PAYMENT',
   SET_INVOICE_STATUS: 'SET_INVOICE_STATUS',
   DELETE_INVOICE: 'DELETE_INVOICE',
@@ -581,8 +582,22 @@ export function reducer(state, action) {
 
     // ---------- Invoices ----------
     case ACTIONS.ADD_INVOICE: {
-      const base = { id: action.invoice?.id || nextInvoiceId(state), jobIds: [], lineItems: [], payments: [], taxRate: state.company.taxRate || 0, status: 'pending', createdAt: nowIso(), billingContactId: null };
-      return { ...state, invoices: [...state.invoices, { ...base, ...action.invoice, id: base.id }] };
+      // status='pending' by default. The 'draft' status was removed when the
+      // section was rescoped to manual tracking — there is no authoring/sending
+      // workflow that would justify a draft state anymore.
+      const base = {
+        id: action.invoice?.id || nextInvoiceId(state),
+        jobIds: [], lineItems: [], payments: [],
+        taxRate: state.company.taxRate || 0,
+        status: 'pending',
+        createdAt: nowIso(),
+        billingContactId: null,
+        attachment: null,
+        notes: '',
+      };
+      const incoming = action.invoice || {};
+      const status = incoming.status === 'draft' ? 'pending' : (incoming.status || base.status);
+      return { ...state, invoices: [...state.invoices, { ...base, ...incoming, id: base.id, status }] };
     }
     case ACTIONS.UPDATE_INVOICE:
       return { ...state, invoices: replaceById(state.invoices, action.id, action.patch) };
@@ -593,13 +608,32 @@ export function reducer(state, action) {
         invoices: state.invoices.map((inv) => (inv.id === action.id ? { ...inv, payments: [...inv.payments, pay] } : inv)),
       };
     }
+    case ACTIONS.UPDATE_INVOICE_PAYMENT: {
+      // Edit a previously-recorded payment (amount / method / date / note).
+      // Only mutates the targeted payment row; status auto-derives from the
+      // resulting balance via deriveInvoiceStatus.
+      const patch = action.patch || {};
+      return {
+        ...state,
+        invoices: state.invoices.map((inv) => (
+          inv.id === action.id
+            ? { ...inv, payments: inv.payments.map((p) => (p.id === action.paymentId ? { ...p, ...patch } : p)) }
+            : inv
+        )),
+      };
+    }
     case ACTIONS.REMOVE_INVOICE_PAYMENT:
       return {
         ...state,
         invoices: state.invoices.map((inv) => (inv.id === action.id ? { ...inv, payments: inv.payments.filter((p) => p.id !== action.paymentId) } : inv)),
       };
-    case ACTIONS.SET_INVOICE_STATUS:
+    case ACTIONS.SET_INVOICE_STATUS: {
+      // 'draft' is no longer part of the schema (manual-tracking rescope).
+      // Any caller that sends 'draft' is treated as a no-op rather than corrupting state.
+      const allowed = new Set(['pending', 'overdue', 'paid', 'void']);
+      if (!allowed.has(action.status)) return state;
       return { ...state, invoices: replaceById(state.invoices, action.id, { status: action.status }) };
+    }
     case ACTIONS.DELETE_INVOICE:
       return { ...state, invoices: removeById(state.invoices, action.id) };
 
