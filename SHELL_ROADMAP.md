@@ -60,7 +60,7 @@ Largely built. Audit:
 - Activity timeline — **[x]**
 - ContactDetail / ClientDetail tabs — **[x]**
 - Email uniqueness — **[x]**
-- **Migration tooling** — **[x]** CSV import: file upload + paste, auto-mapping by header name, column-to-field mapping UI, preview with dedupe + validation, batch dispatch. (Per-client data import billed separately as $200 add-on.)
+- **Migration tooling** — **[x]** Contacts-only CSV import (GHL-style — accounts derive from contacts, not imported separately): file upload + paste, auto-mapping by header name, column-to-field mapping UI, preview with email-keyed dedup + identifier-presence validation, batch dispatch. Any one of email / phone / firstName / lastName / company is enough to accept a row; rows with no email surface a "dedup skipped" note. Unknown company names auto-create accounts (case-insensitive, batch-deduped) so contact-imports populate Accounts as a side effect. Built-in "Download sample CSV" link in the upload step. (Per-client data import billed separately as $200 add-on.)
 
 ## `[x]` Automated Reminders (staff/clients) `[Core]`
 

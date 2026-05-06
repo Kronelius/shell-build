@@ -1,6 +1,16 @@
 # Rainier Facility Solutions — Deployment Handoff
 
-**Last session end (2026-05-06):** Three changes shipped together this session:
+**Last session end (2026-05-06):** Contacts CSV import overhaul — GHL-style, contacts-only.
+
+The Accounts CSV import path was dropped entirely; in GHL accounts derive from contacts, so the modal now lives only on the Contacts tab. Row validation relaxed from "email required" to "any one of email / phone / firstName / lastName / company" — phone-only and name-only contacts now land. Email is still the dedup key; rows without email surface a `No email — dedup skipped` note in the preview so the tradeoff is explicit. Unknown company names auto-create accounts during import (case-insensitive match against existing clients, batch-deduped so the same company across 50 rows produces one account, not 50). New "Download sample CSV ↓" link in the upload step ships an 8-column template with three example rows demonstrating the variety. Reducer `ADD_CONTACT` was the load-bearing change: it used to silently swallow email-less dispatches; uniqueness check now scopes to rows that have an email. Single-add (AddContactModal) still requires email at the form layer — only CSV bulk-import is lenient.
+
+Files: `app/src/lib/csv.js`, `app/src/components/CsvImportModal.jsx`, `app/src/pages/Clients.jsx`, `app/src/store/reducer.js`. Two commits on main: `343938f` (reducer guard relaxation) → `b323531` (CSV overhaul). Storage key unchanged (`pp.store.v26`) — schema shape didn't change, just the validation invariant.
+
+---
+
+## Earlier on 2026-05-06 — Internal Chat creation, archive removal, mobile polish
+
+Three changes shipped earlier today:
 
 1. **Internal Chat got a real creation flow.** Previously the four seeded internal threads were the *only* internal threads — there was no UI to create a new one. Added a "+ New thread" CTA pinned to the top of the thread list panel, visible only on the Internal Chat tab and gated by a new `messaging.startInternalThread` permission (owner / admin defaults). Modal asks for a title + optional first message, dispatches `ADD_INTERNAL_CONVERSATION`, navigates to the new thread. Public-by-default visibility — every staff member sees every internal thread (the prior `crewCanSee` gate was dropped for `channel: 'internal'`).
 2. **Archive concept removed app-wide; only deletion exists now.** Conversations, contacts, and accounts are hard-deleted with cascade rules: deleting a conversation cascades to its messages; deleting a contact nulls `conversation.contactId` so threads survive as "Unlinked"; deleting an account cascades to its contacts (and their conversations follow the contact rule), sites, jobs, invoices, and activities. The Internal Chat bulk action bar now shows exactly **Mark read** (blue pill), **Mark unread** (blue pill), **Delete** (red pill) — no Assign for internal. Inbox keeps Assign + the same three pill buttons; DMs keep no bulk select. The Delete button on the message panel header replaces Archive (red, with confirm dialog).
@@ -142,7 +152,7 @@ npm --prefix app install
 npm --prefix app run dev   # → http://localhost:5175 (or whatever Vite picks)
 ```
 
-Storage key: `pp.store.v20` / seed version 20. Default user is Kyle Boyden (Super Admin). Switch via the user chip in the sidebar footer.
+Storage key: `pp.store.v26` / seed version 26. Default user is Kyle Boyden (Super Admin). Switch via the user chip in the sidebar footer.
 
 ---
 
