@@ -131,21 +131,30 @@ Keep the wrapping `<div>` so the section is one grid cell / one block. Drop the 
 
 ---
 
-## 7. Selectors / segmented controls — consistent radii
+## 7. Selectors / segmented controls — unified pill, equal-width segments, hug content
 
-**Rule.** Any segmented control (a small group of mutually-exclusive toggles) uses the same outer/inner radius pair across the app:
+**Rule.** Every tab / segmented control in the app shares one geometry recipe:
 
-- Outer container: `var(--card-radius)` (20px in default theme)
-- Inner buttons: `var(--btn-radius)` (10px in default theme)
-- Container padding 3–4px so the active button sits visually inset.
+1. **Container hugs content** via `display: inline-grid` (not `flex`), so the pill never stretches across an empty row.
+2. **Segments are equal width** via `grid-auto-flow: column; grid-auto-columns: 1fr`. Each segment matches the widest label, padded to a uniform footprint.
+3. **Container resists parent stretch** via `align-self: flex-start` (so a `flex-direction: column` parent like the Filters popover doesn't blow it back out to 100% width).
+4. **Visual chrome:** container `background: var(--inset-bg)`, `border: 1px solid var(--card-border)`, `border-radius: var(--radius-full)`, `padding: 3px`. Inactive button: `background: transparent`, `border-radius: var(--radius-full)`, `font-weight: var(--font-weight-semibold)`. Active button: `background: var(--btn-primary-grad)`, `color: var(--color-text-on-primary)`, `box-shadow: var(--tab-active-shadow)`.
+5. **Centered content** inside each button: `display: inline-flex; align-items: center; justify-content: center` (Rule 13). Without `justify-content: center`, content packs to the start of its grid column when the segment is wider than its content.
+
+Three class pairs render identically — pick whichever name matches the surface:
+
+- `.tab-container.tab-container-line` + `.tab-btn` (default for new tabs)
+- `.messaging-inbox-toggle` + `.inbox-toggle-btn` (messaging surface)
+- `.segmented` + `.segmented-btn` (in-line "match-all/match-any" style toggles)
 
 **Where it applies.**
-- `.tab-container` + `.tab-btn` (Contacts tabs, Schedule day/week/month, detail-page tabs)
-- `.messaging-inbox-toggle` + `.inbox-toggle-btn` (Messaging All/Mine)
+- `.tab-container.tab-container-line` (Clients Contacts/Accounts, Schedule Day/Week/Month, ContactDetail tabs, ClientDetail tabs, ConversationContextPanel right-panel tabs, Notifications settings)
+- `.messaging-inbox-toggle` (Messaging Inbox / Threads / DMs)
+- `.segmented` (Filters popover Match all/Match any)
 
-**Don't apply** to the dashboard `.dash-sw-btn` (Overview/Metrics) — that is intentionally a pill-shaped switcher, a different visual pattern.
+**Don't apply** to the dashboard `.dash-sw-btn` (Overview/Metrics) — intentionally a pill-shaped switcher, a different visual pattern.
 
-**How to add a new selector.** Use one of the two existing class pairs above; do not invent a third radius scheme. If the design genuinely needs a new pattern, add it here first.
+**How to add a new selector.** Use one of the three class pairs above (`.tab-container.tab-container-line` is the default for new tabs). Do not invent a fourth style. If the design genuinely needs a new pattern, add it here first.
 
 ---
 
@@ -182,11 +191,163 @@ Keep the wrapping `<div>` so the section is one grid cell / one block. Drop the 
 
 ## 10. New Job entry-point lives on the Schedule page only
 
-**Rule.** Job creation is initiated from the Schedule page. The sidebar does not carry a "+ New Job" CTA.
+**Rule.** Job creation is initiated from the Schedule page. The sidebar does not carry a "New Job" CTA.
 
-**Why.** Action affordances for a single feature shouldn't appear in the global chrome (sidebar) AND on the page itself; that's redundant clutter. Schedule already has its own "+ New Job" button + modal.
+**Why.** Action affordances for a single feature shouldn't appear in the global chrome (sidebar) AND on the page itself; that's redundant clutter. Schedule already has its own "New Job" button + modal.
 
 **Generalizes to:** any feature-specific create CTA. Put it on the page that owns the feature, not in the global sidebar. Sidebar entries should be navigation only.
+
+---
+
+## 11. Button role convention — filled by semantic role, never bare outline as a CTA
+
+**Rule.** Whenever action buttons sit next to each other in a header / toolbar / detail-page row, every button is **filled** with one of four semantic role classes. Never use `.btn-outline` as a primary or co-primary CTA in those rows.
+
+> ⚠️ **Theme portability:** the role classes below resolve to the active swatchboard's brand and semantic colors. `.btn-primary` may render as navy in one theme and orange in another; `.btn-success` is whatever hue the theme uses for affirmative semantic state. **Do not write rules in terms of "blue / green / red" — write in terms of role.** What follows uses role classes only.
+
+**The four role classes:**
+
+| Class | Token source | Role |
+|---|---|---|
+| `.btn-primary` | `--btn-primary-grad` (brand primary) | Default CTA / utility / affirm-with-record-state action |
+| `.btn-success` | `--badge-green-grad` → `--color-semantic-success-*` | Affirmative or auxiliary helper action paired alongside a primary |
+| `.btn-danger` / `.btn-deny` | `--color-semantic-error-*` | Destructive / irreversible state change |
+| `.btn-secondary` | `--card-bg` + `--card-border` | Neutral filled (use only when the alternative roles overstate) |
+
+**Role assignment for two-button pairs:**
+- **Non-destructive pair** → `.btn-primary` + `.btn-success`. The create / record-state action takes `.btn-primary`; the secondary / utility action takes `.btn-success`.
+- **Destructive pair (Edit + Delete, Save + Cancel-job, etc.)** → `.btn-primary` + `.btn-danger`. `.btn-danger` substitutes for `.btn-success` when one half of the pair is destructive — pairing rule is "filled + filled," not specifically "primary + success."
+- **Affirmative + utility pair (e.g. `Filters` + `New conversation`)** → `.btn-success` + `.btn-primary`.
+
+**Role assignment for triads (three buttons):**
+- Common pattern in detail-page headers: `.btn-success` + `.btn-primary` + `.btn-danger` (Message + Edit + Delete). All filled, no outline.
+
+**Role assignment for state-transition rows (4+ buttons, e.g. JobDetail header):**
+- Affirmative go-actions → `.btn-success` — e.g. `Start`.
+- Utility / completion → `.btn-primary` — e.g. `Mark Done`, `Edit`.
+- Destructive → `.btn-danger` — e.g. `Cancel Job`, `Delete`.
+- Neutral negatives (no-show / soft-fail) → `.btn-secondary` — e.g. `Mark Missed`. Use this when `.btn-danger` would overstate the action.
+
+**Where it applies.** Every page header, every section header, every toolbar, every detail-page action row, every conversation pane head.
+
+**Where outline IS allowed (the exhaustive list — anything outside these is a rule violation):**
+- Modal `Cancel` + `Save` action rows.
+- Inline-edit `Cancel` buttons inside section bodies (e.g. note-edit Cancel) — they mirror modal-Cancel behavior.
+- Bulk-bar `Cancel` / `Clear` selection buttons — same role: dismiss without consequence.
+- Tiny utility actions inside section bodies that don't form a CTA pair (e.g. `Add line` inside an invoice line-item table, `View` / `Replace` on an attachment chip). Use sparingly.
+
+**Reference pairs in the live app (described by role, not hue).**
+- Messaging header — `Filters` (`.btn-success`) + `New conversation` / `New DM` (`.btn-primary`)
+- Clients page header — `Import CSV` (`.btn-success`) + `Add Contact` / `Add Account` (`.btn-primary`)
+- Pipeline toolbar — `Add Pipeline` (`.btn-success`) + `Manage Stages` (`.btn-primary`)
+- Invoices header — `Log Payment` (`.btn-success`) + `Log Invoice` (`.btn-primary`)
+- ContactDetail header (triad) — `Message` (`.btn-success`) + `Edit` (`.btn-primary`) + `Delete` (`.btn-danger`)
+- ClientDetail header — `Message` (`.btn-success`) + `Delete` (`.btn-danger`)
+- ConversationMessagePanel — `Remove from view` (`.btn-success`) + `Delete thread` (`.btn-danger`)
+- Note Edit/Delete pairs (ContactDetail / ClientDetail Notes tab) — `Edit` (`.btn-primary`) + `Delete` (`.btn-danger`)
+- JobDetail header — `Start` (`.btn-success`) + `Mark Done` (`.btn-primary`) + `Cancel Job` (`.btn-danger`) + `Mark Missed` (`.btn-secondary`) + `Edit` (`.btn-primary`) + `Delete` (`.btn-danger`)
+
+---
+
+## 12. No "+" prefix on button labels
+
+**Rule.** Do not prefix button labels with a literal `+ ` or include `<Icon name="plus" />` for create / add CTAs. The verb in the label ("Add Contact", "New Job", "Log Payment", "Invite Member") carries the affordance.
+
+**Why.** Stacked + signs across header rows read as visual clutter rather than clear action language. The user has explicitly called this pattern "tacky and cheap."
+
+**Where it applies.** Every CTA button in the app — page headers, section headers, toolbars, modals, empty-state actions.
+
+**Don't apply** to icon decorations on quick-action cards (e.g. Dashboard `.qa-icon`) where a domain Icon (Schedule, Invoices) communicates category, not "create." Those use `<Icon name="..." />` instead of a literal "+".
+
+---
+
+## 13. Buttons lock to consistent heights and center their content
+
+**Rule.** Adjacent buttons must always share the same outer height. Two pieces enforce this:
+
+1. **Locked height instead of vertical padding.** The base classes set `height` directly and zero out vertical padding so the button's outer dimensions don't drift when content varies (icon + text vs text-only).
+   - `.btn { height: var(--space-8); padding: 0 var(--space-4); }`
+   - `.btn-sm { height: var(--space-7); padding: 0 var(--space-3); }`
+2. **Centered content** via `display: inline-flex; align-items: center; justify-content: center`. Without `justify-content: center`, an icon+label pair packs to the left of a wider parent column (visible inside any equal-width selector — see Rule 7).
+
+**Why.** Without locked heights, a `.btn-sm` containing a 14px `<Icon>` is 26px tall while a text-only `.btn-sm` is 24px. Even a 2px drift between adjacent buttons reads as broken alignment. Locking the height to a space token makes every button in the app render at the same outer height regardless of contents.
+
+**Where it applies.** Every `<button class="btn …">` in the app. The base rules already enforce it; new variants (`.btn-warning`, etc.) inherit automatically.
+
+**Don't apply** custom heights inside variant rules (`.btn-success`, `.btn-primary`, `.btn-sm` modifier rules already in place are the only height-bearing rules). If a layout genuinely needs a taller button (rare — usually a hero CTA), add a separate class like `.btn-lg` here first with its own `--space-*` height token.
+
+---
+
+## 14. Filled CTA glows use halved-intensity shadow recipes
+
+**Rule.** Filled CTA classes (`.btn-primary`, `.btn-success`, `.btn-danger`, `.btn-deny`) carry a tinted outer glow + soft drop shadow + inset highlight. Alpha values across all three layers stay at the **halved** intensity profile:
+
+- Idle: inset `α = 0.125`, outer glow `α = 0.175`, drop shadow `α = 0.14`
+- Hover: inset `α = 0.15`, outer glow `α = 0.225`, drop shadow `α = 0.175`
+
+Each layer composes a token, never a literal:
+```css
+inset 0 1px 0 rgba(var(--color-white-rgb), 0.125),
+0 0 22px rgba(var(--color-{family}-rgb), 0.175),
+0 4px 14px rgba(var(--color-{family}-rgb), 0.14);
+```
+
+The `{family}` slot is the role the class consumes:
+- `.btn-primary` → `--btn-primary-glow` / `--btn-primary-glow-hover` recipes (defined per-theme; consume `--color-brand-primary-rgb` and the `*-600-rgb` variant)
+- `.btn-success` → composes inline against `--color-semantic-success-rgb`
+- `.btn-danger` / `.btn-deny` → composes inline against `--color-semantic-error-rgb`
+
+New filled variants must follow this exact alpha profile and source their tint from a theme-defined `--color-*-rgb` token.
+
+**Why.** The original full-intensity profile (α `.25 / .35 / .28` idle, `.3 / .45 / .35` hover) read as overlit at the chosen brand saturations. The 50% reduction is canon.
+
+**Where it applies.** Every filled-role button in the app, plus the `.toggle.on` switch (which inherits `--btn-primary-glow`).
+
+**Don't apply** the halved profile to `.btn-secondary` (neumorphic light/dark inset, not a tinted glow), `.btn-outline` (no fill), or surface-level shadows on cards / modals / popovers — those are different recipe categories with their own intensity.
+
+---
+
+## 15. Tokens always — no hex, no raw rgb, no inline-fallback hex in component CSS
+
+**Rule.** Every styling value in component CSS (anything in `app/src/` that isn't a theme file) resolves to a `var(--token)` reference. No raw hex, no raw `rgb()` / `rgba()` tuples, no fallback hex inside `var(--token, #hex)` patterns.
+
+Status: as of this session, `app/src/index.css` contains **zero** hex literals and **zero** raw rgb/rgba tuples. Audit script: `grep -E '#[0-9a-fA-F]{3,6}\b' app/src/index.css` and `grep -E 'rgba?\(\s*\d' app/src/index.css` should both return no matches. Run these before merging any change to component CSS.
+
+The minimum token vocabulary for the rules above:
+
+| Domain | Token |
+|---|---|
+| Text rendered over a filled CTA | `var(--color-text-on-primary)` |
+| Brand-primary fill (idle / hover) | `var(--btn-primary-grad)` / `var(--btn-primary-grad-hover)` |
+| Success-role fill | `var(--badge-green-grad)` |
+| Error / destructive fill | `linear-gradient(135deg, var(--color-semantic-error-400), var(--color-semantic-error-500))` |
+| Inset surface (selector chrome, recessed bg) | `var(--inset-bg)` |
+| Card / input border | `var(--card-border)` |
+| Body text (inactive state) | `var(--text-body)` |
+| Headline text (hover / active state) | `var(--text-primary)` |
+| Pill / full radius | `var(--radius-full)` |
+| Button corner radius | `var(--btn-radius)` |
+| Button height — regular / small | `var(--space-8)` / `var(--space-7)` |
+| Button horizontal padding — regular / small | `var(--space-4)` / `var(--space-3)` |
+| Active-state shadow on tabs | `var(--tab-active-shadow)` |
+| White-tint compositing (highlights / overlays) | `rgba(var(--color-white-rgb), <alpha>)` |
+| Black-tint compositing (overlays / drop shadows) | `rgba(var(--color-black-rgb), <alpha>)` |
+| Tinted glow alpha (per Rule 14) | `rgba(var(--color-{family}-rgb), <alpha>)` |
+
+**Why.** Each customer build ships against a different swatchboard. Component CSS must reference roles, not specific values, or the next theme breaks. Inline-fallback hex (`var(--token, #hex)`) is also forbidden — if the token is required, define it; if it's optional, the fallback hex still bypasses the theme's intent.
+
+**Where it applies.** Every CSS file in `app/src/` outside `theme.css` and `theme-{name}.css`. Inline `style={{...}}` in JSX is held to the same standard — search the codebase for `style={{` containing `#` or `rgba(` and migrate.
+
+**Where literals ARE allowed:**
+- Theme files only (`theme.css`, `theme-rainier.css`, future `theme-{name}.css`) — this is where token VALUES live by design.
+- Recipes inside theme files — alpha values, blur radii, gradient angles, and the `*-rgb` triplet on the `--color-{name}-rgb` aliases are defined as numeric literals there.
+
+**Known gaps (genuine missing tokens — promote via Swatchboard Material Change Protocol):**
+- `font-size: 12px` — no canonical step exists between `--font-size-xs` (11) and `--font-size-sm` (13). Used inline by `.btn-sm`, `.segmented-btn`, and a few dense surfaces. Promote `--font-size-2sm` if the 12px step ever needs to vary by theme.
+- `--color-neutral-{step}-rgb` triplets — only `--color-neutral-rgb` (the 500 step) is defined. Modal-overlay surfaces that want a darker tint currently use `rgba(var(--color-black-rgb), <alpha>)` as a workaround; if a theme wants a tinted-neutral overlay, promote per-step RGB triplets.
+- Border widths and opacity scale — still inline `1px` / `0.5` / `0.15`. Pre-tokenization gap inherited from `STYLING.md`.
+
+The audit ran in this session is complete for color tokens; any new violation introduced after this point is a regression.
 
 ---
 
