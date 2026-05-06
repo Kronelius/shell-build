@@ -56,7 +56,7 @@ export default function SnippetPicker({ channel, onInsert, disabled = false }) {
     <div className="snippet-picker" ref={wrapRef}>
       <button
         type="button"
-        className="snippet-trigger btn btn-outline btn-sm"
+        className="snippet-trigger btn btn-success btn-sm"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         title="Insert snippet"

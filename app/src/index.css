@@ -473,7 +473,7 @@ select.input {
   font-size: 13px; line-height: 1.4;
 }
 .chat-bubble.incoming {
-  align-self: flex-start; background: var(--inset-bg);
+  align-self: flex-start; background: var(--card-bg);
   border: 1px solid var(--border-light); color: var(--text-body);
   border-bottom-left-radius: 4px;
 }
@@ -2536,10 +2536,6 @@ tr.clickable:hover { background: var(--inset-bg); }
   border-bottom: 1px solid var(--border-light);
   display: flex; flex-direction: column; gap: 6px;
 }
-.thread-list-new-thread {
-  width: 100%;
-  justify-content: center;
-}
 .thread-list-search {
   display: flex; align-items: center; gap: 6px;
   border: 1px solid var(--card-border);
@@ -2604,12 +2600,35 @@ tr.clickable:hover { background: var(--inset-bg); }
   padding: 1px 7px; font-size: 10px; font-weight: 700;
   min-width: 18px; text-align: center;
 }
+/* Muted thread visible signals — strong enough to read at a glance:
+   - Bell-off mark next to the title so the mute is recognizable.
+   - Avatar + body text dimmed via opacity. Opacity is the cue, not a darker
+     text color, because the theme's --text-muted sits very close to
+     --text-primary and a one-shade swap reads as no change.
+   - Unread chip rendered as a hollow outlined pill instead of the solid
+     accent, so the count is still informative but doesn't pull the eye. */
+.thread-row-mute-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 6px; color: var(--text-muted); vertical-align: -1px;
+  opacity: 0.7;
+}
+.thread-row.is-muted .avatar,
+.thread-row.is-muted .thread-row-body,
+.thread-row.is-muted .thread-row-time { opacity: 0.55; }
+.thread-row.is-muted .thread-unread {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  font-weight: 600;
+}
 
 /* ── Message Panel ── */
 .message-pane {
   display: flex; flex-direction: column;
   background: var(--card-bg);
   overflow: hidden;
+  container-type: inline-size;
+  container-name: msgpane;
 }
 .message-pane-head {
   display: flex; align-items: center; gap: var(--space-4);
@@ -2668,19 +2687,36 @@ tr.clickable:hover { background: var(--inset-bg); }
 /* Compose bar */
 .compose-bar {
   border-top: 1px solid var(--card-border);
-  padding: 10px 12px;
-  display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 12px;
+  display: flex; flex-direction: column;
   background: var(--card-bg);
 }
-.compose-channel-row {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+.compose-row { display: flex; gap: 8px; align-items: stretch; }
+/* Stacked column on the right: Snippet button on top, Send below. Both buttons
+   stretch to the textarea's full height so the column visually balances the
+   textbox no matter how tall the user has dragged it. */
+.compose-row-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  align-self: stretch; flex-shrink: 0;
+  justify-content: flex-end;
 }
-.compose-row { display: flex; gap: 8px; align-items: flex-end; }
+.compose-row-actions .snippet-picker { display: flex; }
+.compose-row-actions .snippet-trigger { width: 100%; justify-content: center; }
+/* Wrap holds the textarea + the top-right drag handle. Height is controlled
+   in JS (see ConversationMessagePanel) so the handle can grow the box upward
+   — the native textarea resize only goes down from the bottom-right corner,
+   which feels backwards above a Send button. */
+.compose-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 56px;
+}
 .compose-input {
   flex: 1;
-  min-height: 48px;
-  resize: vertical;
-  padding: 8px 12px;
+  width: 100%; height: 100%;
+  resize: none;
+  padding: 8px 36px 8px 12px;
   border: 1px solid var(--card-border);
   border-radius: var(--input-radius);
   font-family: var(--font); font-size: 13px; color: var(--text-primary);
@@ -2688,6 +2724,35 @@ tr.clickable:hover { background: var(--inset-bg); }
   outline: none;
 }
 .compose-input:focus { border-color: var(--primary); }
+.compose-input-wrap.is-resizing .compose-input { border-color: var(--primary); }
+/* Top-right drag handle. Pulling it upward grows the textarea. The visual is
+   the classic two-stripe resize grip drawn with CSS pseudo-elements — same
+   pattern as the browser-native textarea handle, just relocated to the
+   top-right corner so it points users toward "drag this way to expand." */
+.compose-input-resize {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; margin: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: ns-resize;
+  touch-action: none;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.compose-input-resize:hover {
+  color: var(--text-primary);
+  background: var(--inset-bg);
+  border-color: var(--card-border);
+}
+.compose-input-wrap.is-resizing .compose-input-resize {
+  color: var(--primary);
+  background: var(--primary-bg);
+  border-color: var(--primary);
+}
 
 /* ── Context Panel ── */
 .context-pane {
@@ -3003,11 +3068,16 @@ tr.clickable:hover { background: var(--inset-bg); }
   opacity: 0.85;
 }
 .thread-row.is-owner { box-shadow: inset 2px 0 0 var(--primary); }
+/* Selected (multi-select) and active (currently open) share one cohesive
+   "highlighted" treatment: 3px primary stripe on the left + primary-tinted
+   fill. The currently-open row also bumps the name to bold so it's still
+   distinguishable from a multi-select pick. No heavy outline borders. */
 .thread-row.selected {
   background: var(--primary-bg);
-  outline: 1px solid var(--primary);
-  outline-offset: -1px;
+  border-left-color: var(--primary);
+  border-left-width: 3px;
 }
+.thread-row.active .thread-row-name { font-weight: 700; }
 .thread-row.status-snoozed,
 .thread-row.status-closed {
   opacity: 0.65;
@@ -3107,7 +3177,13 @@ tr.clickable:hover { background: var(--inset-bg); }
 .icon-btn:hover { color: var(--text-primary); border-color: var(--primary); }
 .icon-btn.starred { color: var(--warning); border-color: var(--warning); }
 .icon-btn.starred svg { fill: var(--warning); }
-.icon-btn.following { color: var(--primary); border-color: var(--primary); background: var(--primary-bg); }
+/* Muted bell: red-tint to communicate "notifications silenced" — distinct
+   from the neutral bell (default = on) so the toggle's effect is
+   unmistakable. The :hover override below preserves the muted styling
+   when the user reaches for the click target — without it the generic
+   .icon-btn:hover rule wins on tie-specificity and washes the cue out. */
+.icon-btn.is-muted,
+.icon-btn.is-muted:hover { color: var(--danger); border-color: var(--danger); background: var(--color-semantic-error-50); }
 
 /* Assign menu (user picker dropdown) */
 .assign-menu { position: relative; display: inline-block; }
@@ -3166,6 +3242,37 @@ tr.clickable:hover { background: var(--inset-bg); }
 .dm-picker-row-body { display: flex; flex-direction: column; min-width: 0; }
 .dm-picker-row-name { font-size: 14px; color: var(--text-primary); font-weight: 600; }
 .dm-picker-row-sub { font-size: 12px; }
+
+/* Member picker (multi-select) — used by the New-team-thread modal. Mirrors
+   the DM picker visually but adds a checkbox per row and a toolbar with
+   search + a "select all in org" toggle. */
+.member-picker {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 4px;
+}
+.member-picker-toolbar {
+  display: flex; align-items: center; gap: 8px;
+}
+.member-picker-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  display: flex; flex-direction: column;
+}
+.member-picker-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+}
+.member-picker-row:last-child { border-bottom: none; }
+.member-picker-row:hover { background: var(--primary-bg); }
+.member-picker-row.is-checked { background: var(--primary-bg); }
+.member-picker-row > input[type="checkbox"] { flex-shrink: 0; }
+.member-picker-row-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.member-picker-row-name { font-size: 14px; color: var(--text-primary); font-weight: 600; }
+.member-picker-row-sub { font-size: 12px; }
 
 /* Status menu (open/snooze/closed) */
 .status-menu { position: relative; display: inline-block; }
@@ -3409,35 +3516,9 @@ tr.clickable:hover { background: var(--inset-bg); }
   .filters-popover-head { display: none; }
   .filters-popover .filter-block:nth-of-type(n + 4) { display: none; }
 
-  /* ── Message pane head: title row + actions row, allow title wrap ── */
-  .message-pane-head {
-    flex-wrap: wrap;
-    row-gap: 8px;
-    padding: 10px 12px;
-    align-items: flex-start;
-  }
-  .message-pane-titles {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-  .message-pane-name {
-    flex-wrap: wrap;
-    row-gap: 4px;
-    font-size: 13px;
-    line-height: 1.3;
-  }
-  .message-pane-name .badge { flex-shrink: 0; }
-  .message-pane-actions {
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 6px;
-    order: 3;
-  }
-  .message-pane-actions .icon-btn { width: 28px; height: 28px; }
-  /* Collapse Delete to icon-only on mobile (Icon has explicit w/h, font-size:0 only kills the text node) */
-  .message-pane-actions .btn-danger { padding: 6px 10px; font-size: 0; }
-  .message-pane-actions .btn-danger svg { font-size: 14px; }
+  /* Message-pane–specific squish rules now live in the @container block below
+     so they fire on pane width too (e.g. when the user drags the middle pane
+     to its minimum on a wide desktop viewport). */
 
   /* ── Assign menu popover stays inside viewport ── */
   .assign-popover { right: 0; left: auto; min-width: 180px; }
@@ -3445,6 +3526,46 @@ tr.clickable:hover { background: var(--inset-bg); }
   /* ── Bulk bar: ensure wrapped row left-aligns ── */
   .bulk-action-bar { row-gap: 6px; }
   .bulk-actions { margin-left: 0; width: 100%; }
+}
+
+/* ── Message pane head: pane-width-driven squish.
+      Fires when the message pane itself is narrow — covers both mobile
+      (pane fills viewport) and desktop with the middle pane dragged near
+      its 480px minimum. Strategy: keep one tidy row by shrinking the
+      text-bearing actions to icon-only (matching the Star/Bell squares)
+      so the title has room without anything wrapping. Tooltips on the
+      buttons preserve the meaning. ── */
+@container msgpane (max-width: 640px) {
+  .message-pane-head {
+    padding: 10px 12px;
+    gap: var(--space-3);
+  }
+  .message-pane-name {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  .message-pane-actions { gap: 6px; }
+  .message-pane-actions .icon-btn { width: 28px; height: 28px; }
+  /* Collapse text-bearing actions to icon-only square buttons sized to
+     match .icon-btn so the action row reads as a clean strip of 28×28
+     icons. font-size:0 hides the text node; gap:0 prevents the .btn base
+     rule's 6px gap from reserving space for the now-invisible text and
+     pushing the SVG off-center. The inline SVG keeps its own width/height
+     attributes so the icon stays visible. */
+  .message-pane-actions .btn-success,
+  .message-pane-actions .btn-danger {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    gap: 0;
+    font-size: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .message-pane-actions .btn-success svg,
+  .message-pane-actions .btn-danger svg { font-size: 14px; }
 }
 
 /* ============================================================
