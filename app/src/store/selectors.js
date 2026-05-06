@@ -25,6 +25,17 @@ export const selectTags = (s) => s.tags || [];
 export const selectContactActivities = (s) => s.contactActivities || [];
 export const selectUserPermissionOverrides = (s) => s.userPermissionOverrides || [];
 
+// v16 additions — email invitations
+export const selectInvitations = (s) => s.invitations || [];
+export const selectPendingInvitations = (s) =>
+  (s.invitations || []).filter((inv) => inv.status === 'pending');
+export const selectInvitationForUser = (s, userId) => {
+  if (!userId) return null;
+  return (s.invitations || [])
+    .filter((inv) => inv.userId === userId && inv.status === 'pending')
+    .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1))[0] || null;
+};
+
 // v3 additions — messaging snippets
 export const selectSnippets = (s) => s.snippets || [];
 export const selectSnippetFolders = (s) => s.snippetFolders || [];

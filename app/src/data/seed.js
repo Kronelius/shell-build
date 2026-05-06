@@ -428,7 +428,7 @@ const userPermissionOverrides = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 15,
+  version: 16,
   company,
   currentUserId,
   users,
@@ -452,4 +452,5 @@ export const INITIAL_STATE = {
   snippetFolders,
   pipelines,
   activePipelineId: pipelines[0].id,
+  invitations: [],
 };

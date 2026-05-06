@@ -57,3 +57,29 @@ export async function sendEmail({ to, from, subject, body, replyTo }) {
 }
 
 export { BACKEND as EMAIL_BACKEND_URL };
+
+// Build an invitation email body. Caller composes the full sendEmail() args.
+// The signup link uses window.location.origin so the email points back to
+// whatever host the app is served from. The token round-trips back via
+// /accept-invite?token=... once auth lands; until then, the link is informational.
+export function buildInviteEmail({ inviteeName, inviterName, companyName, roleLabel, token, expiresAt }) {
+  const origin = (typeof window !== 'undefined' && window.location?.origin) || '';
+  const link = `${origin}/accept-invite?token=${encodeURIComponent(token)}`;
+  const expires = expiresAt ? new Date(expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const greeting = inviteeName ? `Hi ${inviteeName.split(' ')[0]}` : 'Hi there';
+  const subject = `You're invited to join ${companyName}`;
+  const body =
+`${greeting},
+
+${inviterName} invited you to join ${companyName} as a ${roleLabel}.
+
+Accept your invitation here:
+${link}
+
+${expires ? `This invitation expires on ${expires}.` : ''}
+
+If you weren't expecting this email, you can safely ignore it.
+
+— The ${companyName} team`;
+  return { subject, body };
+}

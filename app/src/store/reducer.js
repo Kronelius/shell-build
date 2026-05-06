@@ -135,6 +135,11 @@ export const ACTIONS = {
   DELETE_PIPELINE_STAGE: 'DELETE_PIPELINE_STAGE',
   REORDER_PIPELINE_STAGES: 'REORDER_PIPELINE_STAGES',
 
+  // Invitations
+  SEND_INVITATION: 'SEND_INVITATION',
+  RESEND_INVITATION: 'RESEND_INVITATION',
+  REVOKE_INVITATION: 'REVOKE_INVITATION',
+
   // Integrations / Twilio (v8)
   CONNECT_TWILIO: 'CONNECT_TWILIO',
   DISCONNECT_TWILIO: 'DISCONNECT_TWILIO',
@@ -768,6 +773,53 @@ export function reducer(state, action) {
       // row rises to the top of the inbox. The original failure is considered
       // resolved; history is not preserved (by design — see D scope choice A).
       return { ...state, reminderEvents: replaceById(state.reminderEvents, action.id, { status: 'sent', sentAt: nowIso() }) };
+
+    // ---------- Invitations ----------
+    case ACTIONS.SEND_INVITATION: {
+      const base = {
+        id: newId('inv'),
+        userId: action.userId,
+        email: action.email,
+        role: action.role || 'crew',
+        invitedBy: action.invitedBy || state.currentUserId,
+        token: `tok_${Math.random().toString(36).slice(2, 14)}`,
+        status: 'pending',
+        sentAt: nowIso(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        lastResentAt: null,
+        resendCount: 0,
+      };
+      return { ...state, invitations: [...(state.invitations || []), base] };
+    }
+    case ACTIONS.RESEND_INVITATION: {
+      const now = nowIso();
+      return {
+        ...state,
+        invitations: (state.invitations || []).map((inv) =>
+          inv.id === action.id
+            ? {
+                ...inv,
+                lastResentAt: now,
+                resendCount: (inv.resendCount || 0) + 1,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              }
+            : inv
+        ),
+      };
+    }
+    case ACTIONS.REVOKE_INVITATION: {
+      const inv = (state.invitations || []).find((i) => i.id === action.id);
+      if (!inv) return state;
+      return {
+        ...state,
+        invitations: (state.invitations || []).map((i) =>
+          i.id === action.id ? { ...i, status: 'revoked', revokedAt: nowIso() } : i
+        ),
+        users: state.users.map((u) =>
+          u.id === inv.userId ? { ...u, status: 'inactive' } : u
+        ),
+      };
+    }
 
     // ---------- Permissions ----------
     case ACTIONS.UPDATE_PERMISSION:

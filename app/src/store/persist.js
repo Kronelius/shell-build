@@ -1,6 +1,6 @@
-// v15: Multi-pipeline support — pipelines array with nested stages, contacts gain pipelineId.
-// Bump in lockstep with INITIAL_STATE.version so v14 caches trigger migration.
-const STORAGE_KEY = 'pp.store.v15';
+// v16: Email invitations — separate `invitations` array tracking pending/accepted/revoked invites
+// alongside the user record. Bump in lockstep with INITIAL_STATE.version.
+const STORAGE_KEY = 'pp.store.v16';
 
 function migrateV14toV15(state) {
   const defaultPipelineId = 'pl_seed_default';
@@ -24,18 +24,34 @@ function migrateV14toV15(state) {
   };
 }
 
+function migrateV15toV16(state) {
+  return {
+    ...state,
+    version: 16,
+    invitations: state.invitations || [],
+  };
+}
+
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 15) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 16) return parsed;
     }
-    // Attempt v14 migration
-    const oldRaw = window.localStorage.getItem('pp.store.v14');
-    if (oldRaw) {
-      const v14 = JSON.parse(oldRaw);
-      if (v14 && typeof v14 === 'object' && v14.version === 14) return migrateV14toV15(v14);
+    // Attempt v15 → v16 migration
+    const v15Raw = window.localStorage.getItem('pp.store.v15');
+    if (v15Raw) {
+      const v15 = JSON.parse(v15Raw);
+      if (v15 && typeof v15 === 'object' && v15.version === 15) return migrateV15toV16(v15);
+    }
+    // Attempt v14 → v15 → v16 migration chain
+    const v14Raw = window.localStorage.getItem('pp.store.v14');
+    if (v14Raw) {
+      const v14 = JSON.parse(v14Raw);
+      if (v14 && typeof v14 === 'object' && v14.version === 14) {
+        return migrateV15toV16(migrateV14toV15(v14));
+      }
     }
     return null;
   } catch {
