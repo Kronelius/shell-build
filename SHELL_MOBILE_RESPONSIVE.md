@@ -6,6 +6,8 @@
 
 **Target viewport baseline:** 375 × 812 (iPhone SE / 11 / 12 / 13 / 14 mini class). All layouts must also be sane down to 320px, but 375px is the canonical test width.
 
+**Enforcement:** A pre-commit screenshot pass (320 / 375 / 641) is documented in [`CLAUDE.md`](CLAUDE.md) under "Pre-commit visual verification." Fires at commit time only — not during active development — so the core feature work isn't taxed by incremental mobile review. Run the pass on any commit that touches a UI surface; skip on logic-only changes with a commit-message note.
+
 ---
 
 ## Table of contents

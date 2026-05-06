@@ -24,7 +24,34 @@ Before responding to any request in this folder:
   - What shipped this session (entities, files touched, biggest diffs)
   - Open issues / partial work / blockers
   - Suggested next pickup point (usually the next `[ ]` in SHELL_ROADMAP)
-- **Commit in logical chunks when the user asks** (don't auto-commit).
+- **Commit in logical chunks when the user asks** (don't auto-commit). When the user does ask, **default to splitting by concern** (feature / mobile / docs / refactor / etc.) and execute — don't ask "split or single?" Project log shows single-purpose commits as the norm; that's the precedent. Only stop to ask when the chunks would be unusually small or the boundaries are genuinely ambiguous.
+
+## Pre-commit visual verification (mobile-responsive screenshot pass)
+
+Before committing **any change that touches a UI surface** (component, page, theme, CSS — anything the browser renders), run a mobile-responsive screenshot pass to confirm the change ties properly and stays visible/convenient at iPhone-class viewports. This is the gate that prevents the slow accumulation of broken-mobile state that requires a multi-hour fix-up exercise after the fact (see [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md) for the contract being enforced).
+
+**Timing — IMPORTANT:** This pass fires **only at commit time, not during development.** Build the core feature/fix first without worrying about mobile responsiveness — that's how we keep iteration cheap and avoid burning tokens on incremental visual checks. Once the change is ready to commit, run the pass; if mobile breaks, fix it in the same commit before pushing.
+
+**Protocol** (use the `preview_*` MCP tools — never ask the user to verify manually):
+
+1. Resize the preview to each viewport in turn:
+   - **320×568** — iPhone SE 1st gen (the floor; layout must be sane)
+   - **375×812** — canonical baseline (iPhone SE / 13 mini class)
+   - **641×800** — desktop boundary (confirm no regression to the desktop layout)
+2. At each viewport, navigate to every surface the change touched, plus any surface that *consumes* the changed component, and capture a `preview_screenshot`.
+3. At each viewport, run the no-horizontal-scroll assertion via `preview_eval`:
+   ```js
+   document.documentElement.scrollWidth === document.documentElement.clientWidth
+   ```
+   This must return `true`. Zero horizontal scroll is a hard rule from the spec.
+4. Verify by eye: nothing truncates mid-word inside CTAs/pills, no element overlaps another, popovers/modals fit inside the viewport, action buttons remain reachable.
+
+**Exempt from this pass** (no screenshot signal to gain):
+- Pure logic changes — reducer/selectors/seed/storage migration/permissions/lib utilities/comments
+- Test-only or doc-only commits
+- Refactors that produce identical render output
+
+If a commit is exempt, note it briefly in the commit message ("logic-only — mobile pass deferred") so a future visual sweep can be scheduled if needed. **When in doubt, run the pass.** Tokens spent here are an order of magnitude cheaper than the next "mash + jumble" rescue.
 
 ## Project status
 
