@@ -355,7 +355,17 @@
 
   /* ── Mobile header ── */
   --mobile-header-bg:        var(--color-neutral-900);
-  --mobile-header-border:    var(--color-neutral-800);
+  --mobile-header-grad:
+    linear-gradient(
+      120deg,
+      var(--color-brand-primary-700) 0%,
+      var(--color-brand-primary-500) 35%,
+      var(--color-brand-primary-400) 100%
+    );
+  --mobile-header-border:    var(--color-brand-primary-700);
+  --mobile-header-shadow:
+    0 1px 0 rgba(var(--color-white-rgb, 255, 255, 255), 0.08) inset,
+    0 4px 14px rgba(var(--color-brand-primary-600-rgb), 0.32);
   --mobile-sub-color:        var(--color-neutral-400);
   --hamburger-color:         var(--color-neutral-300);
   --overlay-bg:              rgba(var(--color-neutral-rgb), 0.5);
