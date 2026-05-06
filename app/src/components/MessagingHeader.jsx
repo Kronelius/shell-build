@@ -16,8 +16,7 @@ export const EMPTY_FILTERS = {
 };
 
 const INBOXES = [
-  { key: 'my',       label: 'My Inbox' },
-  { key: 'team',     label: 'Team Inbox' },
+  { key: 'inbox',    label: 'Inbox' },
   { key: 'internal', label: 'Internal Chat' },
 ];
 
@@ -192,6 +191,7 @@ export default function MessagingHeader({
   onFiltersChange,
   canStart,
   onNewConversation,
+  visibleInboxes,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -206,7 +206,7 @@ export default function MessagingHeader({
   return (
     <header className="messaging-header">
       <div className="messaging-inbox-toggle" role="tablist" aria-label="Inbox">
-        {INBOXES.map((ib) => {
+        {(visibleInboxes || INBOXES).map((ib) => {
           const active = selectedInbox === ib.key;
           const count = unread[ib.key] || 0;
           return (

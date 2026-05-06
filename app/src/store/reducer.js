@@ -47,7 +47,6 @@ export const ACTIONS = {
   TAG_CONTACT: 'TAG_CONTACT',
   UNTAG_CONTACT: 'UNTAG_CONTACT',
   ASSIGN_CONTACT_OWNER: 'ASSIGN_CONTACT_OWNER',
-  SET_CONTACT_VISIBILITY: 'SET_CONTACT_VISIBILITY',
   SET_CONTACT_STAGE: 'SET_CONTACT_STAGE',
   APPEND_CONTACT_NOTE: 'APPEND_CONTACT_NOTE',
 
@@ -312,7 +311,6 @@ export function reducer(state, action) {
         firstName: '', lastName: '', title: '', phone: '',
         companyId: null, ownerUserId: null,
         tagIds: [],
-        visibility: 'org',
         lifecycle: 'lead',
         stage: null, dealValue: null, expectedCloseDate: null, stageChangedAt: nowIso(),
         notes: '', customFields: {},
@@ -368,8 +366,6 @@ export function reducer(state, action) {
       };
     case ACTIONS.ASSIGN_CONTACT_OWNER:
       return { ...state, contacts: replaceById(state.contacts || [], action.id, { ownerUserId: action.userId, updatedAt: nowIso() }) };
-    case ACTIONS.SET_CONTACT_VISIBILITY:
-      return { ...state, contacts: replaceById(state.contacts || [], action.id, { visibility: action.visibility, updatedAt: nowIso() }) };
     case ACTIONS.SET_CONTACT_STAGE: {
       const now = nowIso();
       const all = state.contacts || [];

@@ -21,12 +21,12 @@ export const ROLE_LABELS = {
 export const ROLE_DESCRIPTIONS = {
   owner: 'Full access — can assign roles, edit permissions, and override access per user. The top tier.',
   admin: 'Manages day-to-day ops: accounts, jobs, messages, team. Cannot see financials or assign roles.',
-  crew:  'Sees their own jobs and assigned contacts. Can update job status.',
+  crew:  'Sees their own jobs and assigned accounts. Can update job status and add notes.',
 };
 
 // key → { label, description, defaultRoles }
 export const PERMISSIONS = {
-  'dashboard.view':          { label: 'View Dashboard',           defaultRoles: ['owner', 'admin', 'crew'] },
+  'dashboard.view':          { label: 'View Dashboard',           defaultRoles: ['owner', 'admin'] },
   'schedule.view':           { label: 'View Schedule',            defaultRoles: ['owner', 'admin', 'crew'] },
   'schedule.edit':           { label: 'Create / edit jobs',       defaultRoles: ['owner', 'admin'] },
   'schedule.statusTransition': { label: 'Change job status',      defaultRoles: ['owner', 'admin', 'crew'] },
@@ -35,10 +35,10 @@ export const PERMISSIONS = {
   'clients.archive':         { label: 'Archive / delete accounts',defaultRoles: ['owner', 'admin'] },
   'sites.edit':              { label: 'Manage account sites',     defaultRoles: ['owner', 'admin'] },
   // ---------- Contacts (CRM) ----------
-  'contacts.view':           { label: 'View Contacts',                    defaultRoles: ['owner', 'admin', 'crew'] },
+  'contacts.view':           { label: 'View Contacts',                    defaultRoles: ['owner', 'admin'] },
   'contacts.view.all':       { label: 'View all contacts (not just own)', defaultRoles: ['owner', 'admin'] },
   'contacts.edit':           { label: 'Create / edit contacts',           defaultRoles: ['owner', 'admin'] },
-  'contacts.edit.own':       { label: 'Edit assigned contacts',           defaultRoles: ['owner', 'admin', 'crew'] },
+  'contacts.edit.own':       { label: 'Edit assigned contacts',           defaultRoles: ['owner', 'admin'] },
   'contacts.delete':         { label: 'Delete / archive contacts',        defaultRoles: ['owner', 'admin'] },
   'contacts.assignOwner':    { label: 'Assign contact owner',             defaultRoles: ['owner', 'admin'] },
   'tags.manage':             { label: 'Create / edit tags',               defaultRoles: ['owner', 'admin'] },

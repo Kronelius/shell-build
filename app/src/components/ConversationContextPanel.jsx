@@ -29,11 +29,6 @@ const LIFECYCLE_VARIANTS = {
   archived: 'slate',
 };
 
-const VISIBILITY_LABELS = {
-  org: 'Organization',
-  team: 'Team',
-  private: 'Private',
-};
 
 // Tab keys are internal — labels are what the user sees.
 // "history" = synthesized timeline of events (was "Activities" before).
@@ -56,7 +51,6 @@ function buildForm(contact) {
     department: contact.customFields?.department || '',
     address: contact.address || contact.customFields?.address || '',
     ownerUserId: contact.ownerUserId || '',
-    visibility: contact.visibility || 'org',
     stage: contact.stage || '',
     dealValue: contact.dealValue ? String(contact.dealValue) : '',
     expectedCloseDate: contact.expectedCloseDate ? contact.expectedCloseDate.slice(0, 10) : '',
@@ -133,7 +127,6 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
     if (form.phone !== original.phone) patch.phone = form.phone.trim();
     if (form.title !== original.title) patch.title = form.title.trim();
     if (form.address !== original.address) patch.address = form.address.trim();
-    if (form.visibility !== original.visibility) patch.visibility = form.visibility;
     if (form.dealValue !== original.dealValue) {
       patch.dealValue = form.dealValue === '' ? null : Number(form.dealValue) || null;
     }
@@ -229,18 +222,6 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
               options={[{ value: '', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
             />
             {selectedOwner && <Avatar initials={selectedOwner.initials} variant={selectedOwner.avatar} size="sm" />}
-          </dd>
-        </div>
-        <div>
-          <dt>Visibility</dt>
-          <dd>
-            <Select
-              ariaLabel="Visibility"
-              value={form.visibility}
-              onChange={(v) => up('visibility')({ target: { value: v } })}
-              disabled={!canEdit}
-              options={Object.entries(VISIBILITY_LABELS).map(([v, label]) => ({ value: v, label }))}
-            />
           </dd>
         </div>
         {showPipelineFields && (

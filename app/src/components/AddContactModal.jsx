@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import FormField from './FormField';
-import VisibilitySelect from './VisibilitySelect';
 import TagPicker from './TagPicker';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
@@ -18,7 +17,7 @@ const LIFECYCLES = [
 const EMPTY = {
   email: '', firstName: '', lastName: '', title: '', phone: '',
   companyId: '', ownerUserId: '', tagIds: [],
-  visibility: 'org', lifecycle: 'lead',
+  lifecycle: 'lead',
   notes: '',
 };
 
@@ -45,7 +44,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
         companyId: initialData.companyId || '',
         ownerUserId: initialData.ownerUserId || '',
         tagIds: initialData.tagIds || [],
-        visibility: initialData.visibility || 'org',
         lifecycle: initialData.lifecycle || 'lead',
         notes: initialData.notes || '',
       });
@@ -75,7 +73,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
       companyId: form.companyId || null,
       ownerUserId: form.ownerUserId || null,
       tagIds: form.tagIds,
-      visibility: form.visibility,
       lifecycle: form.lifecycle,
       notes: form.notes,
     };
@@ -128,10 +125,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
             onChange={(e) => setForm({ ...form, ownerUserId: e.target.value })}
             options={[{ value: '', label: '— Unassigned —' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
           />
-          <div className="form-group">
-            <label className="form-label">Visibility</label>
-            <VisibilitySelect value={form.visibility} onChange={(v) => setForm({ ...form, visibility: v })} />
-          </div>
         </div>
         <div className="form-group">
           <label className="form-label">Tags</label>

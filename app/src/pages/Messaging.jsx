@@ -180,6 +180,7 @@ export default function Messaging() {
   const canStart = usePermission('messaging.startConversation');
   const canAssign = usePermission('messaging.assign');
   const canBulk = usePermission('messaging.bulkActions');
+  const canViewExternalInbox = usePermission('messaging.startConversation');
 
   const toast = useToast();
 
@@ -188,7 +189,7 @@ export default function Messaging() {
   const blockers = selectTwilioBlockers(state);
   const twilioPhone = selectTwilioPhone(state);
 
-  const [selectedInbox, setSelectedInbox] = useState('my');
+  const [selectedInbox, setSelectedInbox] = useState(canViewExternalInbox ? 'inbox' : 'internal');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState(paramId || null);
@@ -209,12 +210,21 @@ export default function Messaging() {
     [inboxConversations, filters, search, state]
   );
 
-  // Unread counts per inbox bucket (shown as badges on the header toggle).
   const inboxUnread = useMemo(() => ({
-    my:       selectUnreadCountForInbox(state, 'my',       currentUser),
-    team:     selectUnreadCountForInbox(state, 'team',     currentUser),
+    inbox:    selectUnreadCountForInbox(state, 'inbox',    currentUser),
     internal: selectUnreadCountForInbox(state, 'internal', currentUser),
   }), [state, currentUser]);
+
+  const visibleInboxes = canViewExternalInbox
+    ? [{ key: 'inbox', label: 'Inbox' }, { key: 'internal', label: 'Internal Chat' }]
+    : [{ key: 'internal', label: 'Internal Chat' }];
+
+  // Force crew into Internal Chat when they can't see the external inbox.
+  useEffect(() => {
+    if (!canViewExternalInbox && selectedInbox !== 'internal') {
+      setSelectedInbox('internal');
+    }
+  }, [canViewExternalInbox]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep activeId in sync with URL + visible-set membership.
   useEffect(() => {
@@ -434,6 +444,7 @@ export default function Messaging() {
           onFiltersChange={setFilters}
           canStart={canStart}
           onNewConversation={() => setNewConvOpen(true)}
+          visibleInboxes={visibleInboxes}
         />
         <div
           className={`msg-3pane ${activeId ? 'has-active' : ''}`}

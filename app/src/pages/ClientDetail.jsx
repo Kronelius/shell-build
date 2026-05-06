@@ -42,6 +42,7 @@ export default function ClientDetail() {
   const navigate = useNavigate();
   const nav = useFromHere();
   const canEdit = usePermission('clients.edit');
+  const canView = usePermission('clients.view');
   const canArchive = usePermission('clients.archive');
   const canEditSites = usePermission('sites.edit');
   const canEditContacts = usePermission('contacts.edit');
@@ -558,7 +559,7 @@ export default function ClientDetail() {
 
       {tab === 'notes' && (
         <div>
-          {canEdit && (
+          {canView && (
             <div className="card" style={{ marginBottom: 16 }}>
               <FormField label="Add note" as="textarea" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Arrival instructions, preferences, follow-ups…" />
               <div className="modal-actions">

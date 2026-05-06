@@ -7,9 +7,10 @@ import UserSwitcher from './UserSwitcher';
 
 const NAV = [
   { to: '/',          label: 'Dashboard',  icon: 'dashboard', perm: 'dashboard.view', end: true },
-  { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use'  },
   { to: '/schedule',  label: 'Schedule',   icon: 'schedule',  perm: 'schedule.view'  },
+  { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use'  },
   { to: '/contacts',  label: 'Contacts',   icon: 'clients',   perm: 'contacts.view'  },
+  { to: '/clients',   label: 'Accounts',   icon: 'clients',   perm: 'clients.view', hideWhen: 'contacts.view' },
   { to: '/pipeline',  label: 'Pipeline',   icon: 'chart',     perm: 'pipeline.view'  },
   { to: '/invoices',  label: 'Invoices',   icon: 'invoices',  perm: 'invoices.view'  },
 ];
@@ -18,7 +19,7 @@ export default function Sidebar({ mobileOpen, onCloseMobile }) {
   const company = selectCompany(useStore());
   const check = usePermissionChecker();
 
-  const allowed = NAV.filter((n) => check(n.perm));
+  const allowed = NAV.filter((n) => check(n.perm) && (!n.hideWhen || !check(n.hideWhen)));
 
   return (
     <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>

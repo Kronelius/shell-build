@@ -18,7 +18,7 @@ import { usePermission } from '../hooks/usePermission';
 import { useToast } from '../components/Toast';
 import {
   selectClients, selectClientById, selectServiceById, selectFrequencies, selectServices,
-  selectContacts, selectTags, selectTagById, selectPermissions, selectUsers, selectUserById,
+  selectContacts, selectTags, selectTagById, selectUsers, selectUserById,
   selectVisibleContactsFor,
 } from '../store/selectors';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
@@ -32,7 +32,6 @@ const LIFECYCLE_VARIANTS = {
 };
 
 const LIFECYCLES = ['all', 'lead', 'prospect', 'customer', 'vendor'];
-const VISIBILITIES = ['all', 'org', 'team', 'private'];
 
 export default function Clients() {
   const state = useStore();
@@ -43,6 +42,7 @@ export default function Clients() {
   const { currentUser } = useAuth();
   const canCreateClient = usePermission('clients.edit');
   const canCreateContact = usePermission('contacts.edit');
+  const canViewContacts = usePermission('contacts.view');
   const canAssignOwner = usePermission('contacts.assignOwner');
 
 
@@ -50,13 +50,12 @@ export default function Clients() {
   const services = selectServices(state);
   const frequencies = selectFrequencies(state);
   const users = selectUsers(state);
-  const permissions = selectPermissions(state);
   const allContacts = selectContacts(state);
   const allTags = selectTags(state);
 
   const visibleContacts = useMemo(
-    () => selectVisibleContactsFor(state, currentUser, permissions),
-    [state, currentUser, permissions]
+    () => selectVisibleContactsFor(state, currentUser),
+    [state, currentUser]
   );
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,15 +66,15 @@ export default function Clients() {
     setSearchParams(next, { replace: true });
   };
 
-  const tab = searchParams.get('tab') || 'contacts';
-  const setTab = (v) => setParam('tab', v, 'contacts');
+  const defaultTab = canViewContacts ? 'contacts' : 'accounts';
+  const tab = searchParams.get('tab') || defaultTab;
+  const setTab = (v) => setParam('tab', v, defaultTab);
 
   // Contacts filters (URL-backed)
   const cSearch = searchParams.get('q') || '';
   const cLifecycle = searchParams.get('lifecycle') || 'all';
   const cOwner = searchParams.get('owner') || 'all';
   const cTag = searchParams.get('tag') || 'all';
-  const cVisibility = searchParams.get('visibility') || 'all';
   const cCompany = searchParams.get('company') || 'all';
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkTagIds, setBulkTagIds] = useState([]);
@@ -101,7 +100,6 @@ export default function Clients() {
         if (cOwner !== 'unassigned' && c.ownerUserId !== cOwner) return false;
       }
       if (cTag !== 'all' && !(c.tagIds || []).includes(cTag)) return false;
-      if (cVisibility !== 'all' && c.visibility !== cVisibility) return false;
       if (cCompany !== 'all') {
         if (cCompany === 'unattached' && c.companyId) return false;
         if (cCompany !== 'unattached' && c.companyId !== cCompany) return false;
@@ -112,7 +110,7 @@ export default function Clients() {
       }
       return true;
     });
-  }, [visibleContacts, cSearch, cLifecycle, cOwner, cTag, cVisibility, cCompany]);
+  }, [visibleContacts, cSearch, cLifecycle, cOwner, cTag, cCompany]);
 
   const filteredClients = useMemo(() => {
     const q = aSearch.trim().toLowerCase();
@@ -209,7 +207,7 @@ export default function Clients() {
       </div>
 
       <div className="tab-container tab-container-line" style={{ marginBottom: 16 }}>
-        <button className={`tab-btn ${tab === 'contacts' ? 'active' : ''}`} onClick={() => setTab('contacts')} type="button">Contacts</button>
+        {canViewContacts && <button className={`tab-btn ${tab === 'contacts' ? 'active' : ''}`} onClick={() => setTab('contacts')} type="button">Contacts</button>}
         <button className={`tab-btn ${tab === 'accounts' ? 'active' : ''}`} onClick={() => setTab('accounts')} type="button">Accounts</button>
       </div>
 
@@ -225,8 +223,6 @@ export default function Clients() {
               options={[{ value: 'all', label: 'All tags' }, ...allTags.map((t) => ({ value: t.id, label: t.label }))]} />
             <FormField label="Company" as="select" value={cCompany} onChange={(e) => setParam('company', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All companies' }, { value: 'unattached', label: 'Unattached' }, ...clients.filter((c) => c.status !== 'inactive').map((c) => ({ value: c.id, label: c.name }))]} />
-            <FormField label="Visibility" as="select" value={cVisibility} onChange={(e) => setParam('visibility', e.target.value, 'all')}
-              options={VISIBILITIES.map((v) => ({ value: v, label: v === 'all' ? 'All visibility' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
           </div>
 
           <div className={`bulk-bar ${selectedIds.size === 0 ? 'is-empty' : ''}`}>

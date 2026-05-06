@@ -31,7 +31,7 @@ export default function SettingsAccount() {
     <div>
       <div className="page-head-text">
         <h1 className="page-head-title">Your Account</h1>
-        <p className="page-head-subtitle">This is your profile. Other settings may only be available to your Owner or Admin.</p>
+        <p className="page-head-subtitle">Manage your profile and preferences.</p>
       </div>
 
       <form className="card detail-card" onSubmit={save}>

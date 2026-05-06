@@ -21,7 +21,6 @@ import Icon from '../components/Icon';
 import Avatar from '../components/Avatar';
 import TagChip from '../components/TagChip';
 import TagPicker from '../components/TagPicker';
-import VisibilitySelect from '../components/VisibilitySelect';
 import AddContactModal from '../components/AddContactModal';
 import NewConversationModal from '../components/NewConversationModal';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
@@ -278,19 +277,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
               )}
             </div>
 
-            <div className="card detail-card">
-              <h3>Visibility</h3>
-              {canEditThis ? (
-                <VisibilitySelect value={contact.visibility} onChange={(v) => updateField({ visibility: v })} />
-              ) : (
-                <span>{contact.visibility}</span>
-              )}
-              <p className="text-xs text-muted" style={{ marginTop: 6 }}>
-                {contact.visibility === 'private' && 'Only the owner and Super Admin can see this contact.'}
-                {contact.visibility === 'team' && 'Visible to admins and anyone with view-all permission.'}
-                {contact.visibility === 'org' && 'Visible to anyone with Contacts access.'}
-              </p>
-            </div>
 
             {contact.lifecycle === 'lead' || contact.lifecycle === 'prospect' ? (
               <div className="card detail-card">

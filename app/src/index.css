@@ -708,6 +708,7 @@ select.input {
 .avatar-xs { width: 20px; height: 20px; font-size: 9px; }
 .avatar-sm { width: 28px; height: 28px; font-size: 10px; }
 .avatar-md { width: 36px; height: 36px; font-size: 12px; }
+.avatar-lg { width: 48px; height: 48px; font-size: 16px; }
 .avatar-1 { background: var(--avatar-1); }
 .avatar-2 { background: var(--avatar-2); }
 .avatar-3 { background: var(--avatar-3); }
@@ -1536,7 +1537,7 @@ tr.clickable:hover { background: var(--inset-bg); }
 .settings-shell {
   display: flex; flex-direction: column;
 }
-.settings-page-head { margin-bottom: 0; }
+.settings-page-head { margin-bottom: 0; text-align: center; }
 .settings-pill-wrap {
   display: flex; justify-content: center;
   padding: 20px 0 28px;
@@ -1859,19 +1860,6 @@ tr.clickable:hover { background: var(--inset-bg); }
 .contact-option-name { font-size: 13px; font-weight: 600; }
 .contact-picker-empty { padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
-/* Visibility select (segmented) */
-.visibility-select {
-  display: inline-flex; gap: 0; padding: 3px;
-  background: var(--inset-bg); border-radius: var(--btn-radius);
-  border: 1px solid var(--card-border);
-}
-.visibility-option {
-  padding: 6px 12px; font-size: 12px; font-weight: 500;
-  background: transparent; border: none; color: var(--text-body);
-  border-radius: var(--btn-radius); cursor: pointer; font-family: var(--font);
-}
-.visibility-option:hover { color: var(--text-primary); }
-.visibility-option.on { background: var(--primary); color: #fff; font-weight: 600; }
 
 /* Pipeline (Kanban) */
 .pipeline-wrap { display: flex; flex-direction: column; gap: 12px; }
@@ -2531,7 +2519,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   background: var(--inset-bg);
 }
 .chat-bubble-author {
-  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,.85);
   margin-bottom: 2px;
 }
 
@@ -3099,6 +3087,9 @@ tr.clickable:hover { background: var(--inset-bg); }
    indents so the select's text still sits at dd.left + 6px. */
 .context-dl-editable dd.assigned-user-cell { padding-left: 0; }
 .context-dl-editable dd.assigned-user-cell > .inline-select { margin-left: 0; }
+.context-dl-editable dd .select-shell { width: fit-content; margin-left: -6px; }
+.context-dl-editable dd.assigned-user-cell .select-shell { margin-left: 0; }
+.context-dl-editable .select-trigger { padding: 3px 8px; font-size: 12px; border-width: 1px; }
 .inline-input,
 .inline-select {
   width: 100%; max-width: 100%;
@@ -3136,6 +3127,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   display: flex; align-items: center; gap: 6px;
 }
 .assigned-user-cell .inline-select { flex: 1; min-width: 0; }
+
 
 /* Dirty-state save row — only rendered when a field differs from the stored contact. */
 .context-card-save-row {

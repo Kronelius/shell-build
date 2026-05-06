@@ -6,6 +6,7 @@ import RequirePerm from './components/RequirePerm';
 import NotFound from './components/NotFound';
 import TwilioInboundListener from './components/TwilioInboundListener';
 import ReminderScheduler from './components/ReminderScheduler';
+import { usePermission } from './hooks/usePermission';
 
 import Dashboard from './pages/Dashboard';
 import Schedule from './pages/Schedule';
@@ -29,6 +30,12 @@ import SettingsNotifications from './pages/settings/Notifications';
 import SettingsAccount from './pages/settings/Account';
 import SettingsIntegrations from './pages/settings/Integrations';
 
+function HomeRoute() {
+  const hasDashboard = usePermission('dashboard.view');
+  if (!hasDashboard) return <Navigate to="/schedule" replace />;
+  return <Dashboard />;
+}
+
 export default function App() {
   return (
     <StoreProvider>
@@ -38,7 +45,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
-              <Route index element={<RequirePerm perm="dashboard.view"><Dashboard /></RequirePerm>} />
+              <Route index element={<HomeRoute />} />
 
               <Route path="schedule" element={<RequirePerm perm="schedule.view"><Schedule /></RequirePerm>} />
               <Route path="schedule/:jobId" element={<RequirePerm perm="schedule.view"><JobDetail /></RequirePerm>} />

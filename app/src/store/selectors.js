@@ -288,30 +288,11 @@ export function selectSynthesizedActivityForContact(s, contactId) {
   return [...explicit, ...invoices, ...jobs, ...msgs].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
 }
 
-// Visibility + permission resolution for contacts.
-// Applies both the role-based view permission and the per-contact visibility flag.
-export function selectVisibleContactsFor(s, user, permissions) {
+// Contact visibility — access is now role-gated (admin+ only via contacts.view permission).
+// No per-contact visibility field; if you can access contacts, you see all non-archived.
+export function selectVisibleContactsFor(s, user) {
   if (!user) return [];
-  const contacts = s.contacts || [];
-  const viewAll = (permissions || []).find((p) => p.id === 'contacts.view.all')?.roles.includes(user.role);
-  return contacts.filter((c) => {
-    if (c.lifecycle === 'archived') return false;
-    // Visibility gate
-    if (c.visibility === 'private') {
-      if (user.role === 'owner') return true;
-      return c.ownerUserId === user.id;
-    }
-    if (c.visibility === 'team') {
-      if (user.role === 'owner' || user.role === 'admin') return true;
-      return viewAll || c.ownerUserId === user.id;
-    }
-    // 'org' — visible to anyone with contacts.view (checked upstream)
-    if (!viewAll && user.role === 'crew') {
-      // Crew who doesn't have view.all only sees contacts they own or unassigned org contacts
-      return c.ownerUserId === user.id || !c.ownerUserId;
-    }
-    return true;
-  });
+  return (s.contacts || []).filter((c) => c.lifecycle !== 'archived');
 }
 
 // Pipeline — contacts in the active pipeline with a stage set.
@@ -520,16 +501,10 @@ function crewCanSee(conv, s, currentUser) {
 }
 
 // Returns conversations scoped to a given inbox bucket.
-//   'my'       — external (sms/email) linked to a contact the current user owns,
-//                or where the current user authored a message in the thread,
-//                or the thread is explicitly assigned to them.
-//   'team'     — all external (sms/email) conversations, regardless of owner.
-//                Crew users only see threads they're assigned to, follow, own, or authored into.
+//   'inbox'    — all external (sms/email) conversations.
 //   'internal' — internal-only team chats (channel === 'internal').
 //                Crew users only see internal threads they follow or authored into.
 export function selectConversationsForInbox(s, inbox, currentUser) {
-  // Archived threads drop out of every inbox bucket — they're only reachable via
-  // the thread's own permalink or a future "Archived" filter.
   const convos = (s.conversations || []).filter((c) => !c.archived);
   const isCrew = currentUser?.role === 'crew';
 
@@ -539,24 +514,9 @@ export function selectConversationsForInbox(s, inbox, currentUser) {
     return sortConversationsByRecency(list);
   }
 
+  // 'inbox' — all external threads.
   const external = convos.filter((c) => c.channel === 'sms' || c.channel === 'email');
-
-  if (inbox === 'team') {
-    let list = external;
-    if (isCrew) list = list.filter((c) => crewCanSee(c, s, currentUser));
-    return sortConversationsByRecency(list);
-  }
-
-  // 'my' — owner of linked contact OR participant author OR explicit assignee.
-  const userId = currentUser?.id;
-  const mine = external.filter((c) => {
-    if (!userId) return false;
-    if (c.assignedUserId === userId) return true;
-    const contact = c.contactId ? (s.contacts || []).find((x) => x.id === c.contactId) : null;
-    if (contact && contact.ownerUserId === userId) return true;
-    return (s.messages || []).some((m) => m.conversationId === c.id && m.authorUserId === userId);
-  });
-  return sortConversationsByRecency(mine);
+  return sortConversationsByRecency(external);
 }
 
 // Unread count for a whole inbox bucket (used by the rail badges).
