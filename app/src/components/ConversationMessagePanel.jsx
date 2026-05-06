@@ -49,7 +49,6 @@ export default function ConversationMessagePanel({
   conversation,
   contact,
   messages,
-  canInternalComment,
   canAssign,
   currentUser,
   onSend,
@@ -65,18 +64,14 @@ export default function ConversationMessagePanel({
   const navigate = useNavigate();
   const nav = useFromHere();
 
-  // Compose state — channel defaults to the conversation's primary channel,
-  // but the user can toggle Internal (team comments stay inline, not sent out).
-  const defaultComposeChannel = conversation?.channel === 'internal' ? 'internal' : conversation?.channel;
-  const [composeChannel, setComposeChannel] = useState(defaultComposeChannel || 'sms');
+  const composeChannel = conversation?.channel || 'sms';
   const [draft, setDraft] = useState('');
   const [snippetId, setSnippetId] = useState(null);
 
   useEffect(() => {
-    setComposeChannel(defaultComposeChannel || 'sms');
     setDraft('');
     setSnippetId(null);
-  }, [conversation?.id, defaultComposeChannel]);
+  }, [conversation?.id]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -103,13 +98,6 @@ export default function ConversationMessagePanel({
     : (contact?.email || contact?.phone || 'No contact info');
   const initials = isInternalThread ? 'T' : initialsFor(contact);
   const avatarVariant = isInternalThread ? 3 : ((contact?.id?.length || 0) % 5) + 1;
-
-  const composeOptions = isInternalThread
-    ? [{ value: 'internal', label: 'Internal' }]
-    : [
-        { value: conversation.channel, label: conversation.channel === 'sms' ? 'SMS' : 'Email' },
-        { value: 'internal', label: 'Internal', disabled: !canInternalComment },
-      ];
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -195,20 +183,6 @@ export default function ConversationMessagePanel({
 
       <form className="compose-bar" onSubmit={handleSend}>
         <div className="compose-channel-row">
-          <div className="segmented segmented-sm">
-            {composeOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`segmented-btn ${composeChannel === opt.value ? 'active' : ''}`}
-                onClick={() => setComposeChannel(opt.value)}
-                disabled={opt.disabled}
-                title={opt.disabled ? 'You lack permission to post internal comments' : undefined}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
           <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
           {snippetId && <span className="text-xs text-muted">Snippet inserted</span>}
         </div>

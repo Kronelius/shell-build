@@ -178,7 +178,6 @@ export default function Messaging() {
   const { currentUser } = useAuth();
 
   const canStart = usePermission('messaging.startConversation');
-  const canInternal = usePermission('messaging.internalComment');
   const canAssign = usePermission('messaging.assign');
   const canBulk = usePermission('messaging.bulkActions');
 
@@ -472,7 +471,6 @@ export default function Messaging() {
             conversation={activeConversation}
             contact={activeContact}
             messages={activeMessages}
-            canInternalComment={canInternal}
             canAssign={canAssign}
             currentUser={currentUser}
             onSend={handleSend}
