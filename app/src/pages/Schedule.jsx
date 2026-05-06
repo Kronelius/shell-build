@@ -201,11 +201,13 @@ export default function Schedule() {
             <button key={v} className={`tab-btn ${view === v ? 'active' : ''}`} onClick={() => setView(v)} type="button">{v}</button>
           ))}
         </div>
-        <div className="flex-row" style={{ gap: 6, marginLeft: 'auto', alignItems: 'center' }}>
-          <button className="btn-icon" aria-label="Previous" onClick={() => shiftRef(-1)}><Icon name="chevronLeft" size={16} /></button>
-          <button className="btn btn-outline btn-sm" onClick={() => setRefDate(new Date())}>Today</button>
-          <button className="btn-icon" aria-label="Next" onClick={() => shiftRef(1)}><Icon name="chevronRight" size={16} /></button>
+        <div className="schedule-nav">
           <span className="schedule-title">{viewTitle}</span>
+          <div className="schedule-nav-controls">
+            <button className="btn-icon btn-icon-primary" aria-label="Previous" onClick={() => shiftRef(-1)}><Icon name="chevronLeft" size={16} /></button>
+            <button className="btn btn-primary btn-sm" onClick={() => setRefDate(new Date())}>Today</button>
+            <button className="btn-icon btn-icon-primary" aria-label="Next" onClick={() => shiftRef(1)}><Icon name="chevronRight" size={16} /></button>
+          </div>
         </div>
       </div>
 

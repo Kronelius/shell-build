@@ -994,7 +994,41 @@ label:has(> input[type="checkbox"]) {
 .schedule-toolbar {
   display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
 }
-.schedule-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-left: 4px; }
+/* Day/Week/Month tabs default to a 20px bottom margin so they can sit alone
+   above content. Inside the toolbar the schedule-nav sits to their right —
+   the bottom margin would inflate the row's flex height and push the nav
+   below the tab baseline. Zero it out here so both groups align. */
+.schedule-toolbar .tab-container-line { margin-bottom: 0; }
+/* Right-side day/week/month nav. Controls stay anchored to the right; the
+   title sits in a min-width box to their left so its growing/shrinking text
+   doesn't push the buttons around when arrowing through dates. */
+.schedule-nav {
+  display: flex; align-items: center; gap: 12px; margin-left: auto;
+}
+.schedule-nav .schedule-title {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  min-width: 230px;          /* fits "Wednesday, September 30, 2026" */
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin: 0;
+}
+.schedule-nav-controls {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+/* Today button matches the 28px height of the arrow buttons so all three
+   nav controls share the same vertical footprint. */
+.schedule-nav-controls .btn-sm {
+  height: 28px; padding: 0 12px; line-height: 1;
+}
+@media (max-width: 480px) {
+  /* Narrow screens: drop the min-width so the row can wrap cleanly. The
+     toolbar already has flex-wrap: wrap, so controls flow under tabs. */
+  .schedule-nav .schedule-title {
+    min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis;
+  }
+  .schedule-nav { gap: 8px; }
+}
 
 /* Tab container (line variant) */
 .tab-container { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
@@ -1517,6 +1551,15 @@ select.input.input-ghost:focus {
   cursor: pointer; color: var(--text-body);
 }
 .btn-icon:hover { border-color: var(--primary); color: var(--primary); }
+.btn-icon-primary {
+  background: var(--btn-primary-grad, var(--primary));
+  color: #fff; border-color: transparent;
+}
+.btn-icon-primary:hover {
+  background: var(--btn-primary-grad-hover, var(--primary-hover));
+  border-color: transparent; color: #fff;
+  box-shadow: var(--btn-primary-glow-hover);
+}
 .btn-danger { background: var(--danger); color: #fff; border: none; }
 .btn-danger:hover { filter: brightness(0.92); }
 
