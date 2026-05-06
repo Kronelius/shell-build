@@ -302,38 +302,40 @@ const snippets = [
 
 // ---------- Conversations ----------
 // Two seeded internal channels (per Q14, Q6): Time Off Requests + Accounting Handoffs.
+// allActiveStaffIds is the default member set for seeded internal threads — visible to
+// every active staff user in the seed data, so the inbox isn't empty for newcomers.
+const allActiveStaffIds = users.filter((u) => u.status === 'active').map((u) => u.id);
 const conversations = [
   // External
-  { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),  createdByUserId: users[3].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18), createdByUserId: users[3].id, hiddenForUserIds: [], status: 'snoozed', snoozedUntil: inHours(20), starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),   createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: true,  followedUserIds: [] },
-  { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),   createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [users[5].id] },
-  { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   createdByUserId: users[3].id, hiddenForUserIds: [], status: 'closed',  snoozedUntil: null,        starred: false, followedUserIds: [] }, // Jamie (lead)
-  { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] }, // Robin (lead)
-  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(20), createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open',    snoozedUntil: null,        starred: true,  followedUserIds: [] }, // Morgan Hayes (lead)
+  { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),  createdByUserId: users[3].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18), createdByUserId: users[3].id, status: 'snoozed', snoozedUntil: inHours(20), starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  mutedByUserIds: [] },
+  { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   createdByUserId: users[3].id, status: 'closed',  snoozedUntil: null,        starred: false, mutedByUserIds: [] }, // Jamie (lead)
+  { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] }, // Robin (lead)
+  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(20), createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  mutedByUserIds: [] }, // Morgan Hayes (lead)
 
   // Internal — pinned (starred) channels per Q14 & Q6
   // createdByUserId is the thread creator — only they (or a Super Admin) can hard-delete.
-  { id: seedId('cv', 'time-off'),     clientId: null, contactId: null, channel: 'internal', title: 'Time Off Requests',  createdAt: daysAgo(60), lastMessageAt: hoursAgo(8),  createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open', snoozedUntil: null, starred: true, followedUserIds: [users[2].id, users[3].id] },
-  { id: seedId('cv', 'accounting'),   clientId: null, contactId: null, channel: 'internal', title: 'Accounting Handoffs', createdAt: daysAgo(60), lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open', snoozedUntil: null, starred: true, followedUserIds: [users[2].id] },
+  // participantUserIds gates visibility — only listed members see the thread in their Threads inbox.
+  { id: seedId('cv', 'time-off'),     clientId: null, contactId: null, channel: 'internal', title: 'Time Off Requests',  createdAt: daysAgo(60), lastMessageAt: hoursAgo(8),  createdByUserId: users[2].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: true, mutedByUserIds: [] },
+  { id: seedId('cv', 'accounting'),   clientId: null, contactId: null, channel: 'internal', title: 'Accounting Handoffs', createdAt: daysAgo(60), lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: true, mutedByUserIds: [] },
   // Internal — incident channels (transactional)
-  { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), createdByUserId: users[3].id, hiddenForUserIds: [], status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[4].id] },
-  { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   createdByUserId: users[3].id, hiddenForUserIds: [], status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[7].id] },
+  { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: false, mutedByUserIds: [] },
 
   // DM — 1:1 between Heather (admin) and Lauren (admin). Privacy is gated to participants;
   // owners/other admins/crew not in participantUserIds will not see this thread.
-  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), createdByUserId: users[2].id, hiddenForUserIds: [], status: 'open', snoozedUntil: null, starred: false, followedUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
+  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), createdByUserId: users[2].id, status: 'open', snoozedUntil: null, starred: false, mutedByUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
 ];
 
 const messages = [
-  // c1 Evergreen Medical (SMS) — external w/ internal interleaved
+  // c1 Evergreen Medical (SMS)
   { id: seedId('m', 'c1-m1'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Hey, confirming the 8am cleaning tomorrow.',                                     sentAt: daysAgo(1),   readAt: daysAgo(1) },
   { id: seedId('m', 'c1-m2'), conversationId: conversations[0].id, direction: 'out',      authorUserId: users[3].id, snippetId: null, text: 'Confirmed! Heather has Marcus arriving by 7:55 AM.',                              sentAt: daysAgo(1),   readAt: daysAgo(1) },
   { id: seedId('m', 'c1-m3'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Perfect, thanks.',                                                               sentAt: daysAgo(1),   readAt: null },
-  { id: seedId('m', 'c1-m4'), conversationId: conversations[0].id, direction: 'internal', authorUserId: users[4].id, snippetId: null, text: 'Heads up — Pat prefers after-hours access. Avoid pre-7am arrivals.',             sentAt: hoursAgo(4),  readAt: hoursAgo(4) },
-  { id: seedId('m', 'c1-m5'), conversationId: conversations[0].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Good flag — updated the crew sheet.',                                            sentAt: hoursAgo(3),  readAt: hoursAgo(3) },
 
   // c2 Lakeside (Email)
   { id: seedId('m', 'c2-m1'), conversationId: conversations[1].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Can we reschedule Thursday to Friday?',                                          sentAt: daysAgo(2),   readAt: daysAgo(2) },
@@ -363,7 +365,6 @@ const messages = [
   { id: seedId('m', 'c7-m1'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: seedId('sn', 'welcome'), text: 'Hi Jamie — thanks for reaching out to Rainier Facility Solutions! Someone from our team will follow up shortly.', sentAt: daysAgo(2), readAt: daysAgo(2) },
   { id: seedId('m', 'c7-m2'), conversationId: conversations[6].id, direction: 'in',       authorUserId: null,        snippetId: null,                    text: 'Thursday afternoon works for a walkthrough.',                                                                       sentAt: daysAgo(2), readAt: daysAgo(2) },
   { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Kyle will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readAt: daysAgo(2) },
-  { id: seedId('m', 'c7-m4'), conversationId: conversations[6].id, direction: 'internal', authorUserId: users[2].id, snippetId: null,                    text: 'Good lead — use the 4-operatory rate card when you draft the quote.',                                              sentAt: daysAgo(2), readAt: daysAgo(2) },
 
   // c8 Robin Vega (lead, Email)
   { id: seedId('m', 'c8-m1'), conversationId: conversations[7].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Need common-area cleaning for an 84-unit complex. Can you send a proposal?',                                                  sentAt: daysAgo(5), readAt: daysAgo(5) },
@@ -440,7 +441,7 @@ const userPermissionOverrides = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 23,
+  version: 26,
   company,
   currentUserId,
   users,

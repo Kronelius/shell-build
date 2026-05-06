@@ -1,3 +1,21 @@
+// v26: Drop the half-baked "internal note on an external thread" feature.
+// External threads (sms/email) now only carry direction='in'/'out'. Any
+// existing direction='internal' messages on sms/email threads are removed
+// during migration. Internal team threads and DMs are unaffected (their
+// messages stay direction='internal' as before).
+//
+// v25: Internal threads gain explicit `participantUserIds` membership (the
+// new "New thread" flow forces the creator to pick members or "select all").
+// `hiddenForUserIds` is dropped from every conversation — the soft-hide lever
+// is gone, users mute or delete instead. Migration backfills existing internal
+// threads with all currently-active user ids so prior threads stay visible to
+// the team. DM threads keep their two-person participantUserIds untouched.
+//
+// v24: Replace conversation `followedUserIds` (opt-in subscribe, never wired)
+// with `mutedByUserIds` (opt-out silence). Default = empty = notifications on.
+// The bell icon in the message panel header now toggles mute and shows a
+// bell-off state when the current user has silenced the thread.
+//
 // v23: Drop "owner" of contact and "assignee" of conversation entirely. Crew
 // visibility cascades through jobs.crewIds → client → contacts (admin/owner see
 // all). Adds `createdByUserId` + `hiddenForUserIds[]` to conversations: hard
@@ -14,7 +32,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v23';
+const STORAGE_KEY = 'pp.store.v26';
 
 function migrateV14toV15(state) {
   const defaultPipelineId = 'pl_seed_default';
@@ -227,51 +245,119 @@ function migrateV22toV23(state) {
   };
 }
 
+// v24: Field rename + semantic flip — followedUserIds (opt-in, dead) becomes
+// mutedByUserIds (opt-out). Existing follow lists are dropped on migration:
+// the old field never gated anything, so users would be surprised to find
+// they had pre-existing "subscriptions" they don't remember opting into,
+// and the inverted meaning (now "silence me") would be doubly wrong.
+function migrateV23toV24(state) {
+  const conversations = (state.conversations || []).map((c) => {
+    const { followedUserIds, ...rest } = c;
+    return { ...rest, mutedByUserIds: [] };
+  });
+  return { ...state, version: 24, conversations };
+}
+
+// v26: Strip direction='internal' messages from external (sms/email) threads.
+// The cross-channel internal-note feature is gone — messaging is per-channel
+// only now. Internal team threads and DMs keep all their internal-direction
+// messages because for those channels every message IS internal.
+function migrateV25toV26(state) {
+  const externalConvIds = new Set(
+    (state.conversations || [])
+      .filter((c) => c.channel === 'sms' || c.channel === 'email')
+      .map((c) => c.id)
+  );
+  const messages = (state.messages || []).filter((m) => {
+    if (m.direction !== 'internal') return true;
+    return !externalConvIds.has(m.conversationId);
+  });
+  return { ...state, version: 26, messages };
+}
+
+// v25: Drop hiddenForUserIds; require participantUserIds on internal threads.
+// Backfill existing internal threads with the current set of active users so
+// prior team threads stay visible to everyone (matching the pre-membership
+// "public to all staff" behavior). DM threads already carry participantUserIds
+// — leave them alone. External threads (sms/email) don't gate on membership.
+function migrateV24toV25(state) {
+  const allActiveIds = (state.users || [])
+    .filter((u) => u.status === 'active')
+    .map((u) => u.id);
+  const conversations = (state.conversations || []).map((c) => {
+    const { hiddenForUserIds, ...rest } = c;
+    if (rest.channel !== 'internal') return rest;
+    // Use the existing participantUserIds if a future build already populated them;
+    // otherwise backfill with all active users.
+    const existing = Array.isArray(rest.participantUserIds) ? rest.participantUserIds : [];
+    return { ...rest, participantUserIds: existing.length ? existing : allActiveIds };
+  });
+  return { ...state, version: 25, conversations };
+}
+
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 23) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 26) return parsed;
     }
-    // Attempt v22 → v23 migration
+    // Attempt v25 → v26 migration
+    const v25Raw = window.localStorage.getItem('pp.store.v25');
+    if (v25Raw) {
+      const v25 = JSON.parse(v25Raw);
+      if (v25 && typeof v25 === 'object' && v25.version === 25) return migrateV25toV26(v25);
+    }
+    // Attempt v24 → v25 → v26 migration chain
+    const v24Raw = window.localStorage.getItem('pp.store.v24');
+    if (v24Raw) {
+      const v24 = JSON.parse(v24Raw);
+      if (v24 && typeof v24 === 'object' && v24.version === 24) return migrateV25toV26(migrateV24toV25(v24));
+    }
+    // Attempt v23 → v24 → v25 → v26 migration chain
+    const v23Raw = window.localStorage.getItem('pp.store.v23');
+    if (v23Raw) {
+      const v23 = JSON.parse(v23Raw);
+      if (v23 && typeof v23 === 'object' && v23.version === 23) return migrateV25toV26(migrateV24toV25(migrateV23toV24(v23)));
+    }
+    // Attempt v22 → v23 → v24 → v25 → v26 migration chain
     const v22Raw = window.localStorage.getItem('pp.store.v22');
     if (v22Raw) {
       const v22 = JSON.parse(v22Raw);
-      if (v22 && typeof v22 === 'object' && v22.version === 22) return migrateV22toV23(v22);
+      if (v22 && typeof v22 === 'object' && v22.version === 22) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(v22))));
     }
-    // Attempt v21 → v22 → v23 migration chain
+    // Attempt v21 → v22 → v23 → v24 → v25 → v26 migration chain
     const v21Raw = window.localStorage.getItem('pp.store.v21');
     if (v21Raw) {
       const v21 = JSON.parse(v21Raw);
-      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV22toV23(migrateV21toV22(v21));
+      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(v21)))));
     }
-    // Attempt v20 → v21 → v22 → v23 migration chain
+    // Attempt v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
     const v20Raw = window.localStorage.getItem('pp.store.v20');
     if (v20Raw) {
       const v20 = JSON.parse(v20Raw);
-      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV22toV23(migrateV21toV22(migrateV20toV21(v20)));
+      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(v20))))));
     }
-    // Attempt v19 → v20 → v21 → v22 → v23 migration chain
+    // Attempt v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
     const v19Raw = window.localStorage.getItem('pp.store.v19');
     if (v19Raw) {
       const v19 = JSON.parse(v19Raw);
-      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19))));
+      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19)))))));
     }
-    // Attempt v18 → v19 → v20 → v21 → v22 → v23 migration chain
+    // Attempt v18 → v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
     const v18Raw = window.localStorage.getItem('pp.store.v18');
     if (v18Raw) {
       const v18 = JSON.parse(v18Raw);
       if (v18 && typeof v18 === 'object' && v18.version === 18) {
-        return migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)))));
+        return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18))))))));
       }
     }
-    // Attempt v17 → v18 → v19 → v20 → v21 → v22 → v23 migration chain
+    // Attempt v17 → v18 → v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
     const v17Raw = window.localStorage.getItem('pp.store.v17');
     if (v17Raw) {
       const v17 = JSON.parse(v17Raw);
       if (v17 && typeof v17 === 'object' && v17.version === 17) {
-        return migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))))));
+        return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17)))))))));
       }
     }
     return null;

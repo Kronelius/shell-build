@@ -531,33 +531,38 @@ export function selectEffectiveStatus(conv, now = Date.now()) {
 }
 
 // Returns conversations scoped to a given inbox bucket.
-//   'inbox'    — all external (sms/email) conversations.
-//   'internal' — internal-only team chats (channel === 'internal'). Public to all
-//                staff regardless of role; creation is gated by the
-//                messaging.startInternalThread permission, not visibility.
+//   'inbox'    — all external (sms/email) conversations. No per-user gating.
+//   'internal' — internal-only team chats (channel === 'internal'). Visibility is
+//                gated to listed participants — creators must explicitly include
+//                members at thread-creation time (via the New-thread modal). The
+//                "soft hide from view" lever was removed; users can mute the
+//                thread (silence notifications) or hard-delete it (creator/Super
+//                Admin only). Crew who aren't members never see the thread.
 //   'dm'       — 1:1 direct messages (channel === 'dm'). Visibility is gated to
 //                participants for ALL roles (owner/admin/crew) — admins do NOT
 //                see DMs they aren't party to.
-// Threads the current user has hidden for themselves are filtered out (soft-delete-from-view).
 export function selectConversationsForInbox(s, inbox, currentUser) {
   const convos = s.conversations || [];
   const uid = currentUser?.id;
-  const notHidden = (c) => !uid || !((c.hiddenForUserIds || []).includes(uid));
 
   if (inbox === 'internal') {
-    return sortConversationsByRecency(convos.filter((c) => c.channel === 'internal' && notHidden(c)));
+    if (!uid) return [];
+    const list = convos.filter(
+      (c) => c.channel === 'internal' && (c.participantUserIds || []).includes(uid)
+    );
+    return sortConversationsByRecency(list);
   }
 
   if (inbox === 'dm') {
     if (!uid) return [];
     const list = convos.filter(
-      (c) => c.channel === 'dm' && (c.participantUserIds || []).includes(uid) && notHidden(c)
+      (c) => c.channel === 'dm' && (c.participantUserIds || []).includes(uid)
     );
     return sortConversationsByRecency(list);
   }
 
   // 'inbox' — all external threads.
-  const external = convos.filter((c) => (c.channel === 'sms' || c.channel === 'email') && notHidden(c));
+  const external = convos.filter((c) => c.channel === 'sms' || c.channel === 'email');
   return sortConversationsByRecency(external);
 }
 

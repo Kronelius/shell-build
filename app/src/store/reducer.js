@@ -90,8 +90,6 @@ export const ACTIONS = {
   ADD_MESSAGE: 'ADD_MESSAGE',
   MARK_CONVERSATION_READ: 'MARK_CONVERSATION_READ',
   MARK_CONVERSATION_UNREAD: 'MARK_CONVERSATION_UNREAD',
-  HIDE_CONVERSATION_FOR_USER: 'HIDE_CONVERSATION_FOR_USER',
-  BULK_HIDE_CONVERSATIONS_FOR_USER: 'BULK_HIDE_CONVERSATIONS_FOR_USER',
   DELETE_CONVERSATION: 'DELETE_CONVERSATION',
 
   // Snippets (Messaging Phase 2a)
@@ -101,12 +99,12 @@ export const ACTIONS = {
   ADD_SNIPPET_FOLDER: 'ADD_SNIPPET_FOLDER',
   DELETE_SNIPPET_FOLDER: 'DELETE_SNIPPET_FOLDER',
 
-  // Messaging Phase 2b — status / starring / following / folders / bulk
+  // Messaging Phase 2b — status / starring / muting / folders / bulk
   SET_CONVERSATION_STATUS: 'SET_CONVERSATION_STATUS',
   SNOOZE_CONVERSATION: 'SNOOZE_CONVERSATION',
   UNSNOOZE_CONVERSATION: 'UNSNOOZE_CONVERSATION',
   TOGGLE_CONVERSATION_STAR: 'TOGGLE_CONVERSATION_STAR',
-  TOGGLE_CONVERSATION_FOLLOW: 'TOGGLE_CONVERSATION_FOLLOW',
+  TOGGLE_CONVERSATION_MUTE: 'TOGGLE_CONVERSATION_MUTE',
   BULK_MARK_CONVERSATIONS_READ: 'BULK_MARK_CONVERSATIONS_READ',
   BULK_MARK_CONVERSATIONS_UNREAD: 'BULK_MARK_CONVERSATIONS_UNREAD',
   BULK_DELETE_CONVERSATIONS: 'BULK_DELETE_CONVERSATIONS',
@@ -221,8 +219,8 @@ export function reducer(state, action) {
         conversations: state.conversations.map((cv) => {
           const next = { ...cv };
           if (next.createdByUserId === id) next.createdByUserId = null;
-          if ((next.followedUserIds || []).includes(id)) next.followedUserIds = next.followedUserIds.filter((u) => u !== id);
-          if ((next.hiddenForUserIds || []).includes(id)) next.hiddenForUserIds = next.hiddenForUserIds.filter((u) => u !== id);
+          if ((next.mutedByUserIds || []).includes(id)) next.mutedByUserIds = next.mutedByUserIds.filter((u) => u !== id);
+          if ((next.participantUserIds || []).includes(id)) next.participantUserIds = next.participantUserIds.filter((u) => u !== id);
           return next;
         }),
         messages: state.messages.map((m) => (m.authorUserId === id ? { ...m, authorUserId: null } : m)),
@@ -642,11 +640,10 @@ export function reducer(state, action) {
         createdAt: now, lastMessageAt: now,
         contactId: null, clientId: null, title: null,
         createdByUserId: action.conversation?.createdByUserId ?? state.currentUserId ?? null,
-        hiddenForUserIds: [],
         status: 'open',
         snoozedUntil: null,
         starred: false,
-        followedUserIds: [],
+        mutedByUserIds: [],
       };
       return { ...state, conversations: [...state.conversations, { ...base, ...action.conversation }] };
     }
@@ -673,20 +670,27 @@ export function reducer(state, action) {
         createdAt: now,
         lastMessageAt: now,
         createdByUserId: state.currentUserId || null,
-        hiddenForUserIds: [],
         status: 'open',
         snoozedUntil: null,
         starred: false,
-        followedUserIds: [],
+        mutedByUserIds: [],
       };
       return { ...state, conversations: [...state.conversations, conversation] };
     }
     case ACTIONS.ADD_INTERNAL_CONVERSATION: {
-      // Public team thread — visible to all staff. Permission gate (messaging.startInternalThread)
-      // is enforced at the call site, not here. Caller may pass an optional firstMessage to seed
-      // the thread non-empty, and an optional id for deterministic navigation.
+      // Internal team thread — explicit member list (no implicit "everyone" anymore).
+      // Permission gate (messaging.startInternalThread) is enforced at the call site,
+      // not here. participantUserIds MUST be a non-empty list and MUST include the
+      // creator — both invariants are kept here so a malformed dispatch can't slip
+      // through and create an unreachable thread.
       const title = (action.title || '').trim();
       if (!title) return state;
+      const creatorId = action.authorUserId || state.currentUserId || null;
+      const incoming = Array.isArray(action.participantUserIds) ? action.participantUserIds : [];
+      const participantSet = new Set(incoming);
+      if (creatorId) participantSet.add(creatorId);
+      const participantUserIds = Array.from(participantSet);
+      if (participantUserIds.length === 0) return state;
       const id = action.id || newId('cv');
       const now = nowIso();
       const conversation = {
@@ -695,14 +699,14 @@ export function reducer(state, action) {
         contactId: null,
         clientId: null,
         title,
+        participantUserIds,
         createdAt: now,
         lastMessageAt: now,
-        createdByUserId: action.authorUserId || state.currentUserId || null,
-        hiddenForUserIds: [],
+        createdByUserId: creatorId,
         status: 'open',
         snoozedUntil: null,
         starred: false,
-        followedUserIds: [],
+        mutedByUserIds: [],
       };
       const firstBody = (action.firstMessage || '').trim();
       const messages = firstBody
@@ -776,33 +780,6 @@ export function reducer(state, action) {
         messages: state.messages.map((m) => (m.id === target.id ? { ...m, readAt: null } : m)),
       };
     }
-    case ACTIONS.HIDE_CONVERSATION_FOR_USER: {
-      const userId = action.userId || state.currentUserId;
-      if (!userId) return state;
-      return {
-        ...state,
-        conversations: (state.conversations || []).map((c) => {
-          if (c.id !== action.id) return c;
-          const hidden = c.hiddenForUserIds || [];
-          if (hidden.includes(userId)) return c;
-          return { ...c, hiddenForUserIds: [...hidden, userId] };
-        }),
-      };
-    }
-    case ACTIONS.BULK_HIDE_CONVERSATIONS_FOR_USER: {
-      const set = new Set(action.ids || []);
-      const userId = action.userId || state.currentUserId;
-      if (set.size === 0 || !userId) return state;
-      return {
-        ...state,
-        conversations: (state.conversations || []).map((c) => {
-          if (!set.has(c.id)) return c;
-          const hidden = c.hiddenForUserIds || [];
-          if (hidden.includes(userId)) return c;
-          return { ...c, hiddenForUserIds: [...hidden, userId] };
-        }),
-      };
-    }
     case ACTIONS.DELETE_CONVERSATION: {
       // Hard delete — call site MUST gate this to creator OR super-admin.
       const id = action.id;
@@ -851,14 +828,14 @@ export function reducer(state, action) {
       if (!existing) return state;
       return { ...state, conversations: replaceById(state.conversations, action.id, { starred: !existing.starred }) };
     }
-    case ACTIONS.TOGGLE_CONVERSATION_FOLLOW: {
+    case ACTIONS.TOGGLE_CONVERSATION_MUTE: {
       const existing = state.conversations.find((c) => c.id === action.id);
       if (!existing) return state;
-      const current = existing.followedUserIds || [];
+      const current = existing.mutedByUserIds || [];
       const next = current.includes(action.userId)
         ? current.filter((uid) => uid !== action.userId)
         : [...current, action.userId];
-      return { ...state, conversations: replaceById(state.conversations, action.id, { followedUserIds: next }) };
+      return { ...state, conversations: replaceById(state.conversations, action.id, { mutedByUserIds: next }) };
     }
 
     case ACTIONS.BULK_MARK_CONVERSATIONS_READ: {
@@ -1256,11 +1233,10 @@ export function reducer(state, action) {
           title: matchContact ? null : fromPhone, // unlinked threads carry the raw number as title
           // Inbound thread — no human creator. Hard-delete is Super Admin only.
           createdByUserId: null,
-          hiddenForUserIds: [],
           status: 'open',
           snoozedUntil: null,
           starred: false,
-          followedUserIds: [],
+          mutedByUserIds: [],
         };
         conversations = [...state.conversations, newConv];
       }
