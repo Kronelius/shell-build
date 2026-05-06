@@ -11,7 +11,7 @@ export default function ConfirmDialog({
   onClose,
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={title}>
+    <Modal open={open} onClose={onClose} title={title} size="sm">
       {message && <p className="confirm-message">{message}</p>}
       <div className="modal-actions">
         <button type="button" className="btn btn-outline" onClick={onClose}>{cancelLabel}</button>

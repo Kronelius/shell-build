@@ -167,10 +167,22 @@ body::before {
 }
 .btn-primary:active { transform: translateY(0); }
 .btn-success {
-  background: var(--success); color: #fff; border: none;
+  background: var(--badge-green-grad, var(--success));
+  color: #fff; border: none;
+  box-shadow:
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.25),
+    0 0 22px rgba(var(--color-semantic-success-rgb), 0.35),
+    0 4px 14px rgba(var(--color-semantic-success-rgb), 0.28);
   position: relative;
 }
-.btn-success:hover { filter: brightness(0.94); transform: translateY(-1px); }
+.btn-success:hover {
+  background: linear-gradient(135deg, var(--color-semantic-success-500), var(--color-semantic-success-700));
+  box-shadow:
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.3),
+    0 0 28px rgba(var(--color-semantic-success-rgb), 0.45),
+    0 6px 18px rgba(var(--color-semantic-success-rgb), 0.35);
+  transform: translateY(-1px);
+}
 .btn-success:active { transform: translateY(0); }
 .btn-secondary {
   background: var(--card-bg);
@@ -521,20 +533,36 @@ select.input {
   z-index: 100; display: flex; align-items: center; justify-content: center;
   animation: fadeIn 0.15s ease;
 }
-.modal-card-lg { max-width: 800px !important; }
+.modal-card-lg { width: 800px !important; max-width: 92vw !important; min-height: 600px; }
+/* Compact dialogs (e.g. ConfirmDialog) — narrower frame, no min-height floor
+   so simple "are you sure?" dialogs don't show as a giant empty box. */
+.modal-card-sm { width: 380px !important; max-width: 92vw !important; min-height: 0 !important; }
 .modal-card {
   background:
     linear-gradient(180deg, var(--primary-bg) 0%, var(--card-bg) 30%) padding-box;
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
-  padding: 24px; width: 90%; max-width: 480px;
+  padding: 24px;
+  /* Locked dimensions: width and min-height stay constant on display so the
+     popup doesn't visibly shrink/expand as conditional inner content (help
+     text, validation warnings, expandable sections) appears and disappears.
+     Internal content scrolls inside the frame when it exceeds max-height. */
+  width: 480px; max-width: 92vw;
+  min-height: 540px;
+  max-height: 90vh; overflow-y: auto;
+  display: flex; flex-direction: column;
   box-shadow:
     inset 0 1px 0 rgba(var(--color-white-rgb), 0.9),
     inset 0 0 0 1px rgba(var(--color-brand-primary-rgb), 0.18),
     0 12px 32px rgba(var(--color-brand-primary-rgb), 0.18),
     0 24px 48px rgba(var(--color-neutral-rgb), 0.15);
   animation: slideUp 0.2s ease;
-  max-height: 90vh; overflow-y: auto;
+}
+/* Short viewports (e.g. iPhone SE 1st gen at 568px tall): drop the min-height
+   floor so max-height: 90vh wins and the modal fits without clipping. */
+@media (max-height: 640px) {
+  .modal-card { min-height: 0; }
+  .modal-card-lg { min-height: 0; }
 }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -556,6 +584,11 @@ select.input {
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+/* When the modal-card is taller than its inner form (because of min-height),
+   push the action row to the bottom so the empty space appears above it
+   rather than below — keeps the visual rhythm "form → space → actions". */
+.modal-card > form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.modal-card > form > .modal-actions { margin-top: auto; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

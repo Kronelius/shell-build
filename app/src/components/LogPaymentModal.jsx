@@ -190,7 +190,7 @@ export default function LogPaymentModal({ open, onClose, presetClientId = null }
 
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={submitDisabled}>Log Payment</button>
+          <button type="submit" className="btn btn-success" disabled={submitDisabled}>Log Payment</button>
         </div>
       </form>
     </Modal>

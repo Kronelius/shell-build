@@ -283,7 +283,7 @@ export default function PipelineBoard() {
         stageLabel={addContactsStage?.label || ''}
       />
 
-      <Modal open={createPipelineOpen} onClose={() => setCreatePipelineOpen(false)} title="Create Pipeline">
+      <Modal open={createPipelineOpen} onClose={() => setCreatePipelineOpen(false)} title="Create Pipeline" size="sm">
         <form onSubmit={handleCreatePipeline}>
           <FormField
             label="Pipeline name"
