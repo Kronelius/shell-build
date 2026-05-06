@@ -4,7 +4,7 @@ import FormField from './FormField';
 import TagPicker from './TagPicker';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectClients, selectContactByEmail, selectUsers } from '../store/selectors';
+import { selectClients, selectContactByEmail } from '../store/selectors';
 import { useToast } from './Toast';
 
 const LIFECYCLES = [
@@ -16,7 +16,7 @@ const LIFECYCLES = [
 
 const EMPTY = {
   email: '', firstName: '', lastName: '', title: '', phone: '',
-  companyId: '', ownerUserId: '', tagIds: [],
+  companyId: '', tagIds: [],
   lifecycle: 'lead',
   notes: '',
 };
@@ -26,7 +26,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
   const dispatch = useDispatch();
   const toast = useToast();
   const clients = selectClients(state);
-  const users = selectUsers(state);
 
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
@@ -42,7 +41,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
         title: initialData.title || '',
         phone: initialData.phone || '',
         companyId: initialData.companyId || '',
-        ownerUserId: initialData.ownerUserId || '',
         tagIds: initialData.tagIds || [],
         lifecycle: initialData.lifecycle || 'lead',
         notes: initialData.notes || '',
@@ -71,7 +69,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
       title: form.title.trim(),
       phone: form.phone.trim(),
       companyId: form.companyId || null,
-      ownerUserId: form.ownerUserId || null,
       tagIds: form.tagIds,
       lifecycle: form.lifecycle,
       notes: form.notes,
@@ -115,15 +112,6 @@ export default function AddContactModal({ open, onClose, mode = 'create', initia
             value={form.lifecycle}
             onChange={(e) => setForm({ ...form, lifecycle: e.target.value })}
             options={LIFECYCLES}
-          />
-        </div>
-        <div className="form-row">
-          <FormField
-            label="Owner"
-            as="select"
-            value={form.ownerUserId}
-            onChange={(e) => setForm({ ...form, ownerUserId: e.target.value })}
-            options={[{ value: '', label: '— Unassigned —' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
           />
         </div>
         <div className="form-group">

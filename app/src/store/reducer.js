@@ -43,7 +43,6 @@ export const ACTIONS = {
   DELETE_CONTACT: 'DELETE_CONTACT',
   TAG_CONTACT: 'TAG_CONTACT',
   UNTAG_CONTACT: 'UNTAG_CONTACT',
-  ASSIGN_CONTACT_OWNER: 'ASSIGN_CONTACT_OWNER',
   SET_CONTACT_STAGE: 'SET_CONTACT_STAGE',
   APPEND_CONTACT_NOTE: 'APPEND_CONTACT_NOTE',
 
@@ -91,6 +90,8 @@ export const ACTIONS = {
   ADD_MESSAGE: 'ADD_MESSAGE',
   MARK_CONVERSATION_READ: 'MARK_CONVERSATION_READ',
   MARK_CONVERSATION_UNREAD: 'MARK_CONVERSATION_UNREAD',
+  HIDE_CONVERSATION_FOR_USER: 'HIDE_CONVERSATION_FOR_USER',
+  BULK_HIDE_CONVERSATIONS_FOR_USER: 'BULK_HIDE_CONVERSATIONS_FOR_USER',
   DELETE_CONVERSATION: 'DELETE_CONVERSATION',
 
   // Snippets (Messaging Phase 2a)
@@ -100,8 +101,7 @@ export const ACTIONS = {
   ADD_SNIPPET_FOLDER: 'ADD_SNIPPET_FOLDER',
   DELETE_SNIPPET_FOLDER: 'DELETE_SNIPPET_FOLDER',
 
-  // Messaging Phase 2b — assignment / status / starring / following / folders / bulk
-  ASSIGN_CONVERSATION: 'ASSIGN_CONVERSATION',
+  // Messaging Phase 2b — status / starring / following / folders / bulk
   SET_CONVERSATION_STATUS: 'SET_CONVERSATION_STATUS',
   SNOOZE_CONVERSATION: 'SNOOZE_CONVERSATION',
   UNSNOOZE_CONVERSATION: 'UNSNOOZE_CONVERSATION',
@@ -110,7 +110,6 @@ export const ACTIONS = {
   BULK_MARK_CONVERSATIONS_READ: 'BULK_MARK_CONVERSATIONS_READ',
   BULK_MARK_CONVERSATIONS_UNREAD: 'BULK_MARK_CONVERSATIONS_UNREAD',
   BULK_DELETE_CONVERSATIONS: 'BULK_DELETE_CONVERSATIONS',
-  BULK_ASSIGN_CONVERSATIONS: 'BULK_ASSIGN_CONVERSATIONS',
 
   // Reminders
   UPDATE_REMINDER_TEMPLATE: 'UPDATE_REMINDER_TEMPLATE',
@@ -216,14 +215,14 @@ export function reducer(state, action) {
         ...state,
         users: removeById(state.users, id),
         userPermissionOverrides: (state.userPermissionOverrides || []).filter((o) => o.userId !== id),
-        contacts: (state.contacts || []).map((c) => (c.ownerUserId === id ? { ...c, ownerUserId: null } : c)),
         jobs: state.jobs.map((j) => (
           (j.crewIds || []).includes(id) ? { ...j, crewIds: j.crewIds.filter((u) => u !== id) } : j
         )),
         conversations: state.conversations.map((cv) => {
           const next = { ...cv };
-          if (next.assignedUserId === id) next.assignedUserId = null;
+          if (next.createdByUserId === id) next.createdByUserId = null;
           if ((next.followedUserIds || []).includes(id)) next.followedUserIds = next.followedUserIds.filter((u) => u !== id);
+          if ((next.hiddenForUserIds || []).includes(id)) next.hiddenForUserIds = next.hiddenForUserIds.filter((u) => u !== id);
           return next;
         }),
         messages: state.messages.map((m) => (m.authorUserId === id ? { ...m, authorUserId: null } : m)),
@@ -317,7 +316,7 @@ export function reducer(state, action) {
         id: newId('ct'),
         email,
         firstName: '', lastName: '', title: '', phone: '',
-        companyId: null, ownerUserId: null,
+        companyId: null,
         tagIds: [],
         lifecycle: 'lead',
         stage: null, dealValue: null, expectedCloseDate: null, stageChangedAt: nowIso(),
@@ -370,8 +369,6 @@ export function reducer(state, action) {
           return { ...c, tagIds: (c.tagIds || []).filter((t) => t !== action.tagId), updatedAt: nowIso() };
         }),
       };
-    case ACTIONS.ASSIGN_CONTACT_OWNER:
-      return { ...state, contacts: replaceById(state.contacts || [], action.id, { ownerUserId: action.userId, updatedAt: nowIso() }) };
     case ACTIONS.SET_CONTACT_STAGE: {
       const now = nowIso();
       const all = state.contacts || [];
@@ -644,8 +641,8 @@ export function reducer(state, action) {
         id: newId('cv'), channel: 'sms',
         createdAt: now, lastMessageAt: now,
         contactId: null, clientId: null, title: null,
-        // Phase 2b fields — sensible defaults so old/new convos stay comparable.
-        assignedUserId: null,
+        createdByUserId: action.conversation?.createdByUserId ?? state.currentUserId ?? null,
+        hiddenForUserIds: [],
         status: 'open',
         snoozedUntil: null,
         starred: false,
@@ -675,7 +672,8 @@ export function reducer(state, action) {
         title: null,
         createdAt: now,
         lastMessageAt: now,
-        assignedUserId: null,
+        createdByUserId: state.currentUserId || null,
+        hiddenForUserIds: [],
         status: 'open',
         snoozedUntil: null,
         starred: false,
@@ -699,7 +697,8 @@ export function reducer(state, action) {
         title,
         createdAt: now,
         lastMessageAt: now,
-        assignedUserId: null,
+        createdByUserId: action.authorUserId || state.currentUserId || null,
+        hiddenForUserIds: [],
         status: 'open',
         snoozedUntil: null,
         starred: false,
@@ -777,7 +776,35 @@ export function reducer(state, action) {
         messages: state.messages.map((m) => (m.id === target.id ? { ...m, readAt: null } : m)),
       };
     }
+    case ACTIONS.HIDE_CONVERSATION_FOR_USER: {
+      const userId = action.userId || state.currentUserId;
+      if (!userId) return state;
+      return {
+        ...state,
+        conversations: (state.conversations || []).map((c) => {
+          if (c.id !== action.id) return c;
+          const hidden = c.hiddenForUserIds || [];
+          if (hidden.includes(userId)) return c;
+          return { ...c, hiddenForUserIds: [...hidden, userId] };
+        }),
+      };
+    }
+    case ACTIONS.BULK_HIDE_CONVERSATIONS_FOR_USER: {
+      const set = new Set(action.ids || []);
+      const userId = action.userId || state.currentUserId;
+      if (set.size === 0 || !userId) return state;
+      return {
+        ...state,
+        conversations: (state.conversations || []).map((c) => {
+          if (!set.has(c.id)) return c;
+          const hidden = c.hiddenForUserIds || [];
+          if (hidden.includes(userId)) return c;
+          return { ...c, hiddenForUserIds: [...hidden, userId] };
+        }),
+      };
+    }
     case ACTIONS.DELETE_CONVERSATION: {
+      // Hard delete — call site MUST gate this to creator OR super-admin.
       const id = action.id;
       return {
         ...state,
@@ -808,9 +835,6 @@ export function reducer(state, action) {
       };
 
     // ---------- Messaging Phase 2b ----------
-    case ACTIONS.ASSIGN_CONVERSATION:
-      return { ...state, conversations: replaceById(state.conversations, action.id, { assignedUserId: action.userId || null }) };
-
     case ACTIONS.SET_CONVERSATION_STATUS: {
       const patch = { status: action.status };
       // Opening an existing convo clears any stale snooze timer.
@@ -882,21 +906,13 @@ export function reducer(state, action) {
       };
     }
     case ACTIONS.BULK_DELETE_CONVERSATIONS: {
+      // Hard delete — call site MUST gate this to creator OR super-admin per id.
       const set = new Set(action.ids || []);
       if (set.size === 0) return state;
       return {
         ...state,
         conversations: (state.conversations || []).filter((c) => !set.has(c.id)),
         messages: (state.messages || []).filter((m) => !set.has(m.conversationId)),
-      };
-    }
-    case ACTIONS.BULK_ASSIGN_CONVERSATIONS: {
-      const set = new Set(action.ids || []);
-      if (set.size === 0) return state;
-      const userId = action.userId || null;
-      return {
-        ...state,
-        conversations: state.conversations.map((c) => (set.has(c.id) ? { ...c, assignedUserId: userId } : c)),
       };
     }
 
@@ -1238,7 +1254,9 @@ export function reducer(state, action) {
           contactId: matchContact?.id || null,
           clientId: matchContact?.companyId || null,
           title: matchContact ? null : fromPhone, // unlinked threads carry the raw number as title
-          assignedUserId: null,
+          // Inbound thread — no human creator. Hard-delete is Super Admin only.
+          createdByUserId: null,
+          hiddenForUserIds: [],
           status: 'open',
           snoozedUntil: null,
           starred: false,

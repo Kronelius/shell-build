@@ -141,14 +141,12 @@ export const selectConversationsForContact = (s, contactId) =>
 
 // ---------- Dashboard follow-ups ----------
 // Stale leads — contacts in lead/prospect lifecycle with no recent update. `updatedAt` is
-// our proxy for activity: gets bumped whenever the contact is edited, tagged, assigned,
-// staged, or a note is appended. When ownerUserId is provided, restrict to that owner
-// (crew members only see their own follow-ups).
-export function selectStaleLeads(s, { daysStale = 7, ownerUserId = null } = {}) {
+// our proxy for activity: gets bumped whenever the contact is edited, tagged, staged,
+// or a note is appended.
+export function selectStaleLeads(s, { daysStale = 7 } = {}) {
   const cutoff = Date.now() - daysStale * 24 * 60 * 60 * 1000;
   return (s.contacts || [])
     .filter((c) => c.lifecycle === 'lead' || c.lifecycle === 'prospect')
-    .filter((c) => !ownerUserId || c.ownerUserId === ownerUserId)
     .filter((c) => {
       const ref = c.updatedAt || c.createdAt;
       return !ref || new Date(ref).getTime() < cutoff;
@@ -161,9 +159,8 @@ export function selectStaleLeads(s, { daysStale = 7, ownerUserId = null } = {}) 
 }
 
 // Unanswered threads — external conversations with status=open where the most recent
-// message is inbound and older than `hoursStale`. When assigneeUserId is provided,
-// restrict to threads assigned to that user (plus their unassigned ones when asked).
-export function selectUnansweredThreads(s, { hoursStale = 24, assigneeUserId = null, includeUnassigned = false } = {}) {
+// message is inbound and older than `hoursStale`.
+export function selectUnansweredThreads(s, { hoursStale = 24 } = {}) {
   const cutoff = Date.now() - hoursStale * 60 * 60 * 1000;
   const msgsByConv = new Map();
   (s.messages || []).forEach((m) => {
@@ -173,11 +170,6 @@ export function selectUnansweredThreads(s, { hoursStale = 24, assigneeUserId = n
   });
   return (s.conversations || [])
     .filter((c) => c.channel !== 'internal' && c.status === 'open')
-    .filter((c) => {
-      if (!assigneeUserId) return true;
-      if (c.assignedUserId === assigneeUserId) return true;
-      return includeUnassigned && !c.assignedUserId;
-    })
     .map((c) => {
       const msgs = msgsByConv.get(c.id) || [];
       const last = msgs.reduce(
@@ -288,11 +280,34 @@ export function selectSynthesizedActivityForContact(s, contactId) {
   return [...explicit, ...invoices, ...jobs, ...msgs].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
 }
 
-// Contact visibility — access is now role-gated (admin+ only via contacts.view permission).
-// No per-contact visibility field; if you can access contacts, you see them all.
+// Visibility model:
+//   - owner / admin: see ALL accounts and ALL contacts.
+//   - crew:          see ONLY the accounts they have jobs on (any job, any status), and
+//                    contacts attached to those accounts. Standalone contacts (no companyId)
+//                    are not surfaced to crew — they have no account anchor.
+// Returns the set of client (account) ids visible to a given user.
+export function selectVisibleClientIdsFor(s, user) {
+  if (!user) return new Set();
+  if (user.role !== 'crew') return new Set((s.clients || []).map((c) => c.id));
+  const ids = new Set();
+  (s.jobs || []).forEach((j) => {
+    if ((j.crewIds || []).includes(user.id) && j.clientId) ids.add(j.clientId);
+  });
+  return ids;
+}
+
+export function selectVisibleClientsFor(s, user) {
+  if (!user) return [];
+  if (user.role !== 'crew') return s.clients || [];
+  const ids = selectVisibleClientIdsFor(s, user);
+  return (s.clients || []).filter((c) => ids.has(c.id));
+}
+
 export function selectVisibleContactsFor(s, user) {
   if (!user) return [];
-  return s.contacts || [];
+  if (user.role !== 'crew') return s.contacts || [];
+  const ids = selectVisibleClientIdsFor(s, user);
+  return (s.contacts || []).filter((c) => c.companyId && ids.has(c.companyId));
 }
 
 // Pipeline — contacts in the active pipeline with a stage set.
@@ -523,24 +538,26 @@ export function selectEffectiveStatus(conv, now = Date.now()) {
 //   'dm'       — 1:1 direct messages (channel === 'dm'). Visibility is gated to
 //                participants for ALL roles (owner/admin/crew) — admins do NOT
 //                see DMs they aren't party to.
+// Threads the current user has hidden for themselves are filtered out (soft-delete-from-view).
 export function selectConversationsForInbox(s, inbox, currentUser) {
   const convos = s.conversations || [];
+  const uid = currentUser?.id;
+  const notHidden = (c) => !uid || !((c.hiddenForUserIds || []).includes(uid));
 
   if (inbox === 'internal') {
-    return sortConversationsByRecency(convos.filter((c) => c.channel === 'internal'));
+    return sortConversationsByRecency(convos.filter((c) => c.channel === 'internal' && notHidden(c)));
   }
 
   if (inbox === 'dm') {
-    const uid = currentUser?.id;
     if (!uid) return [];
     const list = convos.filter(
-      (c) => c.channel === 'dm' && (c.participantUserIds || []).includes(uid)
+      (c) => c.channel === 'dm' && (c.participantUserIds || []).includes(uid) && notHidden(c)
     );
     return sortConversationsByRecency(list);
   }
 
   // 'inbox' — all external threads.
-  const external = convos.filter((c) => c.channel === 'sms' || c.channel === 'email');
+  const external = convos.filter((c) => (c.channel === 'sms' || c.channel === 'email') && notHidden(c));
   return sortConversationsByRecency(external);
 }
 

@@ -35,12 +35,9 @@ export const PERMISSIONS = {
   'clients.delete':          { label: 'Delete accounts',          defaultRoles: ['owner', 'admin'] },
   'sites.edit':              { label: 'Manage account sites',     defaultRoles: ['owner', 'admin'] },
   // ---------- Contacts (CRM) ----------
-  'contacts.view':           { label: 'View Contacts',                    defaultRoles: ['owner', 'admin'] },
-  'contacts.view.all':       { label: 'View all contacts (not just own)', defaultRoles: ['owner', 'admin'] },
+  'contacts.view':           { label: 'View Contacts',                    defaultRoles: ['owner', 'admin', 'crew'] },
   'contacts.edit':           { label: 'Create / edit contacts',           defaultRoles: ['owner', 'admin'] },
-  'contacts.edit.own':       { label: 'Edit assigned contacts',           defaultRoles: ['owner', 'admin'] },
   'contacts.delete':         { label: 'Delete contacts',                  defaultRoles: ['owner', 'admin'] },
-  'contacts.assignOwner':    { label: 'Assign contact owner',             defaultRoles: ['owner', 'admin'] },
   'tags.manage':             { label: 'Create / edit tags',               defaultRoles: ['owner', 'admin'] },
   'pipeline.view':           { label: 'View sales pipeline',              defaultRoles: ['owner', 'admin'] },
   'pipeline.edit':           { label: 'Move deals in pipeline',           defaultRoles: ['owner', 'admin'] },
@@ -57,8 +54,7 @@ export const PERMISSIONS = {
   'messaging.startInternalThread':  { label: 'Start internal team threads',   defaultRoles: ['owner', 'admin'] },
   'messaging.internalComment':      { label: 'Post internal comments',        defaultRoles: ['owner', 'admin', 'crew'] },
   'messaging.manageSnippets':       { label: 'Manage message snippets',       defaultRoles: ['owner', 'admin'] },
-  'messaging.assign':               { label: 'Assign conversations',          defaultRoles: ['owner', 'admin'] },
-  'messaging.bulkActions':          { label: 'Run bulk conversation actions', defaultRoles: ['owner', 'admin'] },
+  'messaging.bulkActions':          { label: 'Run bulk conversation actions', defaultRoles: ['owner', 'admin', 'crew'] },
   // ---------- Settings ----------
   'settings.company':        { label: 'Edit company settings',    defaultRoles: ['owner', 'admin'] },
   'settings.services':       { label: 'Edit services / frequencies', defaultRoles: ['owner'] },

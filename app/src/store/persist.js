@@ -1,3 +1,9 @@
+// v23: Drop "owner" of contact and "assignee" of conversation entirely. Crew
+// visibility cascades through jobs.crewIds → client → contacts (admin/owner see
+// all). Adds `createdByUserId` + `hiddenForUserIds[]` to conversations: hard
+// delete is creator-or-Super-Admin only with a heavy warning; everyone else
+// soft-hides threads from their own view.
+//
 // v22: Invoices rescoped to manual tracking. Drops the 'draft' status (any
 // existing drafts migrate to 'pending') and adds two additive fields per
 // invoice: `attachment` (metadata for the PDF stored in IndexedDB) and `notes`
@@ -8,7 +14,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v22';
+const STORAGE_KEY = 'pp.store.v23';
 
 function migrateV14toV15(state) {
   const defaultPipelineId = 'pl_seed_default';
@@ -157,45 +163,115 @@ function migrateV21toV22(state) {
   return { ...state, version: 22, invoices };
 }
 
+// v23: Strip contact-owner and conversation-assignee. Add createdByUserId +
+// hiddenForUserIds[] to every conversation. Reconcile permissions against the
+// live schema (drops dead keys, ensures contacts.view applies to crew).
+function migrateV22toV23(state) {
+  // Strip ownerUserId from every contact.
+  const contacts = (state.contacts || []).map(({ ownerUserId, ...rest }) => rest);
+
+  // Backfill conversation creator from the earliest authored message on the
+  // thread. For inbound-only threads (no human author) we leave it null —
+  // hard-delete falls back to Super Admin only.
+  const msgsByConv = new Map();
+  (state.messages || []).forEach((m) => {
+    if (!m.conversationId) return;
+    const arr = msgsByConv.get(m.conversationId);
+    if (!arr) msgsByConv.set(m.conversationId, [m]);
+    else arr.push(m);
+  });
+  const firstAuthor = (convId) => {
+    const arr = msgsByConv.get(convId) || [];
+    const authored = arr
+      .filter((m) => m.authorUserId)
+      .sort((a, b) => (a.sentAt < b.sentAt ? -1 : 1));
+    return authored[0]?.authorUserId || null;
+  };
+
+  const conversations = (state.conversations || []).map((c) => {
+    const { assignedUserId, ...rest } = c;
+    let creator = c.createdByUserId;
+    if (!creator) {
+      // For DMs, the lower-sorted participant id is a stable proxy for "originator".
+      if (c.channel === 'dm') creator = (c.participantUserIds || [])[0] || null;
+      else creator = firstAuthor(c.id);
+    }
+    return {
+      ...rest,
+      createdByUserId: creator,
+      hiddenForUserIds: Array.isArray(c.hiddenForUserIds) ? c.hiddenForUserIds : [],
+    };
+  });
+
+  // Reconcile permissions: drop dead keys, add new ones, preserve role
+  // assignments where the key still exists.
+  const existingByKey = new Map((state.permissions || []).map((p) => [p.id, p]));
+  const permissions = Object.entries(PERMISSIONS).map(([key, def]) => {
+    const prev = existingByKey.get(key);
+    return prev
+      ? { id: key, label: def.label, roles: prev.roles }
+      : { id: key, label: def.label, roles: [...def.defaultRoles] };
+  });
+  // If contacts.view exists but lacks crew (carried over from a pre-v23 state where
+  // it was admin/owner only), ensure crew is included so the new visibility model
+  // takes effect.
+  const cv = permissions.find((p) => p.id === 'contacts.view');
+  if (cv && !cv.roles.includes('crew')) cv.roles = [...cv.roles, 'crew'];
+
+  return {
+    ...state,
+    version: 23,
+    contacts,
+    conversations,
+    permissions,
+  };
+}
+
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 22) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 23) return parsed;
     }
-    // Attempt v21 → v22 migration
+    // Attempt v22 → v23 migration
+    const v22Raw = window.localStorage.getItem('pp.store.v22');
+    if (v22Raw) {
+      const v22 = JSON.parse(v22Raw);
+      if (v22 && typeof v22 === 'object' && v22.version === 22) return migrateV22toV23(v22);
+    }
+    // Attempt v21 → v22 → v23 migration chain
     const v21Raw = window.localStorage.getItem('pp.store.v21');
     if (v21Raw) {
       const v21 = JSON.parse(v21Raw);
-      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV21toV22(v21);
+      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV22toV23(migrateV21toV22(v21));
     }
-    // Attempt v20 → v21 → v22 migration chain
+    // Attempt v20 → v21 → v22 → v23 migration chain
     const v20Raw = window.localStorage.getItem('pp.store.v20');
     if (v20Raw) {
       const v20 = JSON.parse(v20Raw);
-      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV21toV22(migrateV20toV21(v20));
+      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV22toV23(migrateV21toV22(migrateV20toV21(v20)));
     }
-    // Attempt v19 → v20 → v21 → v22 migration chain
+    // Attempt v19 → v20 → v21 → v22 → v23 migration chain
     const v19Raw = window.localStorage.getItem('pp.store.v19');
     if (v19Raw) {
       const v19 = JSON.parse(v19Raw);
-      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV21toV22(migrateV20toV21(migrateV19toV20(v19)));
+      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19))));
     }
-    // Attempt v18 → v19 → v20 → v21 → v22 migration chain
+    // Attempt v18 → v19 → v20 → v21 → v22 → v23 migration chain
     const v18Raw = window.localStorage.getItem('pp.store.v18');
     if (v18Raw) {
       const v18 = JSON.parse(v18Raw);
       if (v18 && typeof v18 === 'object' && v18.version === 18) {
-        return migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18))));
+        return migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)))));
       }
     }
-    // Attempt v17 → v18 → v19 → v20 → v21 → v22 migration chain
+    // Attempt v17 → v18 → v19 → v20 → v21 → v22 → v23 migration chain
     const v17Raw = window.localStorage.getItem('pp.store.v17');
     if (v17Raw) {
       const v17 = JSON.parse(v17Raw);
       if (v17 && typeof v17 === 'object' && v17.version === 17) {
-        return migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17)))));
+        return migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))))));
       }
     }
     return null;
