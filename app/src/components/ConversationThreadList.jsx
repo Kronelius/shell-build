@@ -49,7 +49,7 @@ function StatusChip({ status, snoozedUntil }) {
   return null;
 }
 
-function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, onToggleStar, hideCheckbox = false }) {
+function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, onToggleStar, hideCheckbox = false, isOwnedByMe = false }) {
   const state = useStore();
   const { currentUser } = useAuth();
   const contact = conversation.contactId ? selectContactById(state, conversation.contactId) : null;
@@ -81,7 +81,7 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
 
   return (
     <div
-      className={`thread-row ${active ? 'active' : ''} ${selected ? 'selected' : ''} ${effectiveStatus !== 'open' ? 'status-' + effectiveStatus : ''}`}
+      className={`thread-row ${active ? 'active' : ''} ${selected ? 'selected' : ''} ${effectiveStatus !== 'open' ? 'status-' + effectiveStatus : ''} ${isOwnedByMe ? 'is-owner' : ''}`}
       onClick={() => onSelect(conversation.id)}
       role="button"
       tabIndex={0}
@@ -95,6 +95,15 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
             aria-label={`Select ${displayName}`}
           />
         </label>
+      )}
+      {hideCheckbox && isOwnedByMe && (
+        <span
+          className="thread-row-owner-pin"
+          title="You created this thread — only you (or a Super Admin) can permanently delete it"
+          aria-label="You own this thread"
+        >
+          <Icon name="star" size={12} />
+        </span>
       )}
       <Avatar initials={initials} variant={avatarVariant} size="sm" />
       <div className="thread-row-body">
@@ -133,20 +142,26 @@ export default function ConversationThreadList({
   onSelectAll,
   onClearSelection,
   onToggleStar,
-  onBulkAssign,
   onBulkMarkRead,
   onBulkMarkUnread,
-  onBulkDelete,
-  canAssign,
+  onBulkRemoveFromView,
   canBulk,
   selectedInbox,
   onNewInternalThread,
   canStartInternalThread,
 }) {
+  const { currentUser } = useAuth();
   const isDmInbox = selectedInbox === 'dm';
   const isInternalInbox = selectedInbox === 'internal';
   const selectedCount = selectedIds?.size || 0;
-  const allSelected = selectedCount > 0 && conversations.every((c) => selectedIds.has(c.id));
+
+  // Owned threads can't be bulk-selected — hard delete is single-thread only with a heavy
+  // warning, and bulk soft-hide on owned threads is structurally pointless (you'd be
+  // hiding your own thread from your own view).
+  const isOwned = (c) => Boolean(currentUser && c.createdByUserId === currentUser.id);
+  const selectableConversations = conversations.filter((c) => !isOwned(c));
+  const allSelected = selectedCount > 0 && selectableConversations.length > 0
+    && selectableConversations.every((c) => selectedIds.has(c.id));
 
   return (
     <section className="thread-list-pane">
@@ -158,7 +173,6 @@ export default function ConversationThreadList({
             onClick={onNewInternalThread}
             title="Start a new team thread visible to all staff"
           >
-            <Icon name="plus" size={14} />
             <span>New thread</span>
           </button>
         )}
@@ -179,11 +193,12 @@ export default function ConversationThreadList({
                 : `${conversations.length} of ${totalBeforeFilter}`}
             </span>
           ) : (
-            <label className="thread-list-selectall" title="Select all visible">
+            <label className="thread-list-selectall" title="Select all visible (your own threads aren't selectable)">
               <input
                 type="checkbox"
                 checked={allSelected}
-                onChange={() => (allSelected ? onClearSelection() : onSelectAll(conversations.map((c) => c.id)))}
+                disabled={selectableConversations.length === 0}
+                onChange={() => (allSelected ? onClearSelection() : onSelectAll(selectableConversations.map((c) => c.id)))}
                 aria-label="Select all visible"
               />
               <span className="text-xs text-muted">
@@ -199,13 +214,10 @@ export default function ConversationThreadList({
         <BulkActionBar
           selectedCount={selectedCount}
           onClear={onClearSelection}
-          onAssign={onBulkAssign}
           onMarkRead={onBulkMarkRead}
           onMarkUnread={onBulkMarkUnread}
-          onDelete={onBulkDelete}
-          canAssign={canAssign}
+          onRemoveFromView={onBulkRemoveFromView}
           canBulk={canBulk}
-          inbox={selectedInbox}
         />
       )}
       <div className="thread-list-rows">
@@ -216,10 +228,6 @@ export default function ConversationThreadList({
             message="Try a different inbox or clear your filters."
           />
         ) : (() => {
-          // Partition into pinned vs. the rest. Visible sections (with headers) only appear
-          // when there's at least one pinned thread — otherwise we render a flat list.
-          const pinned = conversations.filter((c) => c.starred);
-          const others = conversations.filter((c) => !c.starred);
           const renderRow = (c) => (
             <ThreadRow
               key={c.id}
@@ -229,9 +237,52 @@ export default function ConversationThreadList({
               onSelect={onSelect}
               onToggleSelect={onToggleSelect}
               onToggleStar={onToggleStar}
-              hideCheckbox={isDmInbox}
+              hideCheckbox={isDmInbox || isOwned(c)}
+              isOwnedByMe={isOwned(c)}
             />
           );
+
+          // Threads inbox: split into "Your threads" (created by current user) on top + the rest below.
+          if (isInternalInbox && currentUser) {
+            const owned = conversations.filter((c) => isOwned(c));
+            const others = conversations.filter((c) => !isOwned(c));
+            // Within each group, surface pinned first.
+            const split = (list) => ({
+              pinned: list.filter((c) => c.starred),
+              rest: list.filter((c) => !c.starred),
+            });
+            const ownedSplit = split(owned);
+            const othersSplit = split(others);
+            return (
+              <>
+                {owned.length > 0 && (
+                  <>
+                    <div className="thread-section-header">
+                      <Icon name="star" size={12} />
+                      <span>Your threads</span>
+                      <span className="thread-section-count">{owned.length}</span>
+                    </div>
+                    {ownedSplit.pinned.map(renderRow)}
+                    {ownedSplit.rest.map(renderRow)}
+                  </>
+                )}
+                {others.length > 0 && (
+                  <>
+                    <div className="thread-section-header thread-section-header-muted">
+                      <span>Team threads</span>
+                      <span className="thread-section-count">{others.length}</span>
+                    </div>
+                    {othersSplit.pinned.map(renderRow)}
+                    {othersSplit.rest.map(renderRow)}
+                  </>
+                )}
+              </>
+            );
+          }
+
+          // Inbox / DMs: pinned on top (existing behavior).
+          const pinned = conversations.filter((c) => c.starred);
+          const others = conversations.filter((c) => !c.starred);
           if (pinned.length === 0) return conversations.map(renderRow);
           return (
             <>

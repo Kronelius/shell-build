@@ -97,7 +97,7 @@ export default function SettingsTeam() {
           )}
           {canEdit && (
             <button className="btn btn-primary btn-sm" onClick={() => setInviteOpen(true)}>
-              <Icon name="plus" size={14} /> Invite Member
+              Invite Member
             </button>
           )}
         </div>

@@ -138,18 +138,18 @@ export default function JobDetail() {
         actions={
           <div className="flex-row" style={{ gap: 8 }}>
             {canTransition && job.status !== 'in_progress' && job.status !== 'done' && (
-              <button className="btn btn-outline btn-sm" onClick={() => transition('in_progress')}>Start</button>
+              <button className="btn btn-success btn-sm" onClick={() => transition('in_progress')}>Start</button>
             )}
             {canTransition && job.status !== 'done' && (
               <button className="btn btn-primary btn-sm" onClick={() => transition('done')}>Mark Done</button>
             )}
             {canTransition && job.status !== 'cancelled' && (
-              <button className="btn btn-outline btn-sm" onClick={() => transition('cancelled')}>Cancel Job</button>
+              <button className="btn btn-danger btn-sm" onClick={() => transition('cancelled')}>Cancel Job</button>
             )}
             {canTransition && job.status !== 'missed' && job.status !== 'done' && (
-              <button className="btn btn-outline btn-sm" onClick={() => transition('missed')}>Mark Missed</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => transition('missed')}>Mark Missed</button>
             )}
-            {canEdit && !editing && <button className="btn btn-outline btn-sm" onClick={handleEditClick}>Edit</button>}
+            {canEdit && !editing && <button className="btn btn-primary btn-sm" onClick={handleEditClick}>Edit</button>}
             {canEdit && <button className="btn btn-danger btn-sm" onClick={handleDeleteClick}>Delete</button>}
           </div>
         }

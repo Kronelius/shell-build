@@ -59,7 +59,7 @@ export default function SettingsServices() {
           <FormField label="New service" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="e.g., Carpet Cleaning" />
           <FormField label="Default duration (min)" type="number" min="15" step="15" value={newService.defaultDurationMins} onChange={(e) => setNewService({ ...newService, defaultDurationMins: e.target.value })} />
           <div className="form-group">
-            <button type="submit" className="btn btn-primary" disabled={!newService.name.trim()}><Icon name="plus" size={14} /> Add</button>
+            <button type="submit" className="btn btn-primary" disabled={!newService.name.trim()}>Add</button>
           </div>
         </form>
         {services.length === 0 ? (
@@ -106,7 +106,7 @@ export default function SettingsServices() {
         <form className="form-row" onSubmit={addFreq} style={{ alignItems: 'flex-end', marginBottom: 12 }}>
           <FormField label="New frequency" value={newFreq.label} onChange={(e) => setNewFreq({ label: e.target.value })} placeholder="e.g., Semi-Annual" />
           <div className="form-group">
-            <button type="submit" className="btn btn-primary" disabled={!newFreq.label.trim()}><Icon name="plus" size={14} /> Add</button>
+            <button type="submit" className="btn btn-primary" disabled={!newFreq.label.trim()}>Add</button>
           </div>
         </form>
         {frequencies.length === 0 ? (

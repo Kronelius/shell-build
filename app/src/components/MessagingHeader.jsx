@@ -2,13 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import Select from './Select';
 import TagPicker from './TagPicker';
-import { useStore } from '../store';
-import { selectActiveUsers } from '../store/selectors';
 
 export const EMPTY_FILTERS = {
   channels: [],        // [] = all
   tagIds: [],          // [] = all
-  ownerId: '',         // '' = any assignee (Phase 2b repurposed this to thread assignee)
   dateRange: 'all',    // '24h' | '7d' | '30d' | 'all'
   logic: 'and',        // 'and' | 'or'
   statuses: [],        // [] = all statuses (subset of 'open' | 'snoozed' | 'closed')
@@ -17,7 +14,7 @@ export const EMPTY_FILTERS = {
 
 const INBOXES = [
   { key: 'inbox',    label: 'Inbox' },
-  { key: 'internal', label: 'Internal Chat' },
+  { key: 'internal', label: 'Threads' },
   { key: 'dm',       label: 'DMs' },
 ];
 
@@ -42,8 +39,6 @@ const STATUS_CHIPS = [
 ];
 
 function FiltersPopover({ filters, onFiltersChange, onClose }) {
-  const state = useStore();
-  const activeUsers = selectActiveUsers(state);
   const wrapRef = useRef(null);
 
   useEffect(() => {
@@ -71,7 +66,6 @@ function FiltersPopover({ filters, onFiltersChange, onClose }) {
   const anyFilter =
     filters.channels.length > 0 ||
     filters.tagIds.length > 0 ||
-    filters.ownerId ||
     filters.dateRange !== 'all' ||
     filters.statuses.length > 0 ||
     filters.starredOnly;
@@ -142,20 +136,6 @@ function FiltersPopover({ filters, onFiltersChange, onClose }) {
         </div>
 
         <div className="filter-block">
-          <div className="filter-label">Assignee</div>
-          <Select
-            ariaLabel="Assignee"
-            value={filters.ownerId || ''}
-            onChange={(v) => onFiltersChange({ ...filters, ownerId: v })}
-            options={[
-              { value: '', label: 'Any assignee' },
-              { value: '__unassigned', label: 'Unassigned' },
-              ...activeUsers.map((u) => ({ value: u.id, label: u.name })),
-            ]}
-          />
-        </div>
-
-        <div className="filter-block">
           <div className="filter-label">Date range</div>
           <Select
             ariaLabel="Date range"
@@ -201,7 +181,6 @@ export default function MessagingHeader({
   const anyFilter =
     filters.channels.length > 0 ||
     filters.tagIds.length > 0 ||
-    filters.ownerId ||
     filters.dateRange !== 'all' ||
     filters.statuses.length > 0 ||
     filters.starredOnly;
@@ -232,7 +211,7 @@ export default function MessagingHeader({
         <div className="filters-wrap">
           <button
             type="button"
-            className={`btn btn-outline btn-sm ${anyFilter ? 'has-active-filter' : ''}`}
+            className={`btn btn-success btn-sm ${anyFilter ? 'has-active-filter' : ''}`}
             onClick={() => setFiltersOpen((v) => !v)}
             aria-expanded={filtersOpen}
           >
@@ -256,7 +235,6 @@ export default function MessagingHeader({
             onClick={onNewDm}
             title="Start a direct message with another user"
           >
-            <Icon name="plus" size={14} />
             <span>New DM</span>
           </button>
         ) : (
@@ -267,7 +245,6 @@ export default function MessagingHeader({
             disabled={!canStart}
             title={canStart ? 'Start a new conversation' : 'You lack permission to start conversations'}
           >
-            <Icon name="plus" size={14} />
             <span>New conversation</span>
           </button>
         )}

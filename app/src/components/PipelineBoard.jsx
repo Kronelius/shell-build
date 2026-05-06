@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectPipelineContacts, selectUsers, selectPipelineStages, selectPipelines, selectActivePipeline } from '../store/selectors';
+import { selectPipelineContacts, selectPipelineStages, selectPipelines, selectActivePipeline } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
 import { money } from '../lib/dates';
 import PipelineCard from './PipelineCard';
@@ -25,9 +25,7 @@ export default function PipelineBoard() {
   const nav = useFromHere();
   const toast = useToast();
   const canEdit = usePermission('pipeline.edit');
-  const canAssignOwner = usePermission('contacts.assignOwner');
   const canDelete = usePermission('contacts.delete');
-  const users = selectUsers(state);
   const contacts = selectPipelineContacts(state);
   const stages = selectPipelineStages(state);
   const pipelines = selectPipelines(state);
@@ -92,15 +90,6 @@ export default function PipelineBoard() {
     if (!stageKey || !canEdit) return;
     effectiveSelected.forEach((id) => {
       dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey, pipelineId: activePipeline?.id });
-    });
-    clearSelection();
-  };
-
-  const bulkAssignOwner = (userId) => {
-    if (!canAssignOwner) return;
-    const resolved = userId === 'unassigned' ? null : userId;
-    effectiveSelected.forEach((id) => {
-      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId: resolved });
     });
     clearSelection();
   };
@@ -235,7 +224,7 @@ export default function PipelineBoard() {
         />
         {canEdit && (
           <div className="pipeline-toolbar-actions">
-            <button className="btn btn-primary" onClick={() => setCreatePipelineOpen(true)}>+ New Pipeline</button>
+            <button className="btn btn-success" onClick={() => setCreatePipelineOpen(true)}>Add Pipeline</button>
             <button className="btn btn-primary" onClick={() => setManageStagesOpen(true)}>Manage Stages</button>
           </div>
         )}
@@ -254,15 +243,6 @@ export default function PipelineBoard() {
                 value=""
                 onChange={(e) => bulkMoveStage(e.target.value)}
                 options={[{ value: '', label: 'Move to stage…' }, ...stages.map((s) => ({ value: s.key, label: s.label }))]}
-              />
-            )}
-            {canAssignOwner && (
-              <FormField
-                label=""
-                as="select"
-                value=""
-                onChange={(e) => bulkAssignOwner(e.target.value)}
-                options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
               />
             )}
             {canDelete && (
@@ -349,7 +329,7 @@ export default function PipelineBoard() {
                       className="pipeline-col-empty pipeline-col-empty-clickable"
                       onClick={() => setAddContactsStage({ key: stage.key, label: stage.label })}
                     >
-                      + Add Contacts
+                      Add Contacts
                     </button>
                   ) : (
                     <div className="pipeline-col-empty">

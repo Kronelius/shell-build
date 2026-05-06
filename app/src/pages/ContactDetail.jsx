@@ -4,9 +4,10 @@ import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import {
-  selectContactById, selectClientById, selectUserById, selectUsers, selectClients,
+  selectContactById, selectClientById, selectUserById, selectClients,
   selectInvoicesForContact, selectConversationsForContact, selectJobsForClient,
   selectActivitiesForContact, selectTagById, selectPipelineStages,
+  selectVisibleClientIdsFor,
   invoiceTotal, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
@@ -48,13 +49,22 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
   const nav = useFromHere();
   const { currentUser } = useAuth();
 
-  const canEditAll = usePermission('contacts.edit');
+  const canEdit = usePermission('contacts.edit');
   const canDelete = usePermission('contacts.delete');
-  const canAssignOwner = usePermission('contacts.assignOwner');
   const canStartConversation = usePermission('messaging.startConversation');
 
-  const contact = selectContactById(state, contactId);
-  const users = selectUsers(state);
+  const rawContact = selectContactById(state, contactId);
+  // Crew can only see contacts attached to accounts they have a job on. Standalone
+  // contacts (no companyId) are not surfaced to crew. Admin/owner see all.
+  const visibleClientIds = useMemo(
+    () => selectVisibleClientIdsFor(state, currentUser),
+    [state, currentUser]
+  );
+  const contact = rawContact && (
+    currentUser?.role !== 'crew'
+      ? rawContact
+      : (rawContact.companyId && visibleClientIds.has(rawContact.companyId) ? rawContact : null)
+  );
   const clients = selectClients(state);
   const stages = selectPipelineStages(state);
   const stageLabel = (key) => stages.find((s) => s.key === key)?.label || key;
@@ -77,8 +87,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
     );
   }
 
-  const canEditThis = canEditAll || (isContactOwner(state, contact, currentUser));
-  const owner = contact.ownerUserId ? selectUserById(state, contact.ownerUserId) : null;
+  const canEditThis = canEdit;
   const company = contact.companyId ? selectClientById(state, contact.companyId) : null;
   const companyLabel = company?.name || contact.customFields?.company || '—';
 
@@ -149,9 +158,8 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
       {contact.stage && <Badge variant="blue">{stageLabel(contact.stage)}</Badge>}
     </div>
   );
-  // Prefer opening an existing thread over creating a new one — enforces "one thread per contact" UX.
-  // If any conversation exists, navigate to the most recently-active one;
-  // only fall through to NewConversationModal when the contact is truly thread-less.
+  // Always jump straight to the messaging surface. If a thread exists, open the most recently-active one;
+  // otherwise land on /messaging itself so the user can start a new conversation from there.
   const handleMessage = () => {
     const existing = conversations
       .slice()
@@ -159,19 +167,19 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
     if (existing.length > 0) {
       navigate(`/messaging/${existing[0].id}`, { state: nav });
     } else {
-      setNewConvOpen(true);
+      navigate('/messaging', { state: nav });
     }
   };
 
   const headerActions = (
     <div className="flex-row" style={{ gap: 8 }}>
       {canStartConversation && (
-        <button className="btn btn-outline btn-sm" onClick={handleMessage}>
+        <button className="btn btn-success btn-sm" onClick={handleMessage}>
           <Icon name="messaging" size={14} />
           Message
         </button>
       )}
-      {canEditThis && <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
+      {canEditThis && <button className="btn btn-primary btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
       {canDelete && <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
     </div>
   );
@@ -234,24 +242,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
           </div>
 
           <div>
-            <div className="card detail-card">
-              <h3>Owner</h3>
-              {canAssignOwner ? (
-                <FormField
-                  label=""
-                  as="select"
-                  value={contact.ownerUserId || ''}
-                  onChange={(e) => dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id: contact.id, userId: e.target.value || null })}
-                  options={[{ value: '', label: '— Unassigned —' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
-                />
-              ) : owner ? (
-                <div className="flex-row" style={{ gap: 8 }}>
-                  <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
-                  <span>{owner.name}</span>
-                </div>
-              ) : <span className="text-muted text-sm">Unassigned</span>}
-            </div>
-
             <div className="card detail-card">
               <h3>Tags</h3>
               {canEditThis ? (
@@ -410,8 +400,8 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
                       </div>
                       {canEditThis && !isEditing && (
                         <div className="note-item-actions">
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => startEditNote(n)}>Edit</button>
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmDeleteNoteId(n.id)}>Delete</button>
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => startEditNote(n)}>Edit</button>
+                          <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmDeleteNoteId(n.id)}>Delete</button>
                         </div>
                       )}
                     </div>
@@ -465,11 +455,5 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
       />
     </div>
   );
-}
-
-// Local helper — plain function (not a hook).
-function isContactOwner(_state, contact, currentUser) {
-  if (!currentUser || !contact) return false;
-  return contact.ownerUserId === currentUser.id;
 }
 

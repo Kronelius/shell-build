@@ -190,7 +190,7 @@ export default function Schedule() {
         <h1>Schedule</h1>
         {canCreate && (
           <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setModalOpen(true)}>
-            + New Job
+            New Job
           </button>
         )}
       </div>
@@ -223,7 +223,7 @@ export default function Schedule() {
       {view === 'Day' && (
         <div className="card dash-card">
           {dayJobs.length === 0 ? (
-            <EmptyState icon={<Icon name="schedule" size={28} />} title="No jobs scheduled" message={canCreate ? 'Add your first job to start planning the day.' : 'Check back soon — nothing to do yet.'} action={canCreate && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ New Job</button>} />
+            <EmptyState icon={<Icon name="schedule" size={28} />} title="No jobs scheduled" message={canCreate ? 'Add your first job to start planning the day.' : 'Check back soon — nothing to do yet.'} action={canCreate && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>New Job</button>} />
           ) : (
             <div className="tl-track">
               <div className="tl-line" />

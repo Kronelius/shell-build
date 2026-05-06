@@ -290,7 +290,7 @@ export default function LogInvoiceModal({ open, onClose, presetClientId = null, 
                   </tbody>
                 </table>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addLine} style={{ marginTop: 8 }}>+ Add line</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={addLine} style={{ marginTop: 8 }}>Add line</button>
             </div>
 
             <FormField

@@ -200,7 +200,7 @@ export default function StageManagerModal({ open, onClose }) {
           onChange={(e) => setNewLabel(e.target.value)}
           placeholder="New stage name (e.g. Negotiating)"
         />
-        <button type="submit" className="btn btn-primary" disabled={!newLabel.trim()}>+ Add Stage</button>
+        <button type="submit" className="btn btn-primary" disabled={!newLabel.trim()}>Add Stage</button>
       </form>
 
       <div className={`stage-save-bar ${hasChanges ? 'is-visible' : ''}`}>

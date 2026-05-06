@@ -77,19 +77,14 @@ export default function Dashboard() {
     return days.map((d) => ({ ...d, height: Math.round((d.total / max) * 100) }));
   }, [invoices]);
 
-  // Follow-ups — "what needs your attention" rollup. Crew sees only their own; admin sees all.
-  const ownerFilter = isCrew && currentUser ? currentUser.id : null;
+  // Follow-ups — "what needs your attention" rollup.
   const staleLeads = useMemo(
-    () => selectStaleLeads(state, { daysStale: 7, ownerUserId: ownerFilter }),
-    [state, ownerFilter]
+    () => selectStaleLeads(state, { daysStale: 7 }),
+    [state]
   );
   const unansweredThreads = useMemo(
-    () => selectUnansweredThreads(state, {
-      hoursStale: 24,
-      assigneeUserId: ownerFilter,
-      includeUnassigned: !isCrew, // admins also see the unassigned queue
-    }),
-    [state, ownerFilter, isCrew]
+    () => selectUnansweredThreads(state, { hoursStale: 24 }),
+    [state]
   );
   // Merge + interleave, cap at 5 items by oldest-first (most urgent).
   const followUps = useMemo(() => {
@@ -224,12 +219,12 @@ export default function Dashboard() {
                 <div className="quick-actions">
                   {canSchedule && (
                     <button className="qa-btn" onClick={() => navigate('/schedule')}>
-                      <span className="qa-icon">+</span>Schedule
+                      <span className="qa-icon"><Icon name="schedule" size={16} /></span>Schedule
                     </button>
                   )}
                   {canInvoices && (
                     <button className="qa-btn" onClick={() => navigate('/invoices')}>
-                      <span className="qa-icon">$</span>Invoices
+                      <span className="qa-icon"><Icon name="invoices" size={16} /></span>Invoices
                     </button>
                   )}
                   <button className="qa-btn" onClick={() => navigate('/contacts')}>

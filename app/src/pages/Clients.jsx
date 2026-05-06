@@ -18,9 +18,9 @@ import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
 import { useToast } from '../components/Toast';
 import {
-  selectClients, selectClientById, selectServiceById, selectFrequencies, selectServices,
-  selectContacts, selectTags, selectTagById, selectUsers, selectUserById,
-  selectVisibleContactsFor,
+  selectClientById, selectServiceById, selectFrequencies, selectServices,
+  selectContacts, selectTags, selectTagById,
+  selectVisibleContactsFor, selectVisibleClientsFor,
 } from '../store/selectors';
 import { fmtDate, fmtRelative, money } from '../lib/dates';
 
@@ -43,18 +43,19 @@ export default function Clients() {
   const canCreateClient = usePermission('clients.edit');
   const canCreateContact = usePermission('contacts.edit');
   const canViewContacts = usePermission('contacts.view');
-  const canAssignOwner = usePermission('contacts.assignOwner');
 
 
-  const clients = selectClients(state);
   const services = selectServices(state);
   const frequencies = selectFrequencies(state);
-  const users = selectUsers(state);
   const allContacts = selectContacts(state);
   const allTags = selectTags(state);
 
   const visibleContacts = useMemo(
     () => selectVisibleContactsFor(state, currentUser),
+    [state, currentUser]
+  );
+  const clients = useMemo(
+    () => selectVisibleClientsFor(state, currentUser),
     [state, currentUser]
   );
 
@@ -73,12 +74,10 @@ export default function Clients() {
   // Contacts filters (URL-backed)
   const cSearch = searchParams.get('q') || '';
   const cLifecycle = searchParams.get('lifecycle') || 'all';
-  const cOwner = searchParams.get('owner') || 'all';
   const cTag = searchParams.get('tag') || 'all';
   const cCompany = searchParams.get('company') || 'all';
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkTagIds, setBulkTagIds] = useState([]);
-  const [bulkOwnerId, setBulkOwnerId] = useState('');
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [confirmContactDeleteOpen, setConfirmContactDeleteOpen] = useState(false);
@@ -96,10 +95,6 @@ export default function Clients() {
     const q = cSearch.trim().toLowerCase();
     return visibleContacts.filter((c) => {
       if (cLifecycle !== 'all' && c.lifecycle !== cLifecycle) return false;
-      if (cOwner !== 'all') {
-        if (cOwner === 'unassigned' && c.ownerUserId) return false;
-        if (cOwner !== 'unassigned' && c.ownerUserId !== cOwner) return false;
-      }
       if (cTag !== 'all' && !(c.tagIds || []).includes(cTag)) return false;
       if (cCompany !== 'all') {
         if (cCompany === 'unattached' && c.companyId) return false;
@@ -111,7 +106,7 @@ export default function Clients() {
       }
       return true;
     });
-  }, [visibleContacts, cSearch, cLifecycle, cOwner, cTag, cCompany]);
+  }, [visibleContacts, cSearch, cLifecycle, cTag, cCompany]);
 
   const filteredClients = useMemo(() => {
     const q = aSearch.trim().toLowerCase();
@@ -137,17 +132,6 @@ export default function Clients() {
   };
   const clearSelection = () => setSelectedIds(new Set());
 
-  const bulkAssignOwner = () => {
-    if (!canAssignOwner) return;
-    if (!bulkOwnerId) return;
-    const userId = bulkOwnerId === 'unassigned' ? null : bulkOwnerId;
-    selectedIds.forEach((id) => {
-      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id, userId });
-    });
-    setBulkOwnerId('');
-    clearSelection();
-    toast.success('Owner assigned');
-  };
   const bulkApplyTags = () => {
     if (bulkTagIds.length === 0) return;
     selectedIds.forEach((id) => {
@@ -198,14 +182,14 @@ export default function Clients() {
         <div className="page-head-actions">
           {tab === 'contacts' && canCreateContact && (
             <>
-              <button className="btn btn-outline" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
-              <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>+ Add Contact</button>
+              <button className="btn btn-success" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
+              <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>Add Contact</button>
             </>
           )}
           {tab === 'accounts' && canCreateClient && (
             <>
-              <button className="btn btn-outline" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
-              <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>+ Add Account</button>
+              <button className="btn btn-success" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
+              <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Account</button>
             </>
           )}
         </div>
@@ -222,8 +206,6 @@ export default function Clients() {
             <FormField label="Search" value={cSearch} onChange={(e) => setParam('q', e.target.value)} placeholder="Name, email, title…" />
             <FormField label="Lifecycle" as="select" value={cLifecycle} onChange={(e) => setParam('lifecycle', e.target.value, 'all')}
               options={LIFECYCLES.map((v) => ({ value: v, label: v === 'all' ? 'All lifecycles' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
-            <FormField label="Owner" as="select" value={cOwner} onChange={(e) => setParam('owner', e.target.value, 'all')}
-              options={[{ value: 'all', label: 'All owners' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
             <FormField label="Tag" as="select" value={cTag} onChange={(e) => setParam('tag', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All tags' }, ...allTags.map((t) => ({ value: t.id, label: t.label }))]} />
             <FormField label="Company" as="select" value={cCompany} onChange={(e) => setParam('company', e.target.value, 'all')}
@@ -240,13 +222,6 @@ export default function Clients() {
                   <TagPicker value={bulkTagIds} onChange={setBulkTagIds} placeholder="Select tag" />
                 </div>
                 <button className="btn btn-primary btn-sm" disabled={bulkTagIds.length === 0} onClick={bulkApplyTags}>Apply tags</button>
-                {canAssignOwner && (
-                  <>
-                    <FormField label="" as="select" value={bulkOwnerId} onChange={(e) => setBulkOwnerId(e.target.value)}
-                      options={[{ value: '', label: 'Assign owner…' }, { value: 'unassigned', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
-                    <button className="btn btn-primary btn-sm" disabled={!bulkOwnerId} onClick={bulkAssignOwner}>Assign</button>
-                  </>
-                )}
                 <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setConfirmContactDeleteOpen(true)}>Delete</button>
                 <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
               </>
@@ -281,7 +256,6 @@ export default function Clients() {
                       <th>Name</th>
                       <th>Company</th>
                       <th>Lifecycle</th>
-                      <th>Owner</th>
                       <th>Tags</th>
                       <th>Updated</th>
                       <th></th>
@@ -289,7 +263,6 @@ export default function Clients() {
                   </thead>
                   <tbody>
                     {filteredContacts.map((c) => {
-                        const owner = c.ownerUserId ? selectUserById(state, c.ownerUserId) : null;
                         const company = c.companyId ? selectClientById(state, c.companyId) : null;
                         const companyLabel = company?.name || c.customFields?.company || '—';
                         return (
@@ -319,14 +292,6 @@ export default function Clients() {
                               <Badge variant={LIFECYCLE_VARIANTS[c.lifecycle] || 'slate'}>
                                 {c.lifecycle.charAt(0).toUpperCase() + c.lifecycle.slice(1)}
                               </Badge>
-                            </td>
-                            <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
-                              {owner ? (
-                                <div className="flex-row" style={{ gap: 6 }}>
-                                  <Avatar initials={owner.initials} variant={owner.avatar} size="sm" />
-                                  <span className="text-xs">{owner.name}</span>
-                                </div>
-                              ) : <span className="text-muted text-xs">Unassigned</span>}
                             </td>
                             <td onClick={() => navigate(`/clients/contact/${c.id}`, { state: nav })}>
                               <div className="flex-row" style={{ gap: 4 }}>

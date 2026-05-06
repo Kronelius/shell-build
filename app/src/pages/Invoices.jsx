@@ -122,12 +122,12 @@ export default function Invoices() {
         <div className="page-head-actions" style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {canPay && (
             <button className="btn btn-success" onClick={() => setPaymentModalOpen(true)}>
-              + Log Payment
+              Log Payment
             </button>
           )}
           {canCreate && (
             <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-              + Log Invoice
+              Log Invoice
             </button>
           )}
         </div>

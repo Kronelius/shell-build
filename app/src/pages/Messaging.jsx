@@ -140,14 +140,6 @@ function passesFilters(conv, filters, state) {
     const tagIds = contact?.tagIds || [];
     active.push(filters.tagIds.some((id) => tagIds.includes(id)));
   }
-  if (filters.ownerId) {
-    // Phase 2b: filters.ownerId = thread assignee (or '__unassigned' sentinel).
-    if (filters.ownerId === '__unassigned') {
-      active.push(!conv.assignedUserId);
-    } else {
-      active.push(conv.assignedUserId === filters.ownerId);
-    }
-  }
   if (filters.dateRange && filters.dateRange !== 'all') {
     active.push(withinDateRange(conv, filters.dateRange));
   }
@@ -182,9 +174,9 @@ export default function Messaging() {
 
   const canStart = usePermission('messaging.startConversation');
   const canStartInternalThread = usePermission('messaging.startInternalThread');
-  const canAssign = usePermission('messaging.assign');
   const canBulk = usePermission('messaging.bulkActions');
   const canViewExternalInbox = usePermission('messaging.startConversation');
+  const isSuperAdmin = currentUser?.role === 'owner';
 
   const toast = useToast();
 
@@ -210,7 +202,6 @@ export default function Messaging() {
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [newInternalThreadOpen, setNewInternalThreadOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const paneContainerRef = useRef(null);
   const panes = usePaneSizes(paneContainerRef);
@@ -236,15 +227,15 @@ export default function Messaging() {
   const visibleInboxes = canViewExternalInbox
     ? [
         { key: 'inbox',    label: 'Inbox' },
-        { key: 'internal', label: 'Internal Chat' },
+        { key: 'internal', label: 'Threads' },
         { key: 'dm',       label: 'DMs' },
       ]
     : [
-        { key: 'internal', label: 'Internal Chat' },
+        { key: 'internal', label: 'Threads' },
         { key: 'dm',       label: 'DMs' },
       ];
 
-  // Force crew into Internal Chat when they can't see the external inbox.
+  // Force crew into Threads when they can't see the external inbox.
   useEffect(() => {
     if (!canViewExternalInbox && selectedInbox !== 'internal') {
       setSelectedInbox('internal');
@@ -394,22 +385,33 @@ export default function Messaging() {
       });
   };
 
-  const handleDeleteConversation = () => {
+  // Hard-delete the active thread for everyone. Gated to creator OR Super Admin at the
+  // call site: the Delete-thread button only renders when canHardDelete is true on the
+  // message panel, so this handler can trust its caller. Heavy warning modal precedes.
+  const handleHardDeleteConversation = () => {
     if (!activeConversation) return;
     const id = activeConversation.id;
     dispatch({ type: ACTIONS.DELETE_CONVERSATION, id });
     setConfirmDeleteOpen(false);
-    toast.success('Conversation deleted');
-    // Drop the route param so the message panel doesn't try to render a now-missing thread.
+    toast.success('Thread deleted for everyone');
+    setActiveId(null);
+    navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
+  };
+
+  // Soft-delete: hide the active thread from the current user's view. Anyone can do this.
+  const handleRemoveActiveFromView = () => {
+    if (!activeConversation || !currentUser) return;
+    dispatch({
+      type: ACTIONS.HIDE_CONVERSATION_FOR_USER,
+      id: activeConversation.id,
+      userId: currentUser.id,
+    });
+    toast.success('Thread removed from your view');
     setActiveId(null);
     navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
   };
 
   // --- Phase 2b per-thread action handlers -------------------------------
-  const handleAssign = (userId) => {
-    if (!activeConversation) return;
-    dispatch({ type: ACTIONS.ASSIGN_CONVERSATION, id: activeConversation.id, userId });
-  };
   const handleSetStatus = (status) => {
     if (!activeConversation) return;
     dispatch({ type: ACTIONS.SET_CONVERSATION_STATUS, id: activeConversation.id, status });
@@ -449,23 +451,21 @@ export default function Messaging() {
   const handleSelectAll = (ids) => setSelectedIds(new Set(ids));
   const handleClearSelection = () => setSelectedIds(new Set());
 
-  const handleBulkAssign = (userId) => {
-    dispatch({ type: ACTIONS.BULK_ASSIGN_CONVERSATIONS, ids: Array.from(selectedIds), userId });
-    setSelectedIds(new Set());
-  };
   const handleBulkMarkRead = () => {
     dispatch({ type: ACTIONS.BULK_MARK_CONVERSATIONS_READ, ids: Array.from(selectedIds) });
   };
   const handleBulkMarkUnread = () => {
     dispatch({ type: ACTIONS.BULK_MARK_CONVERSATIONS_UNREAD, ids: Array.from(selectedIds) });
   };
-  const handleBulkDelete = () => {
+  // Bulk action is non-destructive: hide selected threads from the current user only.
+  // Threads the user owns aren't bulk-selectable in the sidebar, so this never touches
+  // user-owned threads — that path is single-thread-with-warning only.
+  const handleBulkRemoveFromView = () => {
+    if (!currentUser) return;
     const ids = Array.from(selectedIds);
-    dispatch({ type: ACTIONS.BULK_DELETE_CONVERSATIONS, ids });
-    setConfirmBulkDeleteOpen(false);
+    dispatch({ type: ACTIONS.BULK_HIDE_CONVERSATIONS_FOR_USER, ids, userId: currentUser.id });
     setSelectedIds(new Set());
-    toast.success(`${ids.length} thread${ids.length === 1 ? '' : 's'} deleted`);
-    // If the user had one of the deleted threads open, drop them back to the inbox view.
+    toast.success(`${ids.length} thread${ids.length === 1 ? '' : 's'} removed from your view`);
     if (activeId && ids.includes(activeId)) {
       setActiveId(null);
       navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
@@ -506,11 +506,9 @@ export default function Messaging() {
             onSelectAll={handleSelectAll}
             onClearSelection={handleClearSelection}
             onToggleStar={handleToggleStarRow}
-            onBulkAssign={handleBulkAssign}
             onBulkMarkRead={handleBulkMarkRead}
             onBulkMarkUnread={handleBulkMarkUnread}
-            onBulkDelete={() => setConfirmBulkDeleteOpen(true)}
-            canAssign={canAssign}
+            onBulkRemoveFromView={handleBulkRemoveFromView}
             canBulk={canBulk}
             selectedInbox={selectedInbox}
             onNewInternalThread={() => setNewInternalThreadOpen(true)}
@@ -528,11 +526,11 @@ export default function Messaging() {
             conversation={activeConversation}
             contact={activeContact}
             messages={activeMessages}
-            canAssign={canAssign}
             currentUser={currentUser}
+            isSuperAdmin={isSuperAdmin}
             onSend={handleSend}
-            onDelete={() => setConfirmDeleteOpen(true)}
-            onAssign={handleAssign}
+            onDeleteForever={() => setConfirmDeleteOpen(true)}
+            onRemoveFromView={handleRemoveActiveFromView}
             onSetStatus={handleSetStatus}
             onSnooze={handleSnooze}
             onToggleStar={handleToggleStarActive}
@@ -572,22 +570,16 @@ export default function Messaging() {
 
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title="Delete this conversation?"
-        message="The thread and all of its messages will be permanently removed. This cannot be undone."
-        confirmLabel="Delete"
+        title="Permanently delete this thread?"
+        message={
+          activeConversation
+            ? `This permanently deletes the thread and all ${activeMessages.length} message${activeMessages.length === 1 ? '' : 's'} for everyone. This cannot be undone.`
+            : 'This permanently deletes the thread and all of its messages for everyone. This cannot be undone.'
+        }
+        confirmLabel="Delete forever"
         variant="danger"
-        onConfirm={handleDeleteConversation}
+        onConfirm={handleHardDeleteConversation}
         onClose={() => setConfirmDeleteOpen(false)}
-      />
-
-      <ConfirmDialog
-        open={confirmBulkDeleteOpen}
-        title={`Delete ${selectedIds.size} thread${selectedIds.size === 1 ? '' : 's'}?`}
-        message="The selected threads and all of their messages will be permanently removed. This cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={handleBulkDelete}
-        onClose={() => setConfirmBulkDeleteOpen(false)}
       />
     </>
   );

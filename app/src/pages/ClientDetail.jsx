@@ -7,6 +7,7 @@ import {
   selectClientById, selectSitesForClient, selectJobsForClient, selectInvoicesForClient,
   selectServiceById, selectFrequencies, selectServices, selectContactsForClient, selectContactById,
   selectActivitiesForClient, selectUserById, selectConversationsForContact,
+  selectVisibleClientIdsFor,
   invoiceTotal, invoiceBalance, deriveInvoiceStatus,
 } from '../store/selectors';
 import { usePermission } from '../hooks/usePermission';
@@ -49,7 +50,15 @@ export default function ClientDetail() {
   const canEditContacts = usePermission('contacts.edit');
   const { currentUser } = useAuth();
 
-  const client = selectClientById(state, clientId);
+  const rawClient = selectClientById(state, clientId);
+  // Crew can only see accounts they have a job on; admin/owner see all.
+  const visibleClientIds = useMemo(
+    () => selectVisibleClientIdsFor(state, currentUser),
+    [state, currentUser]
+  );
+  const client = rawClient && (currentUser?.role !== 'crew' || visibleClientIds.has(rawClient.id))
+    ? rawClient
+    : null;
   const sites = client ? selectSitesForClient(state, client.id) : [];
   const jobs = client ? selectJobsForClient(state, client.id) : [];
   const invoices = client ? selectInvoicesForClient(state, client.id) : [];
@@ -178,7 +187,7 @@ export default function ClientDetail() {
     if (existing.length > 0) {
       navigate(`/messaging/${existing[0].id}`, { state: nav });
     } else {
-      setNewConvOpen(true);
+      navigate('/messaging', { state: nav });
     }
   };
 
@@ -195,7 +204,7 @@ export default function ClientDetail() {
         actions={
           <div className="flex-row" style={{ gap: 8 }}>
             {canStartConversation && (
-              <button className="btn btn-outline btn-sm" onClick={handleMessage}>
+              <button className="btn btn-success btn-sm" onClick={handleMessage}>
                 <Icon name="messaging" size={14} />
                 Message
               </button>
@@ -358,7 +367,7 @@ export default function ClientDetail() {
               <h3 className="section-title">Contacts ({contacts.length})</h3>
               <p className="text-muted text-sm">Everyone you work with at {client.name}. Click a name for the full CRM profile.</p>
             </div>
-            {canEditContacts && <button className="btn btn-primary btn-sm" onClick={() => setAddContactOpen(true)}><Icon name="plus" size={14} /> Add Contact</button>}
+            {canEditContacts && <button className="btn btn-primary btn-sm" onClick={() => setAddContactOpen(true)}>Add Contact</button>}
           </div>
           {contacts.length === 0 ? (
             <EmptyState
@@ -412,7 +421,7 @@ export default function ClientDetail() {
               <h3 className="section-title">Sites ({sites.length})</h3>
               <p className="text-muted text-sm">Every location you service for this client.</p>
             </div>
-            {canEditSites && <button className="btn btn-primary btn-sm" onClick={() => setAddSiteOpen(true)}><Icon name="plus" size={14} /> Add Site</button>}
+            {canEditSites && <button className="btn btn-primary btn-sm" onClick={() => setAddSiteOpen(true)}>Add Site</button>}
           </div>
           {sites.length === 0 ? (
             <EmptyState
@@ -520,7 +529,7 @@ export default function ClientDetail() {
                 <div className="section-head" style={{ marginBottom: 12 }}>
                   <span className="text-muted text-sm">Manual payment tracking</span>
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => setLogPaymentOpen(true)}>
-                    <Icon name="plus" size={14} /> Log Payment
+                    Log Payment
                   </button>
                 </div>
               )}
@@ -597,8 +606,8 @@ export default function ClientDetail() {
                       </div>
                       {canEdit && !isEditing && (
                         <div className="note-item-actions">
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => startEditNote(n)}>Edit</button>
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmDeleteNoteId(n.id)}>Delete</button>
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => startEditNote(n)}>Edit</button>
+                          <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmDeleteNoteId(n.id)}>Delete</button>
                         </div>
                       )}
                     </div>

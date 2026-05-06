@@ -180,7 +180,7 @@ export default function A2PRegistrationModal({ open, onClose }) {
           ))}
           {form.sampleMessages.length < 5 && (
             <button type="button" className="btn btn-outline btn-sm" onClick={addSample}>
-              + Add sample
+              Add sample
             </button>
           )}
         </div>

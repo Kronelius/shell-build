@@ -6,7 +6,6 @@ import ChannelBadge from './ChannelBadge';
 import EmptyState from './EmptyState';
 import Icon from './Icon';
 import SnippetPicker from './SnippetPicker';
-import AssignMenu from './AssignMenu';
 import { useStore } from '../store';
 import { selectUserById, selectOtherParticipant } from '../store/selectors';
 import { fmtTime, fmtRelative } from '../lib/dates';
@@ -62,11 +61,11 @@ export default function ConversationMessagePanel({
   conversation,
   contact,
   messages,
-  canAssign,
   currentUser,
+  isSuperAdmin,
   onSend,
-  onDelete,
-  onAssign,
+  onDeleteForever,
+  onRemoveFromView,
   onSetStatus,
   onSnooze,
   onToggleStar,
@@ -149,6 +148,7 @@ export default function ConversationMessagePanel({
   };
 
   const isFollowing = currentUser && (conversation.followedUserIds || []).includes(currentUser.id);
+  const canHardDelete = Boolean(isSuperAdmin || (currentUser && conversation.createdByUserId === currentUser.id));
 
   return (
     <section className="message-pane">
@@ -183,23 +183,36 @@ export default function ConversationMessagePanel({
             <Icon name="star" size={14} />
           </button>
           {!isDmThread && (
-            <>
-              <button
-                type="button"
-                className={`icon-btn ${isFollowing ? 'following' : ''}`}
-                onClick={onToggleFollow}
-                title={isFollowing ? 'Unfollow' : 'Follow'}
-                aria-label={isFollowing ? 'Unfollow' : 'Follow'}
-              >
-                <Icon name="bell" size={14} />
-              </button>
-              <AssignMenu conversation={conversation} onAssign={onAssign} disabled={!canAssign} />
-            </>
+            <button
+              type="button"
+              className={`icon-btn ${isFollowing ? 'following' : ''}`}
+              onClick={onToggleFollow}
+              title={isFollowing ? 'Unfollow' : 'Follow'}
+              aria-label={isFollowing ? 'Unfollow' : 'Follow'}
+            >
+              <Icon name="bell" size={14} />
+            </button>
           )}
-          <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>
-            <Icon name="trash" size={14} />
-            Delete
+          <button
+            type="button"
+            className="btn btn-success btn-sm"
+            onClick={onRemoveFromView}
+            title="Hide this thread from your view (does not delete the thread)"
+          >
+            <Icon name="x" size={14} />
+            Remove from view
           </button>
+          {canHardDelete && (
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              onClick={onDeleteForever}
+              title="Permanently delete the thread and all messages for everyone"
+            >
+              <Icon name="trash" size={14} />
+              Delete thread
+            </button>
+          )}
         </div>
       </div>
 

@@ -17,7 +17,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   selectClientById, selectInvoicesForContact, selectJobsForClient,
   selectSynthesizedActivityForContact, selectTagById, selectUserById,
-  selectUsers, selectPipelineStages, selectOtherParticipant,
+  selectPipelineStages, selectOtherParticipant,
   invoiceTotal, deriveInvoiceStatus,
 } from '../store/selectors';
 import { ROLE_LABELS } from '../lib/roles';
@@ -51,7 +51,6 @@ function buildForm(contact) {
     title: contact.title || '',
     department: contact.customFields?.department || '',
     address: contact.address || contact.customFields?.address || '',
-    ownerUserId: contact.ownerUserId || '',
     stage: contact.stage || '',
     dealValue: contact.dealValue ? String(contact.dealValue) : '',
     expectedCloseDate: contact.expectedCloseDate ? contact.expectedCloseDate.slice(0, 10) : '',
@@ -66,13 +65,9 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
   const state = useStore();
   const dispatch = useDispatch();
   const toast = useToast();
-  const { currentUser } = useAuth();
-  const users = selectUsers(state);
   const stages = selectPipelineStages(state);
 
-  const canEditAll = usePermission('contacts.edit');
-  const canAssignOwner = usePermission('contacts.assignOwner');
-  const canEdit = contact && (canEditAll || contact.ownerUserId === currentUser?.id);
+  const canEdit = usePermission('contacts.edit');
 
   const [form, setForm] = useState(() => buildForm(contact));
   // Note: we don't reset `form` inside an effect — callers mount this component
@@ -156,9 +151,6 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
     if (Object.keys(patch).length > 0) {
       dispatch({ type: ACTIONS.UPDATE_CONTACT, id: contact.id, patch });
     }
-    if (form.ownerUserId !== original.ownerUserId) {
-      dispatch({ type: ACTIONS.ASSIGN_CONTACT_OWNER, id: contact.id, userId: form.ownerUserId || null });
-    }
     if (form.stage !== original.stage) {
       // SET_CONTACT_STAGE also logs activity — only dispatch when stage actually changed.
       dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id: contact.id, stage: form.stage });
@@ -169,7 +161,6 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
   const handleDiscard = () => setForm(buildForm(contact));
 
   const showPipelineFields = contact.lifecycle === 'lead' || contact.lifecycle === 'prospect' || Boolean(contact.stage);
-  const selectedOwner = form.ownerUserId ? users.find((u) => u.id === form.ownerUserId) : null;
 
   return (
     <div className="context-card">
@@ -210,19 +201,6 @@ function ContactLinkCard({ contact, company, onLinkContact, picking, onCancelPic
           <dt>Address</dt>
           <dd>
             <input className="inline-input" value={form.address} onChange={up('address')} disabled={!canEdit} placeholder="—" />
-          </dd>
-        </div>
-        <div>
-          <dt>Assigned user</dt>
-          <dd className="assigned-user-cell">
-            <Select
-              ariaLabel="Assigned user"
-              value={form.ownerUserId || ''}
-              onChange={(v) => up('ownerUserId')({ target: { value: v } })}
-              disabled={!canAssignOwner}
-              options={[{ value: '', label: 'Unassigned' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
-            />
-            {selectedOwner && <Avatar initials={selectedOwner.initials} variant={selectedOwner.avatar} size="sm" />}
           </dd>
         </div>
         {showPipelineFields && (
@@ -642,8 +620,7 @@ function NotesCard({ contact }) {
   const dispatch = useDispatch();
   const toast = useToast();
   const { currentUser } = useAuth();
-  const canEditAll = usePermission('contacts.edit');
-  const canEditThis = contact && (canEditAll || contact.ownerUserId === currentUser?.id);
+  const canEditThis = usePermission('contacts.edit');
   const [draft, setDraft] = useState('');
 
   if (!contact) {

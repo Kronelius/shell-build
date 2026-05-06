@@ -380,7 +380,7 @@ export default function InvoiceDetail() {
         <div>
           <div className="section-head">
             <h3 className="dash-card-title">Line Items</h3>
-            {editing && <button type="button" className="btn btn-outline btn-sm" onClick={addLineItem}><Icon name="plus" size={14} /> Add</button>}
+            {editing && <button type="button" className="btn btn-outline btn-sm" onClick={addLineItem}>Add</button>}
           </div>
           <div className="table-wrap">
             <table>
@@ -470,7 +470,7 @@ export default function InvoiceDetail() {
           <div className="section-head">
             <h3 className="dash-card-title">Payments</h3>
             {canPay && derivedStatus !== 'void' && balance > 0 && !showPaymentForm && (
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowPaymentForm(true)}><Icon name="plus" size={14} /> Record Payment</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowPaymentForm(true)}>Record Payment</button>
             )}
           </div>
           {showPaymentForm && (
