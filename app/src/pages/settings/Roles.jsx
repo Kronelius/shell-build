@@ -66,7 +66,6 @@ export default function SettingsRoles() {
           <span>{p.label}</span>
           {DANGER_KEYS.has(p.id) && <span className="perm-sensitive-pill">Sensitive</span>}
         </div>
-        <div className="text-xs text-muted">{p.id}</div>
       </td>
       {ROLES.map((r) => (
         <td key={r} style={{ textAlign: 'center' }}>
