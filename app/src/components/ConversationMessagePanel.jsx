@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFromHere } from '../hooks/useFromHere';
 import Avatar from './Avatar';
@@ -21,8 +21,6 @@ function InternalBubble({ message }) {
   return (
     <div className="internal-bubble">
       <div className="internal-bubble-head">
-        <Icon name="lock" size={12} />
-        <span className="internal-bubble-label">Internal</span>
         {author && <span className="internal-bubble-author">{author.name}</span>}
         <span className="internal-bubble-time">{fmtTime(message.sentAt)} · {fmtRelative(message.sentAt)}</span>
       </div>
@@ -65,11 +63,10 @@ export default function ConversationMessagePanel({
   isSuperAdmin,
   onSend,
   onDeleteForever,
-  onRemoveFromView,
   onSetStatus,
   onSnooze,
   onToggleStar,
-  onToggleFollow,
+  onToggleMute,
   onBack,
 }) {
   const scrollRef = useRef(null);
@@ -80,6 +77,44 @@ export default function ConversationMessagePanel({
   const composeChannel = conversation?.channel || 'sms';
   const [draft, setDraft] = useState('');
   const [snippetId, setSnippetId] = useState(null);
+
+  // Compose textarea height — controlled in JS so the drag handle can grow it
+  // *upward* from the top edge (the native textarea resize only goes down from
+  // the bottom-right corner). 96px ≈ 4 lines, comfortable default for both
+  // quick replies and longer notes.
+  const COMPOSE_MIN_H = 56;
+  const COMPOSE_MAX_H = 360;
+  const [composeHeight, setComposeHeight] = useState(96);
+  const composeDragRef = useRef(null);
+  const [isResizingCompose, setIsResizingCompose] = useState(false);
+
+  const onComposeResizeStart = useCallback((e) => {
+    e.preventDefault();
+    composeDragRef.current = { startY: e.clientY, startH: composeHeight };
+    setIsResizingCompose(true);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ns-resize';
+    const onMove = (me) => {
+      const ds = composeDragRef.current;
+      if (!ds) return;
+      // Drag UP (clientY decreases) → height grows. That makes the handle in
+      // the top-right behave like the top edge of the box: pull it up to make
+      // the textarea taller.
+      const dy = ds.startY - me.clientY;
+      const next = Math.max(COMPOSE_MIN_H, Math.min(COMPOSE_MAX_H, ds.startH + dy));
+      setComposeHeight(next);
+    };
+    const onUp = () => {
+      composeDragRef.current = null;
+      setIsResizingCompose(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [composeHeight]);
 
   useEffect(() => {
     setDraft('');
@@ -147,7 +182,7 @@ export default function ConversationMessagePanel({
     setDraft((prev) => (prev ? `${prev}\n${body}` : body));
   };
 
-  const isFollowing = currentUser && (conversation.followedUserIds || []).includes(currentUser.id);
+  const isMuted = currentUser && (conversation.mutedByUserIds || []).includes(currentUser.id);
   const canHardDelete = Boolean(isSuperAdmin || (currentUser && conversation.createdByUserId === currentUser.id));
 
   return (
@@ -168,7 +203,7 @@ export default function ConversationMessagePanel({
                 {headerName}
               </button>
             )}
-            <ChannelBadge channel={conversation.channel} />
+            {!isInternalThread && <ChannelBadge channel={conversation.channel} />}
           </div>
           <div className="message-pane-sub text-xs text-muted">{headerSub}</div>
         </div>
@@ -185,23 +220,15 @@ export default function ConversationMessagePanel({
           {!isDmThread && (
             <button
               type="button"
-              className={`icon-btn ${isFollowing ? 'following' : ''}`}
-              onClick={onToggleFollow}
-              title={isFollowing ? 'Unfollow' : 'Follow'}
-              aria-label={isFollowing ? 'Unfollow' : 'Follow'}
+              className={`icon-btn ${isMuted ? 'is-muted' : ''}`}
+              onClick={onToggleMute}
+              title={isMuted ? 'Notifications silenced — click to unmute' : 'Silence notifications for this thread'}
+              aria-label={isMuted ? 'Unmute notifications' : 'Mute notifications'}
+              aria-pressed={isMuted ? 'true' : 'false'}
             >
-              <Icon name="bell" size={14} />
+              <Icon name={isMuted ? 'bellOff' : 'bell'} size={14} />
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-success btn-sm"
-            onClick={onRemoveFromView}
-            title="Hide this thread from your view (does not delete the thread)"
-          >
-            <Icon name="x" size={14} />
-            Remove from view
-          </button>
           {canHardDelete && (
             <button
               type="button"
@@ -223,7 +250,10 @@ export default function ConversationMessagePanel({
           if (isDmThread) {
             return <DmBubble key={m.id} message={m} currentUserId={currentUser?.id} />;
           }
-          if (m.direction === 'internal') {
+          // Internal team threads: every message is direction='internal' by definition.
+          // External threads (sms/email) only carry direction='in'/'out' — the cross-channel
+          // internal-note feature was removed in v26, so a chat bubble is always correct here.
+          if (isInternalThread) {
             return <InternalBubble key={m.id} message={m} />;
           }
           return <ChatBubble key={m.id} message={m} />;
@@ -231,30 +261,42 @@ export default function ConversationMessagePanel({
       </div>
 
       <form className="compose-bar" onSubmit={handleSend}>
-        {!isDmThread && (
-          <div className="compose-channel-row">
-            <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
-            {snippetId && <span className="text-xs text-muted">Snippet inserted</span>}
-          </div>
-        )}
         <div className="compose-row">
-          <textarea
-            className="compose-input"
-            placeholder={
-              isDmThread
-                ? `Message ${dmOther ? dmOther.name.split(' ')[0] : 'teammate'}…  (Enter to send, Shift+Enter for newline)`
-                : composeChannel === 'internal'
-                ? 'Internal note — only your team can see this.'
-                : `Type a ${composeChannel === 'email' ? 'message' : 'text'}…  (Enter to send, Shift+Enter for newline)`
-            }
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKey}
-            rows={2}
-          />
-          <button type="submit" className="btn btn-primary btn-sm" disabled={!draft.trim()}>
-            Send
-          </button>
+          <div
+            className={`compose-input-wrap ${isResizingCompose ? 'is-resizing' : ''}`}
+            style={{ height: `${composeHeight}px` }}
+          >
+            <textarea
+              className="compose-input"
+              placeholder={
+                isDmThread
+                  ? `Message ${dmOther ? dmOther.name.split(' ')[0] : 'teammate'}…  (Enter to send, Shift+Enter for newline)`
+                  : composeChannel === 'internal'
+                  ? 'Internal note — only your team can see this.'
+                  : `Type a ${composeChannel === 'email' ? 'message' : 'text'}…  (Enter to send, Shift+Enter for newline)`
+              }
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKey}
+            />
+            <button
+              type="button"
+              className="compose-input-resize"
+              onPointerDown={onComposeResizeStart}
+              title="Drag up to expand"
+              aria-label="Resize compose box"
+            >
+              <Icon name="resizeGrip" size={12} />
+            </button>
+          </div>
+          <div className="compose-row-actions">
+            {!isDmThread && (
+              <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
+            )}
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!draft.trim()}>
+              Send
+            </button>
+          </div>
         </div>
       </form>
     </section>

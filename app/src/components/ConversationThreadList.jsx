@@ -10,14 +10,9 @@ import {
 } from '../store/selectors';
 import { fmtRelative } from '../lib/dates';
 
-function previewText(msg, channel) {
+function previewText(msg) {
   if (!msg) return '';
-  // The [Internal] prefix only matters on EXTERNAL threads (sms/email) where it
-  // distinguishes a staff-side note from the customer-facing thread. On internal
-  // team threads and DMs every message is internal by definition, so the prefix
-  // is pure noise.
-  const prefix = msg.direction === 'internal' && channel !== 'dm' && channel !== 'internal' ? '[Internal] ' : '';
-  return `${prefix}${msg.text || ''}`;
+  return msg.text || '';
 }
 
 function initialsFromContact(contact) {
@@ -57,6 +52,7 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
   const last = msgs[msgs.length - 1];
   const unread = selectUnreadForConversation(state, conversation.id);
   const effectiveStatus = selectEffectiveStatus(conversation);
+  const isMuted = !!(currentUser && (conversation.mutedByUserIds || []).includes(currentUser.id));
 
   const isInternal = conversation.channel === 'internal';
   const isDm = conversation.channel === 'dm';
@@ -81,7 +77,7 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
 
   return (
     <div
-      className={`thread-row ${active ? 'active' : ''} ${selected ? 'selected' : ''} ${effectiveStatus !== 'open' ? 'status-' + effectiveStatus : ''} ${isOwnedByMe ? 'is-owner' : ''}`}
+      className={`thread-row ${active ? 'active' : ''} ${selected ? 'selected' : ''} ${effectiveStatus !== 'open' ? 'status-' + effectiveStatus : ''} ${isOwnedByMe ? 'is-owner' : ''} ${isMuted ? 'is-muted' : ''}`}
       onClick={() => onSelect(conversation.id)}
       role="button"
       tabIndex={0}
@@ -99,16 +95,27 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
       {hideCheckbox && isOwnedByMe && (
         <span
           className="thread-row-owner-pin"
-          title="You created this thread — only you (or a Super Admin) can permanently delete it"
-          aria-label="You own this thread"
+          title="You created this thread — bulk delete is disabled. Use the Delete button on the thread itself (single-thread, with confirm)."
+          aria-label="You own this thread — not bulk-selectable"
         >
           <Icon name="star" size={12} />
         </span>
       )}
       <Avatar initials={initials} variant={avatarVariant} size="sm" />
       <div className="thread-row-body">
-        <div className="thread-row-name">{displayName}</div>
-        <div className="thread-row-preview">{previewText(last, conversation.channel) || 'No messages yet'}</div>
+        <div className="thread-row-name">
+          {displayName}
+          {isMuted && (
+            <span
+              className="thread-row-mute-mark"
+              title="You silenced notifications for this thread"
+              aria-label="Notifications silenced"
+            >
+              <Icon name="bellOff" size={12} />
+            </span>
+          )}
+        </div>
+        <div className="thread-row-preview">{previewText(last) || 'No messages yet'}</div>
       </div>
       <div className="thread-row-right">
         <button
@@ -144,20 +151,20 @@ export default function ConversationThreadList({
   onToggleStar,
   onBulkMarkRead,
   onBulkMarkUnread,
-  onBulkRemoveFromView,
+  onBulkDelete,
   canBulk,
   selectedInbox,
-  onNewInternalThread,
-  canStartInternalThread,
 }) {
   const { currentUser } = useAuth();
   const isDmInbox = selectedInbox === 'dm';
   const isInternalInbox = selectedInbox === 'internal';
   const selectedCount = selectedIds?.size || 0;
 
-  // Owned threads can't be bulk-selected — hard delete is single-thread only with a heavy
-  // warning, and bulk soft-hide on owned threads is structurally pointless (you'd be
-  // hiding your own thread from your own view).
+  // Owned threads are NOT bulk-selectable. Hard-deleting your own thread is
+  // single-thread-only with a heavy confirm (in the message panel head) — the
+  // bulk path skips them so you can't accidentally nuke a thread you created
+  // in a multi-select. The owner-pin star renders in place of the checkbox so
+  // you can still see at a glance which rows are yours.
   const isOwned = (c) => Boolean(currentUser && c.createdByUserId === currentUser.id);
   const selectableConversations = conversations.filter((c) => !isOwned(c));
   const allSelected = selectedCount > 0 && selectableConversations.length > 0
@@ -166,16 +173,6 @@ export default function ConversationThreadList({
   return (
     <section className="thread-list-pane">
       <div className="thread-list-head">
-        {isInternalInbox && canStartInternalThread && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm thread-list-new-thread"
-            onClick={onNewInternalThread}
-            title="Start a new team thread visible to all staff"
-          >
-            <span>New thread</span>
-          </button>
-        )}
         <div className="thread-list-search">
           <Icon name="search" size={14} />
           <input
@@ -216,7 +213,7 @@ export default function ConversationThreadList({
           onClear={onClearSelection}
           onMarkRead={onBulkMarkRead}
           onMarkUnread={onBulkMarkUnread}
-          onRemoveFromView={onBulkRemoveFromView}
+          onBulkDelete={onBulkDelete}
           canBulk={canBulk}
         />
       )}

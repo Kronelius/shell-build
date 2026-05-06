@@ -202,6 +202,8 @@ export default function Messaging() {
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [newInternalThreadOpen, setNewInternalThreadOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // null when closed; { ids, deletable, skipped } when the bulk-delete confirm dialog is open.
+  const [bulkDeletePrompt, setBulkDeletePrompt] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const paneContainerRef = useRef(null);
   const panes = usePaneSizes(paneContainerRef);
@@ -398,19 +400,6 @@ export default function Messaging() {
     navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
   };
 
-  // Soft-delete: hide the active thread from the current user's view. Anyone can do this.
-  const handleRemoveActiveFromView = () => {
-    if (!activeConversation || !currentUser) return;
-    dispatch({
-      type: ACTIONS.HIDE_CONVERSATION_FOR_USER,
-      id: activeConversation.id,
-      userId: currentUser.id,
-    });
-    toast.success('Thread removed from your view');
-    setActiveId(null);
-    navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
-  };
-
   // --- Phase 2b per-thread action handlers -------------------------------
   const handleSetStatus = (status) => {
     if (!activeConversation) return;
@@ -427,9 +416,9 @@ export default function Messaging() {
   const handleToggleStarRow = (id) => {
     dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_STAR, id });
   };
-  const handleToggleFollow = () => {
+  const handleToggleMute = () => {
     if (!activeConversation || !currentUser) return;
-    dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_FOLLOW, id: activeConversation.id, userId: currentUser.id });
+    dispatch({ type: ACTIONS.TOGGLE_CONVERSATION_MUTE, id: activeConversation.id, userId: currentUser.id });
   };
   const handleLinkContact = (contactId) => {
     if (!activeConversation) return;
@@ -457,18 +446,41 @@ export default function Messaging() {
   const handleBulkMarkUnread = () => {
     dispatch({ type: ACTIONS.BULK_MARK_CONVERSATIONS_UNREAD, ids: Array.from(selectedIds) });
   };
-  // Bulk action is non-destructive: hide selected threads from the current user only.
-  // Threads the user owns aren't bulk-selectable in the sidebar, so this never touches
-  // user-owned threads — that path is single-thread-with-warning only.
-  const handleBulkRemoveFromView = () => {
-    if (!currentUser) return;
+  // Bulk hard-delete. Filters the selection to threads the current user is
+  // permitted to hard-delete (creator or Super Admin) and pops a confirm
+  // before doing anything destructive. If 0 threads are deletable we just
+  // toast and bail without showing the dialog.
+  const handleBulkDeleteRequest = () => {
     const ids = Array.from(selectedIds);
-    dispatch({ type: ACTIONS.BULK_HIDE_CONVERSATIONS_FOR_USER, ids, userId: currentUser.id });
-    setSelectedIds(new Set());
-    toast.success(`${ids.length} thread${ids.length === 1 ? '' : 's'} removed from your view`);
+    if (ids.length === 0) return;
+    const eligible = [];
+    const skipped = [];
+    for (const id of ids) {
+      const conv = state.conversations.find((c) => c.id === id);
+      if (!conv) continue;
+      const allowed = isSuperAdmin || (currentUser && conv.createdByUserId === currentUser.id);
+      if (allowed) eligible.push(id); else skipped.push(id);
+    }
+    if (eligible.length === 0) {
+      toast.error("You can't delete any of the selected threads — only their creators or a Super Admin can.");
+      return;
+    }
+    setBulkDeletePrompt({ ids: eligible, skipped: skipped.length });
+  };
+  const handleBulkDeleteConfirm = () => {
+    if (!bulkDeletePrompt) return;
+    const { ids, skipped } = bulkDeletePrompt;
+    dispatch({ type: ACTIONS.BULK_DELETE_CONVERSATIONS, ids });
     if (activeId && ids.includes(activeId)) {
       setActiveId(null);
       navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
+    }
+    setSelectedIds(new Set());
+    setBulkDeletePrompt(null);
+    if (skipped > 0) {
+      toast.success(`Deleted ${ids.length} thread${ids.length === 1 ? '' : 's'}; skipped ${skipped} you couldn't delete.`);
+    } else {
+      toast.success(`Deleted ${ids.length} thread${ids.length === 1 ? '' : 's'} for everyone.`);
     }
   };
 
@@ -485,8 +497,10 @@ export default function Messaging() {
           filters={filters}
           onFiltersChange={setFilters}
           canStart={canStart}
+          canStartInternalThread={canStartInternalThread}
           onNewConversation={() => setNewConvOpen(true)}
           onNewDm={() => setNewDmOpen(true)}
+          onNewInternalThread={() => setNewInternalThreadOpen(true)}
           visibleInboxes={visibleInboxes}
         />
         <div
@@ -508,11 +522,9 @@ export default function Messaging() {
             onToggleStar={handleToggleStarRow}
             onBulkMarkRead={handleBulkMarkRead}
             onBulkMarkUnread={handleBulkMarkUnread}
-            onBulkRemoveFromView={handleBulkRemoveFromView}
+            onBulkDelete={handleBulkDeleteRequest}
             canBulk={canBulk}
             selectedInbox={selectedInbox}
-            onNewInternalThread={() => setNewInternalThreadOpen(true)}
-            canStartInternalThread={canStartInternalThread}
           />
           <div
             className={`msg-pane-handle msg-pane-handle-left ${panes.dragging === 'left' ? 'is-dragging' : ''}`}
@@ -530,11 +542,10 @@ export default function Messaging() {
             isSuperAdmin={isSuperAdmin}
             onSend={handleSend}
             onDeleteForever={() => setConfirmDeleteOpen(true)}
-            onRemoveFromView={handleRemoveActiveFromView}
             onSetStatus={handleSetStatus}
             onSnooze={handleSnooze}
             onToggleStar={handleToggleStarActive}
-            onToggleFollow={handleToggleFollow}
+            onToggleMute={handleToggleMute}
             onBack={handleBackToInbox}
           />
           <div
@@ -580,6 +591,24 @@ export default function Messaging() {
         variant="danger"
         onConfirm={handleHardDeleteConversation}
         onClose={() => setConfirmDeleteOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={!!bulkDeletePrompt}
+        title={
+          bulkDeletePrompt
+            ? `Permanently delete ${bulkDeletePrompt.ids.length} thread${bulkDeletePrompt.ids.length === 1 ? '' : 's'}?`
+            : 'Permanently delete threads?'
+        }
+        message={
+          bulkDeletePrompt
+            ? `This permanently deletes ${bulkDeletePrompt.ids.length} selected thread${bulkDeletePrompt.ids.length === 1 ? '' : 's'} and every message in them, for everyone. This cannot be undone.${bulkDeletePrompt.skipped ? ` ${bulkDeletePrompt.skipped} other thread${bulkDeletePrompt.skipped === 1 ? '' : 's'} you can't delete will be skipped.` : ''}`
+            : ''
+        }
+        confirmLabel="Delete forever"
+        variant="danger"
+        onConfirm={handleBulkDeleteConfirm}
+        onClose={() => setBulkDeletePrompt(null)}
       />
     </>
   );

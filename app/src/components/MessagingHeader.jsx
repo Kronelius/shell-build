@@ -172,8 +172,10 @@ export default function MessagingHeader({
   filters,
   onFiltersChange,
   canStart,
+  canStartInternalThread,
   onNewConversation,
   onNewDm,
+  onNewInternalThread,
   visibleInboxes,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -228,7 +230,7 @@ export default function MessagingHeader({
           )}
         </div>
 
-        {selectedInbox === 'dm' ? (
+        {selectedInbox === 'dm' && (
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -237,7 +239,19 @@ export default function MessagingHeader({
           >
             <span>New DM</span>
           </button>
-        ) : (
+        )}
+        {selectedInbox === 'internal' && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={onNewInternalThread}
+            disabled={!canStartInternalThread}
+            title={canStartInternalThread ? 'Start a new team thread' : 'You lack permission to start threads'}
+          >
+            <span>New thread</span>
+          </button>
+        )}
+        {selectedInbox === 'inbox' && (
           <button
             type="button"
             className="btn btn-primary btn-sm"
