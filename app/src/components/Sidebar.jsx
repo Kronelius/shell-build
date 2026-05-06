@@ -12,7 +12,6 @@ const NAV = [
   { to: '/contacts',  label: 'Contacts',   icon: 'clients',   perm: 'contacts.view'  },
   { to: '/pipeline',  label: 'Pipeline',   icon: 'chart',     perm: 'pipeline.view'  },
   { to: '/invoices',  label: 'Invoices',   icon: 'invoices',  perm: 'invoices.view'  },
-  { to: '/reminders', label: 'Reminders',  icon: 'reminders', perm: 'reminders.view' },
 ];
 
 export default function Sidebar({ mobileOpen, onCloseMobile }) {

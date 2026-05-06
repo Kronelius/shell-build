@@ -16,7 +16,6 @@ import ContactDetail from './pages/ContactDetail';
 import Pipeline from './pages/Pipeline';
 import Invoices from './pages/Invoices';
 import InvoiceDetail from './pages/InvoiceDetail';
-import Reminders from './pages/Reminders';
 import Messaging from './pages/Messaging';
 
 import SettingsLayout from './pages/settings/SettingsLayout';
@@ -56,7 +55,7 @@ export default function App() {
               <Route path="invoices" element={<RequirePerm perm="invoices.view"><Invoices /></RequirePerm>} />
               <Route path="invoices/:invoiceId" element={<RequirePerm perm="invoices.view"><InvoiceDetail /></RequirePerm>} />
 
-              <Route path="reminders" element={<RequirePerm perm="reminders.view"><Reminders /></RequirePerm>} />
+              <Route path="reminders" element={<Navigate to="/settings/notifications" replace />} />
 
               <Route path="messaging" element={<RequirePerm perm="messaging.use"><Messaging /></RequirePerm>} />
               <Route path="messaging/:conversationId" element={<RequirePerm perm="messaging.use"><Messaging /></RequirePerm>} />
@@ -69,7 +68,7 @@ export default function App() {
                 <Route path="team" element={<RequirePerm perm="settings.team.view"><SettingsTeam /></RequirePerm>} />
                 <Route path="team/:userId" element={<RequirePerm perm="settings.team.view"><SettingsTeamDetail /></RequirePerm>} />
                 <Route path="roles" element={<RequirePerm perm="settings.roles.edit"><SettingsRoles /></RequirePerm>} />
-                <Route path="notifications" element={<RequirePerm perm="reminders.edit"><SettingsNotifications /></RequirePerm>} />
+                <Route path="notifications" element={<RequirePerm perm="reminders.view"><SettingsNotifications /></RequirePerm>} />
                 <Route path="account" element={<RequirePerm perm="settings.account"><SettingsAccount /></RequirePerm>} />
                 <Route path="integrations" element={<RequirePerm perm="integrations.view"><SettingsIntegrations /></RequirePerm>} />
               </Route>

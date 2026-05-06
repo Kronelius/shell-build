@@ -11,7 +11,6 @@ function deriveFromLabel(pathname, search) {
   if (pathname === '/schedule') return 'Schedule';
   if (pathname === '/pipeline') return 'Pipeline';
   if (pathname === '/invoices') return 'Invoices';
-  if (pathname === '/reminders') return 'Reminders';
   if (pathname === '/messaging') return 'Messaging';
   if (pathname === '/settings/team') return 'Team';
   if (pathname === '/settings/account') return 'Account';
@@ -19,7 +18,7 @@ function deriveFromLabel(pathname, search) {
   if (pathname === '/settings/services') return 'Services';
   if (pathname === '/settings/tags') return 'Tags';
   if (pathname === '/settings/roles') return 'Roles';
-  if (pathname === '/settings/notifications') return 'Notifications';
+  if (pathname === '/settings/notifications') return 'Reminders';
   if (pathname === '/settings/integrations') return 'Integrations';
   return null;
 }

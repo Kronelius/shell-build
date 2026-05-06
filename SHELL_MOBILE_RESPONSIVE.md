@@ -62,7 +62,7 @@ Findings from full-codebase audit at `app/src/**`. Severity is impact on a 375px
 | H2 | `app/src/index.css:194` `.table-wrap` | `overflow-x: auto` is the catch-all that hides the underlying problem. | Keep the rule for desktop, but pair every `.table-wrap` table with a card-list alternative for mobile (CSS toggles display). |
 | H3 | `app/src/index.css:827` `.tab-container` | `overflow-x: auto` on tab strips with many tabs. | Pin to wrapping (`flex-wrap: wrap`) at ≤640px, or use a select fallback for tab strips with >3 entries. |
 | H4 | `app/src/index.css:513` `.modal` / `app/src/index.css:507` `.modal-card-lg` | `max-width: 480px` / `800px` don't shrink on mobile. | At ≤640px: `max-width: calc(100vw - 24px); max-height: calc(100vh - 32px); margin: 16px 12px`. |
-| H5 | `app/src/pages/Reminders.jsx:276–330` | Delivery inbox table — 6 cols. | Card list at ≤640px. |
+| H5 | `app/src/pages/settings/Notifications.jsx` (Inbox tab table) | Delivery inbox table — 6 cols. | Card list at ≤640px. |
 | H6 | `app/src/pages/settings/Team.jsx:48–79` | Team table — 6 cols (Name, Email, Role, Access, Status, chevron). | Card list at ≤640px. |
 | H7 | `app/src/pages/settings/Roles.jsx:98–108` | Permission matrix — Permission column + N role columns at fixed 100px each. With 4+ roles it overflows. | Stacked accordion at ≤640px (one section per role; checklist per permission). |
 | H8 | `app/src/pages/settings/TeamDetail.jsx:163–195` | Permission overrides table. | Card list at ≤640px. |
@@ -401,7 +401,7 @@ When porting back to the shell, walk this list. Each item should land in one PR 
 - [ ] **`/contacts` (Accounts tab)** — Accounts table → card list (`AccountCardRow`).
 - [ ] **`/invoices`** — Invoices list → card list (`InvoiceCardRow`).
 - [ ] **`/invoices/:id`** — Line-items + payments tables → stacked rows (§3.9).
-- [ ] **`/reminders`** — Inbox table → card list.
+- [ ] **`/settings/notifications`** (Delivery Inbox tab) — Inbox table → card list.
 - [ ] **`/messaging`** — `.msg-3pane` 640px breakpoint + route-based view swap (list → thread).
 - [ ] **`/settings/team`** — Members table → card list.
 - [ ] **`/settings/roles`** — Permission matrix → accordion (§3.10).

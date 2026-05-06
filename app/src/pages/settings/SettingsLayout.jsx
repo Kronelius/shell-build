@@ -1,20 +1,26 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { usePermissionChecker } from '../../hooks/usePermission';
+import { useStore } from '../../store';
+import { selectUnreadReminderCount, selectFailedReminderCount } from '../../store/selectors';
 import Icon from '../../components/Icon';
 
 const ITEMS = [
-  { to: 'account',       label: 'Account',       icon: 'user',     perm: 'settings.account'    },
-  { to: 'company',       label: 'Company',       icon: 'building', perm: 'settings.company'    },
-  { to: 'services',      label: 'Services',      icon: 'invoices', perm: 'settings.services'   },
-  { to: 'tags',          label: 'Tags',          icon: 'tag',      perm: 'tags.manage'         },
-  { to: 'team',          label: 'Team',          icon: 'clients',  perm: 'settings.team.view'  },
-  { to: 'roles',         label: 'Roles & Permissions', icon: 'lock', perm: 'settings.roles.edit' },
-  { to: 'notifications', label: 'Notifications', icon: 'bell',     perm: 'reminders.edit'      },
-  { to: 'integrations',  label: 'Integrations',  icon: 'phone',    perm: 'integrations.view'   },
+  { to: 'account',       label: 'Account',             icon: 'user',     perm: 'settings.account'    },
+  { to: 'company',       label: 'Company',             icon: 'building', perm: 'settings.company'    },
+  { to: 'services',      label: 'Services',            icon: 'invoices', perm: 'settings.services'   },
+  { to: 'tags',          label: 'Tags',                icon: 'tag',      perm: 'tags.manage'         },
+  { to: 'team',          label: 'Team',                icon: 'clients',  perm: 'settings.team.view'  },
+  { to: 'roles',         label: 'Roles & Permissions', icon: 'lock',     perm: 'settings.roles.edit' },
+  { to: 'notifications', label: 'Reminders',           icon: 'bell',     perm: 'reminders.view'      },
+  { to: 'integrations',  label: 'Integrations',        icon: 'phone',    perm: 'integrations.view'   },
 ];
 
 export default function SettingsLayout() {
   const check = usePermissionChecker();
+  const state = useStore();
+  const unread = selectUnreadReminderCount(state);
+  const failed = selectFailedReminderCount(state);
+  const reminderBadge = unread + failed;
   const allowed = ITEMS.filter((i) => check(i.perm));
 
   return (
@@ -34,6 +40,11 @@ export default function SettingsLayout() {
             >
               <Icon name={item.icon} size={14} />
               <span>{item.label}</span>
+              {item.to === 'notifications' && reminderBadge > 0 && (
+                <span className="settings-pill-badge" aria-label={`${unread} unread, ${failed} failed`}>
+                  {reminderBadge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

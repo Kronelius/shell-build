@@ -83,7 +83,7 @@ Token interpolation: `{client_contact} {company} {service} {site_name} {date} {t
 
 New reducer action: `UPDATE_REMINDER_EVENT` (generic patch — used by scheduler + retry). The old `RETRY_REMINDER_EVENT` action remains but is unused now; retry goes through `retryDelivery()`.
 
-Inbox surface in `Reminders.jsx`: status badge handles `sent / pending / failed`; failed rows show the failure reason inline; rows show `recipient` under client name; retry button calls `retryDelivery()` (re-delivers through adapter and patches the same event).
+Inbox surface in `pages/settings/Notifications.jsx` (Settings → Reminders, Delivery Inbox tab): status badge handles `sent / pending / failed`; failed rows show the failure reason inline; rows show `recipient` under client name; retry button calls `retryDelivery()` (re-delivers through adapter and patches the same event). The standalone `/reminders` route was consolidated into Settings — sequence + templates + delivery inbox now live as three tabs under one page; `/reminders` redirects to `/settings/notifications` for backwards compat.
 
 ## `[x]` Messaging Suite `[Core]`
 

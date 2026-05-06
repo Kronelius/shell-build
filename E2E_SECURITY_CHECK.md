@@ -40,7 +40,7 @@ Drive every primary route. Each should render its heading with no red console ou
 | `/clients` | Contacts (alias) |
 | `/pipeline` | Pipeline |
 | `/invoices` | Invoices |
-| `/reminders` | Automated Reminders |
+| `/reminders` | (redirects to `/settings/notifications`) |
 | `/messaging` | Messaging |
 | `/settings/account` | Settings |
 | `/settings/company` | Settings |
@@ -54,7 +54,7 @@ Drive every primary route. Each should render its heading with no red console ou
 Quick automation (paste in DevTools console):
 ```js
 (async () => {
-  const routes = ['/', '/schedule', '/contacts', '/clients', '/pipeline', '/invoices', '/reminders', '/messaging',
+  const routes = ['/', '/schedule', '/contacts', '/clients', '/pipeline', '/invoices', '/messaging',
     '/settings/account', '/settings/company', '/settings/services', '/settings/tags', '/settings/team',
     '/settings/roles', '/settings/notifications', '/settings/integrations'];
   for (const p of routes) {
@@ -114,7 +114,7 @@ Confirm storage-version bumps trigger a clean reseed (not a stale-state crash).
 
 ### 1.5 Reminder scheduler
 
-Open `/reminders`. The Delivery Inbox should show events with mixed `sent` / `failed` / `pending` statuses. Failed rows should have a clear `failureReason` string. The retry button on a failed row should re-dispatch and either succeed or fail with a fresh reason — never silently no-op.
+Open `/settings/notifications` and switch to the Delivery Inbox tab. It should show events with mixed `sent` / `failed` / `pending` statuses. Failed rows should have a clear `failureReason` string. The retry button on a failed row should re-dispatch and either succeed or fail with a fresh reason — never silently no-op.
 
 ### 1.6 Production build
 

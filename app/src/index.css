@@ -1636,6 +1636,29 @@ tr.clickable:hover { background: var(--inset-bg); }
 /* Template editor (notifications settings) */
 .template-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .template-list { display: flex; flex-direction: column; gap: 8px; }
+.template-list-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  width: 100%; text-align: left;
+  padding: 12px 14px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s;
+  font-family: var(--font); color: var(--text-body);
+}
+.template-list-item:hover {
+  border-color: rgba(var(--color-brand-primary-rgb), 0.4);
+  background: var(--primary-bg);
+  transform: translateY(-1px);
+}
+.template-list-item.active {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  box-shadow: var(--card-shadow);
+}
+.template-list-item.active .template-list-label { color: var(--primary-deep); }
+.template-list-label { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.template-list-meta { font-size: 11px; color: var(--text-muted); letter-spacing: 0.02em; }
 .template-body { display: flex; flex-direction: column; gap: 10px; }
 .template-preview {
   background: var(--inset-bg); border: 1px solid var(--card-border);
@@ -1644,6 +1667,18 @@ tr.clickable:hover { background: var(--inset-bg); }
 }
 .token-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .token-row .chip { font-size: 11px; font-family: monospace; }
+
+/* Settings nav badge — counts unread + failed reminder events on the Reminders pill */
+.settings-pill-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 5px; margin-left: 2px;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  border-radius: 999px;
+  background: var(--danger); color: #fff;
+}
+.settings-pill.active .settings-pill-badge {
+  background: rgba(255, 255, 255, 0.3);
+}
 
 /* Roles table */
 .roles-table {
@@ -1660,7 +1695,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   display: block;
 }
 .perm-group-head {
-  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  font-size: 16px; font-weight: 600; color: var(--text-primary);
   margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light);
 }
 .perm-sensitive-pill {
@@ -2205,8 +2240,8 @@ tr.clickable:hover { background: var(--inset-bg); }
 
 .messaging-wrap {
   display: flex; flex-direction: column;
+  height: calc(100vh - 180px);
   min-height: 640px;
-  max-height: calc(100vh - 180px);
   padding: 0;
   overflow: hidden;
 }
