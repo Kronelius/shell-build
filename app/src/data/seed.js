@@ -304,26 +304,26 @@ const snippets = [
 // Two seeded internal channels (per Q14, Q6): Time Off Requests + Accounting Handoffs.
 const conversations = [
   // External
-  { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),  assignedUserId: users[4].id, status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', archived: false, title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18), assignedUserId: users[3].id, status: 'snoozed', snoozedUntil: inHours(20), starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),   assignedUserId: null,        status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),   assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  followedUserIds: [] },
-  { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),   assignedUserId: users[5].id, status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
-  { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', archived: false, title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [users[5].id] },
-  { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   archived: false, title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   assignedUserId: users[3].id, status: 'closed',  snoozedUntil: null,        starred: false, followedUserIds: [] }, // Jamie (lead)
-  { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', archived: false, title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   assignedUserId: null,        status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] }, // Robin (lead)
-  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  archived: false, title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(20), assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  followedUserIds: [] }, // Morgan Hayes (lead)
+  { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),  assignedUserId: users[4].id, status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
+  { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18), assignedUserId: users[3].id, status: 'snoozed', snoozedUntil: inHours(20), starred: false, followedUserIds: [] },
+  { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),   assignedUserId: null,        status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
+  { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),   assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  followedUserIds: [] },
+  { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),   assignedUserId: users[5].id, status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] },
+  { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [users[5].id] },
+  { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   assignedUserId: users[3].id, status: 'closed',  snoozedUntil: null,        starred: false, followedUserIds: [] }, // Jamie (lead)
+  { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   assignedUserId: null,        status: 'open',    snoozedUntil: null,        starred: false, followedUserIds: [] }, // Robin (lead)
+  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(20), assignedUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  followedUserIds: [] }, // Morgan Hayes (lead)
 
   // Internal — pinned (starred) channels per Q14 & Q6
-  { id: seedId('cv', 'time-off'),     clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Time Off Requests',  createdAt: daysAgo(60), lastMessageAt: hoursAgo(8),  assignedUserId: null, status: 'open', snoozedUntil: null, starred: true, followedUserIds: [users[2].id, users[3].id] },
-  { id: seedId('cv', 'accounting'),   clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Accounting Handoffs', createdAt: daysAgo(60), lastMessageAt: daysAgo(1),   assignedUserId: null, status: 'open', snoozedUntil: null, starred: true, followedUserIds: [users[2].id] },
+  { id: seedId('cv', 'time-off'),     clientId: null, contactId: null, channel: 'internal', title: 'Time Off Requests',  createdAt: daysAgo(60), lastMessageAt: hoursAgo(8),  assignedUserId: null, status: 'open', snoozedUntil: null, starred: true, followedUserIds: [users[2].id, users[3].id] },
+  { id: seedId('cv', 'accounting'),   clientId: null, contactId: null, channel: 'internal', title: 'Accounting Handoffs', createdAt: daysAgo(60), lastMessageAt: daysAgo(1),   assignedUserId: null, status: 'open', snoozedUntil: null, starred: true, followedUserIds: [users[2].id] },
   // Internal — incident channels (transactional)
-  { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[4].id] },
-  { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', archived: false, title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[7].id] },
+  { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[4].id] },
+  { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [users[7].id] },
 
   // DM — 1:1 between Heather (admin) and Lauren (admin). Privacy is gated to participants;
   // owners/other admins/crew not in participantUserIds will not see this thread.
-  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', archived: false, title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
+  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), assignedUserId: null, status: 'open', snoozedUntil: null, starred: false, followedUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
 ];
 
 const messages = [
@@ -439,7 +439,7 @@ const userPermissionOverrides = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 20,
+  version: 21,
   company,
   currentUserId,
   users,

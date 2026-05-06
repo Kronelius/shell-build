@@ -36,7 +36,6 @@ const LIFECYCLE_VARIANTS = {
   prospect: 'blue',
   customer: 'green',
   vendor: 'slate',
-  archived: 'slate',
 };
 
 export default function ContactDetail({ contactId: propContactId, embedded = false } = {}) {
@@ -51,7 +50,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const canEditAll = usePermission('contacts.edit');
   const canDelete = usePermission('contacts.delete');
-  const canArchive = usePermission('contacts.delete');
   const canAssignOwner = usePermission('contacts.assignOwner');
   const canStartConversation = usePermission('messaging.startConversation');
 
@@ -64,7 +62,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
   const [tab, setTab] = useState('overview');
   const [activitySubTab, setActivitySubTab] = useState('service');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmArchive, setConfirmArchive] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -140,12 +137,8 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
   const del = () => {
     dispatch({ type: ACTIONS.DELETE_CONTACT, id: contact.id });
+    toast.success('Contact deleted');
     navigate('/contacts');
-  };
-  const archive = () => {
-    dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id: contact.id });
-    setConfirmArchive(false);
-    toast.success('Contact archived');
   };
 
   const headerBadges = (
@@ -157,11 +150,11 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
     </div>
   );
   // Prefer opening an existing thread over creating a new one — enforces "one thread per contact" UX.
-  // If any non-archived conversation exists, navigate to the most recently-active one;
+  // If any conversation exists, navigate to the most recently-active one;
   // only fall through to NewConversationModal when the contact is truly thread-less.
   const handleMessage = () => {
     const existing = conversations
-      .filter((c) => !c.archived)
+      .slice()
       .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
     if (existing.length > 0) {
       navigate(`/messaging/${existing[0].id}`, { state: nav });
@@ -179,10 +172,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
         </button>
       )}
       {canEditThis && <button className="btn btn-outline btn-sm" onClick={() => setEditOpen(true)}>Edit</button>}
-      {canArchive && contact.lifecycle !== 'archived' && (
-        <button className="btn btn-outline btn-sm" onClick={() => setConfirmArchive(true)}>Archive</button>
-      )}
-      {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
+      {canDelete && <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
     </div>
   );
 
@@ -463,14 +453,6 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
         variant="danger"
         onConfirm={del}
         onClose={() => setConfirmDelete(false)}
-      />
-      <ConfirmDialog
-        open={confirmArchive}
-        title={`Archive ${contact.firstName} ${contact.lastName}?`}
-        message="They'll be marked archived. You can find archived contacts via the lifecycle filter."
-        confirmLabel="Archive"
-        onConfirm={archive}
-        onClose={() => setConfirmArchive(false)}
       />
       <ConfirmDialog
         open={confirmDeleteNoteId !== null}

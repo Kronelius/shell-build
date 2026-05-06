@@ -43,7 +43,7 @@ export default function ClientDetail() {
   const nav = useFromHere();
   const canEdit = usePermission('clients.edit');
   const canView = usePermission('clients.view');
-  const canArchive = usePermission('clients.archive');
+  const canDeleteClient = usePermission('clients.delete');
   const canEditSites = usePermission('sites.edit');
   const canEditContacts = usePermission('contacts.edit');
   const { currentUser } = useAuth();
@@ -63,7 +63,6 @@ export default function ClientDetail() {
   const [addSiteOpen, setAddSiteOpen] = useState(false);
   const [editSite, setEditSite] = useState(null);
   const [confirmDeleteSite, setConfirmDeleteSite] = useState(null);
-  const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -78,7 +77,7 @@ export default function ClientDetail() {
     () => (primaryContact ? selectConversationsForContact(state, primaryContact.id) : []),
     [state, primaryContact?.id]
   );
-  const canDelete = usePermission('clients.archive');
+  const canDelete = canDeleteClient;
   const canStartConversation = usePermission('messaging.startConversation');
 
   const outstanding = useMemo(() => invoices.reduce((a, inv) => {
@@ -122,12 +121,10 @@ export default function ClientDetail() {
     dispatch({ type: ACTIONS.UPDATE_CLIENT, id: client.id, patch: { primaryContactId: contactId } });
   };
 
-  const archive = () => {
-    dispatch({ type: ACTIONS.ARCHIVE_CLIENT, id: client.id });
-  };
-
-  const unarchive = () => {
-    dispatch({ type: ACTIONS.UNARCHIVE_CLIENT, id: client.id });
+  const deleteClient = () => {
+    dispatch({ type: ACTIONS.DELETE_CLIENT, id: client.id });
+    toast.success('Account deleted');
+    navigate('/clients?tab=accounts');
   };
 
   const appendNote = () => {
@@ -167,18 +164,13 @@ export default function ClientDetail() {
     toast.success('Note deleted');
   };
 
-  const del = () => {
-    dispatch({ type: ACTIONS.DELETE_CLIENT, id: client.id });
-    navigate('/clients?tab=accounts');
-  };
-
   const handleMessage = () => {
     if (!primaryContact) {
       toast.error('Set a primary contact first to start a conversation.');
       return;
     }
     const existing = primaryConversations
-      .filter((c) => !c.archived)
+      .slice()
       .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
     if (existing.length > 0) {
       navigate(`/messaging/${existing[0].id}`, { state: nav });
@@ -205,9 +197,7 @@ export default function ClientDetail() {
                 Message
               </button>
             )}
-            {canArchive && client.status === 'active' && <button className="btn btn-outline btn-sm" onClick={() => setConfirmArchive(true)}>Archive</button>}
-            {canArchive && client.status !== 'active' && <button className="btn btn-outline btn-sm" onClick={unarchive}>Reactivate</button>}
-            {canDelete && <button className="btn btn-outline btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
+            {canDelete && <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(true)}>Delete</button>}
           </div>
         }
       />
@@ -650,20 +640,12 @@ export default function ClientDetail() {
         onClose={() => setConfirmDeleteSite(null)}
       />
       <ConfirmDialog
-        open={confirmArchive}
-        title="Archive this account?"
-        message="It'll be marked inactive. You can reactivate anytime."
-        confirmLabel="Archive"
-        onConfirm={archive}
-        onClose={() => setConfirmArchive(false)}
-      />
-      <ConfirmDialog
         open={confirmDelete}
         title={`Delete ${client.name}?`}
-        message="This permanently removes the account, its sites, jobs, and invoices. Contacts attached here will be unlinked but kept."
+        message="This permanently removes the account, its contacts, sites, jobs, and invoices. Conversations linked to those contacts will be unlinked but preserved. This cannot be undone."
         confirmLabel="Delete"
         variant="danger"
-        onConfirm={del}
+        onConfirm={deleteClient}
         onClose={() => setConfirmDelete(false)}
       />
       <ConfirmDialog

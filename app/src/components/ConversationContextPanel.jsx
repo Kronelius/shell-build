@@ -28,7 +28,6 @@ const LIFECYCLE_VARIANTS = {
   prospect: 'blue',
   customer: 'green',
   vendor: 'slate',
-  archived: 'slate',
 };
 
 

@@ -5,21 +5,25 @@ import { useStore } from '../store';
 import { selectActiveUsers } from '../store/selectors';
 
 // Appears at the top of the thread list when ≥1 conversation is selected.
-// All actions are gated upstream by `canBulk`; the Assign submenu is additionally gated by `canAssign`.
+// Action set varies by inbox: internal team threads expose Mark read / Mark unread / Delete only
+// (assignment doesn't apply to staff-wide threads). External (Inbox) shows Assign + the three.
 export default function BulkActionBar({
   selectedCount,
   onClear,
   onAssign,
   onMarkRead,
   onMarkUnread,
-  onArchive,
+  onDelete,
   canAssign,
   canBulk,
+  inbox = 'inbox',
 }) {
   const state = useStore();
   const users = selectActiveUsers(state);
   const [assignOpen, setAssignOpen] = useState(false);
   const wrapRef = useRef(null);
+
+  const showAssign = canAssign && inbox !== 'internal';
 
   useEffect(() => {
     if (!assignOpen) return;
@@ -44,7 +48,7 @@ export default function BulkActionBar({
         <strong>{selectedCount}</strong> selected
       </span>
       <div className="bulk-actions">
-        {canAssign && (
+        {showAssign && (
           <div className="bulk-assign-wrap" ref={wrapRef}>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setAssignOpen((v) => !v)}>
               <Icon name="user" size={12} />
@@ -70,16 +74,16 @@ export default function BulkActionBar({
         )}
         {canBulk && (
           <>
-            <button type="button" className="btn btn-outline btn-sm" onClick={onMarkRead}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={onMarkRead}>
               <Icon name="check" size={12} />
               <span>Mark read</span>
             </button>
-            <button type="button" className="btn btn-outline btn-sm" onClick={onMarkUnread}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={onMarkUnread}>
               <span>Mark unread</span>
             </button>
-            <button type="button" className="btn btn-outline btn-sm" onClick={onArchive}>
-              <Icon name="archive" size={12} />
-              <span>Archive</span>
+            <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>
+              <Icon name="trash" size={12} />
+              <span>Delete</span>
             </button>
           </>
         )}

@@ -1,6 +1,9 @@
-// v20: Add user-to-user DMs (channel: 'dm', participantUserIds field on conversations).
+// v21: Drop archive concept entirely (only deletion). Purges currently-archived
+// conversations/contacts/clients and strips archive flags from the schema.
 // Bump in lockstep with INITIAL_STATE.version.
-const STORAGE_KEY = 'pp.store.v20';
+import { PERMISSIONS } from '../lib/roles';
+
+const STORAGE_KEY = 'pp.store.v21';
 
 function migrateV14toV15(state) {
   const defaultPipelineId = 'pl_seed_default';
@@ -70,31 +73,104 @@ function migrateV19toV20(state) {
   return { ...state, version: 20 };
 }
 
+// v21: Archive concept is gone. Anything currently archived is hard-deleted
+// (matches the "no archiving, only deletion" directive). The `archived` field
+// on conversations and the 'archived' lifecycle bucket on contacts are stripped.
+// `archivedAt` timestamps on contacts/clients are dropped too. Inactive clients
+// (status: 'inactive' with archivedAt) are purged; active clients are untouched.
+// Also reconciles the permissions list with the current PERMISSIONS schema:
+// adds new permission keys (e.g. messaging.startInternalThread), migrates the
+// renamed clients.archive → clients.delete (preserving role assignments), and
+// drops permission rows that no longer exist in the schema.
+function migrateV20toV21(state) {
+  const archivedConvIds = new Set(
+    (state.conversations || []).filter((c) => c.archived === true).map((c) => c.id)
+  );
+  const archivedContactIds = new Set(
+    (state.contacts || []).filter((c) => c.lifecycle === 'archived').map((c) => c.id)
+  );
+  const archivedClientIds = new Set(
+    (state.clients || []).filter((c) => c.archivedAt || c.status === 'inactive').map((c) => c.id)
+  );
+
+  const conversations = (state.conversations || [])
+    .filter((c) => !archivedConvIds.has(c.id))
+    .map(({ archived, ...rest }) => rest); // strip archived flag from survivors
+
+  const messages = (state.messages || []).filter((m) => !archivedConvIds.has(m.conversationId));
+
+  const contacts = (state.contacts || [])
+    .filter((c) => !archivedContactIds.has(c.id) && !archivedClientIds.has(c.companyId))
+    .map(({ archivedAt, ...rest }) => rest);
+
+  const clients = (state.clients || [])
+    .filter((c) => !archivedClientIds.has(c.id))
+    .map(({ archivedAt, ...rest }) => rest);
+
+  // Reconcile permissions against the live PERMISSIONS schema.
+  const existingByKey = new Map((state.permissions || []).map((p) => [p.id, p]));
+  // clients.archive was renamed to clients.delete — carry over its role list.
+  const renamed = existingByKey.get('clients.archive');
+  if (renamed && !existingByKey.has('clients.delete')) {
+    existingByKey.set('clients.delete', { ...renamed, id: 'clients.delete', label: 'Delete accounts' });
+  }
+  existingByKey.delete('clients.archive');
+  const permissions = Object.entries(PERMISSIONS).map(([key, def]) => {
+    const prev = existingByKey.get(key);
+    return prev
+      ? { id: key, label: def.label, roles: prev.roles }
+      : { id: key, label: def.label, roles: [...def.defaultRoles] };
+  });
+
+  return {
+    ...state,
+    version: 21,
+    conversations,
+    messages,
+    contacts,
+    clients,
+    sites: (state.sites || []).filter((s) => !archivedClientIds.has(s.clientId)),
+    jobs: (state.jobs || []).filter((j) => !archivedClientIds.has(j.clientId)),
+    invoices: (state.invoices || []).filter((i) => !archivedClientIds.has(i.clientId)),
+    clientActivities: (state.clientActivities || []).filter((a) => !archivedClientIds.has(a.clientId)),
+    contactActivities: (state.contactActivities || []).filter((a) => !archivedContactIds.has(a.contactId)),
+    permissions,
+  };
+}
+
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 20) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 21) return parsed;
     }
-    // Attempt v19 → v20 migration
+    // Attempt v20 → v21 migration
+    const v20Raw = window.localStorage.getItem('pp.store.v20');
+    if (v20Raw) {
+      const v20 = JSON.parse(v20Raw);
+      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV20toV21(v20);
+    }
+    // Attempt v19 → v20 → v21 migration chain
     const v19Raw = window.localStorage.getItem('pp.store.v19');
     if (v19Raw) {
       const v19 = JSON.parse(v19Raw);
-      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV19toV20(v19);
+      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV20toV21(migrateV19toV20(v19));
     }
-    // Attempt v18 → v19 → v20 migration chain
+    // Attempt v18 → v19 → v20 → v21 migration chain
     const v18Raw = window.localStorage.getItem('pp.store.v18');
     if (v18Raw) {
       const v18 = JSON.parse(v18Raw);
-      if (v18 && typeof v18 === 'object' && v18.version === 18) return migrateV19toV20(migrateV18toV19(v18));
+      if (v18 && typeof v18 === 'object' && v18.version === 18) {
+        return migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)));
+      }
     }
-    // Attempt v17 → v18 → v19 → v20 migration chain
+    // Attempt v17 → v18 → v19 → v20 → v21 migration chain
     const v17Raw = window.localStorage.getItem('pp.store.v17');
     if (v17Raw) {
       const v17 = JSON.parse(v17Raw);
       if (v17 && typeof v17 === 'object' && v17.version === 17) {
-        return migrateV19toV20(migrateV18toV19(migrateV17toV18(v17)));
+        return migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))));
       }
     }
     return null;

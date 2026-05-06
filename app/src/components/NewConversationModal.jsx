@@ -44,12 +44,12 @@ export default function NewConversationModal({ open, onClose, defaultContactId =
 
   const contact = contactId ? selectContactById(state, contactId) : null;
 
-  // Dedupe: if the picked contact already has an active (non-archived) conversation, offer to jump
+  // Dedupe: if the picked contact already has a conversation, offer to jump
   // to it instead of letting the user spawn a duplicate thread.
   const existingThread = useMemo(() => {
     if (!contactId) return null;
     const threads = selectConversationsForContact(state, contactId)
-      .filter((c) => !c.archived)
+      .slice()
       .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
     return threads[0] || null;
   }, [state, contactId]);
@@ -73,7 +73,6 @@ export default function NewConversationModal({ open, onClose, defaultContactId =
         channel,
         contactId: contact.id,
         clientId: contact.companyId || null,
-        archived: false,
         title: null,
         createdAt: sentAt,
         lastMessageAt: sentAt,

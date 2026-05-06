@@ -107,10 +107,10 @@ export default function PipelineBoard() {
     clearSelection();
   };
 
-  const bulkArchive = () => {
+  const bulkDelete = () => {
     if (!canDelete) return;
     effectiveSelected.forEach((id) => {
-      dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id });
+      dispatch({ type: ACTIONS.DELETE_CONTACT, id });
     });
     clearSelection();
   };
@@ -275,9 +275,9 @@ export default function PipelineBoard() {
               />
             )}
             {canDelete && (
-              <button className="btn btn-primary btn-sm" onClick={bulkArchive}>Archive</button>
+              <button className="btn btn-danger btn-sm" onClick={bulkDelete}>Delete</button>
             )}
-            <button className="btn btn-danger btn-sm" onClick={clearSelection}>Cancel</button>
+            <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
           </>
         )}
       </div>

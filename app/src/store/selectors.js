@@ -131,7 +131,7 @@ export function selectCrewConflicts(s, crewIds, startAt, endAt, excludeJobId = n
 }
 
 export const selectContactsForClient = (s, clientId) =>
-  (s.contacts || []).filter((c) => c.companyId === clientId && c.lifecycle !== 'archived');
+  (s.contacts || []).filter((c) => c.companyId === clientId);
 
 export const selectInvoicesForContact = (s, contactId) =>
   (s.invoices || []).filter((inv) => inv.billingContactId === contactId);
@@ -172,7 +172,7 @@ export function selectUnansweredThreads(s, { hoursStale = 24, assigneeUserId = n
     else arr.push(m);
   });
   return (s.conversations || [])
-    .filter((c) => c.channel !== 'internal' && !c.archived && c.status === 'open')
+    .filter((c) => c.channel !== 'internal' && c.status === 'open')
     .filter((c) => {
       if (!assigneeUserId) return true;
       if (c.assignedUserId === assigneeUserId) return true;
@@ -289,10 +289,10 @@ export function selectSynthesizedActivityForContact(s, contactId) {
 }
 
 // Contact visibility — access is now role-gated (admin+ only via contacts.view permission).
-// No per-contact visibility field; if you can access contacts, you see all non-archived.
+// No per-contact visibility field; if you can access contacts, you see them all.
 export function selectVisibleContactsFor(s, user) {
   if (!user) return [];
-  return (s.contacts || []).filter((c) => c.lifecycle !== 'archived');
+  return s.contacts || [];
 }
 
 // Pipeline — contacts in the active pipeline with a stage set.
@@ -300,7 +300,7 @@ export function selectPipelineContacts(s) {
   const pl = selectActivePipeline(s);
   if (!pl) return [];
   return (s.contacts || []).filter(
-    (c) => c.lifecycle !== 'archived' && c.pipelineId === pl.id && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'customer')
+    (c) => c.pipelineId === pl.id && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'customer')
   );
 }
 
@@ -497,33 +497,19 @@ export function selectEffectiveStatus(conv, now = Date.now()) {
   return conv.status || 'open';
 }
 
-// Crew visibility gate — enforced on Team/My for crew role only.
-// Crew only see threads they're assigned to, follow, own, or authored into.
-function crewCanSee(conv, s, currentUser) {
-  const uid = currentUser?.id;
-  if (!uid) return false;
-  if (conv.assignedUserId === uid) return true;
-  if ((conv.followedUserIds || []).includes(uid)) return true;
-  const contact = conv.contactId ? (s.contacts || []).find((x) => x.id === conv.contactId) : null;
-  if (contact && contact.ownerUserId === uid) return true;
-  return (s.messages || []).some((m) => m.conversationId === conv.id && m.authorUserId === uid);
-}
-
 // Returns conversations scoped to a given inbox bucket.
 //   'inbox'    — all external (sms/email) conversations.
-//   'internal' — internal-only team chats (channel === 'internal').
-//                Crew users only see internal threads they follow or authored into.
+//   'internal' — internal-only team chats (channel === 'internal'). Public to all
+//                staff regardless of role; creation is gated by the
+//                messaging.startInternalThread permission, not visibility.
 //   'dm'       — 1:1 direct messages (channel === 'dm'). Visibility is gated to
 //                participants for ALL roles (owner/admin/crew) — admins do NOT
 //                see DMs they aren't party to.
 export function selectConversationsForInbox(s, inbox, currentUser) {
-  const convos = (s.conversations || []).filter((c) => !c.archived);
-  const isCrew = currentUser?.role === 'crew';
+  const convos = s.conversations || [];
 
   if (inbox === 'internal') {
-    let list = convos.filter((c) => c.channel === 'internal');
-    if (isCrew) list = list.filter((c) => crewCanSee(c, s, currentUser));
-    return sortConversationsByRecency(list);
+    return sortConversationsByRecency(convos.filter((c) => c.channel === 'internal'));
   }
 
   if (inbox === 'dm') {
@@ -540,13 +526,12 @@ export function selectConversationsForInbox(s, inbox, currentUser) {
   return sortConversationsByRecency(external);
 }
 
-// Find an existing non-archived DM thread between two users (order-independent).
+// Find an existing DM thread between two users (order-independent).
 // Used by the New-DM flow for dedup.
 export function selectDmConversationBetween(s, userIdA, userIdB) {
   if (!userIdA || !userIdB || userIdA === userIdB) return null;
   const sorted = [userIdA, userIdB].sort();
   return (s.conversations || []).find((c) => {
-    if (c.archived) return false;
     if (c.channel !== 'dm') return false;
     const p = (c.participantUserIds || []).slice().sort();
     return p.length === 2 && p[0] === sorted[0] && p[1] === sorted[1];

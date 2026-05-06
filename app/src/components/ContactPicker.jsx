@@ -25,7 +25,6 @@ export default function ContactPicker({ value, onChange, companyId = null, place
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return contacts
-      .filter((c) => c.lifecycle !== 'archived')
       .filter((c) => !companyOnly || !companyId || c.companyId === companyId)
       .filter((c) => {
         if (!q) return true;

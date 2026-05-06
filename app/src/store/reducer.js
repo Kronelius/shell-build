@@ -32,8 +32,6 @@ export const ACTIONS = {
   ADD_CLIENT: 'ADD_CLIENT',
   UPDATE_CLIENT: 'UPDATE_CLIENT',
   DELETE_CLIENT: 'DELETE_CLIENT',
-  ARCHIVE_CLIENT: 'ARCHIVE_CLIENT',
-  UNARCHIVE_CLIENT: 'UNARCHIVE_CLIENT',
   APPEND_CLIENT_NOTE: 'APPEND_CLIENT_NOTE',
   ADD_CLIENT_ACTIVITY: 'ADD_CLIENT_ACTIVITY',
   UPDATE_CLIENT_ACTIVITY: 'UPDATE_CLIENT_ACTIVITY',
@@ -43,7 +41,6 @@ export const ACTIONS = {
   ADD_CONTACT: 'ADD_CONTACT',
   UPDATE_CONTACT: 'UPDATE_CONTACT',
   DELETE_CONTACT: 'DELETE_CONTACT',
-  ARCHIVE_CONTACT: 'ARCHIVE_CONTACT',
   TAG_CONTACT: 'TAG_CONTACT',
   UNTAG_CONTACT: 'UNTAG_CONTACT',
   ASSIGN_CONTACT_OWNER: 'ASSIGN_CONTACT_OWNER',
@@ -88,12 +85,12 @@ export const ACTIONS = {
   // Conversations / messages
   ADD_CONVERSATION: 'ADD_CONVERSATION',
   ADD_DM_CONVERSATION: 'ADD_DM_CONVERSATION',
+  ADD_INTERNAL_CONVERSATION: 'ADD_INTERNAL_CONVERSATION',
   UPDATE_CONVERSATION: 'UPDATE_CONVERSATION',
   ADD_MESSAGE: 'ADD_MESSAGE',
   MARK_CONVERSATION_READ: 'MARK_CONVERSATION_READ',
   MARK_CONVERSATION_UNREAD: 'MARK_CONVERSATION_UNREAD',
-  ARCHIVE_CONVERSATION: 'ARCHIVE_CONVERSATION',
-  UNARCHIVE_CONVERSATION: 'UNARCHIVE_CONVERSATION',
+  DELETE_CONVERSATION: 'DELETE_CONVERSATION',
 
   // Snippets (Messaging Phase 2a)
   ADD_SNIPPET: 'ADD_SNIPPET',
@@ -111,7 +108,7 @@ export const ACTIONS = {
   TOGGLE_CONVERSATION_FOLLOW: 'TOGGLE_CONVERSATION_FOLLOW',
   BULK_MARK_CONVERSATIONS_READ: 'BULK_MARK_CONVERSATIONS_READ',
   BULK_MARK_CONVERSATIONS_UNREAD: 'BULK_MARK_CONVERSATIONS_UNREAD',
-  BULK_ARCHIVE_CONVERSATIONS: 'BULK_ARCHIVE_CONVERSATIONS',
+  BULK_DELETE_CONVERSATIONS: 'BULK_DELETE_CONVERSATIONS',
   BULK_ASSIGN_CONVERSATIONS: 'BULK_ASSIGN_CONVERSATIONS',
 
   // Reminders
@@ -240,20 +237,29 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_CLIENT:
       return { ...state, clients: replaceById(state.clients, action.id, action.patch) };
-    case ACTIONS.ARCHIVE_CLIENT:
-      return { ...state, clients: replaceById(state.clients, action.id, { status: 'inactive', archivedAt: nowIso() }) };
-    case ACTIONS.UNARCHIVE_CLIENT:
-      return { ...state, clients: replaceById(state.clients, action.id, { status: 'active', archivedAt: null }) };
     case ACTIONS.DELETE_CLIENT: {
+      // Cascade-delete: an account takes its contacts, sites, jobs, invoices, and activities with it.
+      // Conversations attached to deleted contacts have their contactId/clientId nulled (the message
+      // history is preserved as "Unlinked" — only the entity rows are gone).
       const id = action.id;
+      const contactsToDelete = new Set(
+        (state.contacts || []).filter((c) => c.companyId === id).map((c) => c.id)
+      );
       return {
         ...state,
         clients: (state.clients || []).filter((c) => c.id !== id),
-        contacts: (state.contacts || []).map((ct) => (ct.companyId === id ? { ...ct, companyId: null } : ct)),
+        contacts: (state.contacts || []).filter((c) => !contactsToDelete.has(c.id)),
         sites: (state.sites || []).filter((s) => s.clientId !== id),
         jobs: (state.jobs || []).filter((j) => j.clientId !== id),
         invoices: (state.invoices || []).filter((inv) => inv.clientId !== id),
         clientActivities: (state.clientActivities || []).filter((a) => a.clientId !== id),
+        contactActivities: (state.contactActivities || []).filter((a) => !contactsToDelete.has(a.contactId)),
+        conversations: (state.conversations || []).map((cv) => {
+          const next = { ...cv };
+          if (contactsToDelete.has(cv.contactId)) next.contactId = null;
+          if (cv.clientId === id) next.clientId = null;
+          return next;
+        }),
       };
     }
     case ACTIONS.APPEND_CLIENT_NOTE: {
@@ -345,8 +351,6 @@ export function reducer(state, action) {
         contactActivities: (state.contactActivities || []).filter((a) => a.contactId !== id),
       };
     }
-    case ACTIONS.ARCHIVE_CONTACT:
-      return { ...state, contacts: replaceById(state.contacts || [], action.id, { lifecycle: 'archived', archivedAt: nowIso(), updatedAt: nowIso() }) };
     case ACTIONS.TAG_CONTACT:
       return {
         ...state,
@@ -603,7 +607,7 @@ export function reducer(state, action) {
     case ACTIONS.ADD_CONVERSATION: {
       const now = nowIso();
       const base = {
-        id: newId('cv'), channel: 'sms', archived: false,
+        id: newId('cv'), channel: 'sms',
         createdAt: now, lastMessageAt: now,
         contactId: null, clientId: null, title: null,
         // Phase 2b fields — sensible defaults so old/new convos stay comparable.
@@ -620,9 +624,8 @@ export function reducer(state, action) {
       if (pair.length !== 2) return state;
       if (pair[0] === pair[1]) return state; // self-DM guard
       const sorted = [...pair].sort();
-      // Dedupe: if a non-archived DM between the same pair exists, don't create another.
+      // Dedupe: if a DM between the same pair exists, don't create another.
       const existing = state.conversations.find((c) => {
-        if (c.archived) return false;
         if (c.channel !== 'dm') return false;
         const p = (c.participantUserIds || []).slice().sort();
         return p.length === 2 && p[0] === sorted[0] && p[1] === sorted[1];
@@ -636,7 +639,6 @@ export function reducer(state, action) {
         clientId: null,
         contactId: null,
         title: null,
-        archived: false,
         createdAt: now,
         lastMessageAt: now,
         assignedUserId: null,
@@ -646,6 +648,50 @@ export function reducer(state, action) {
         followedUserIds: [],
       };
       return { ...state, conversations: [...state.conversations, conversation] };
+    }
+    case ACTIONS.ADD_INTERNAL_CONVERSATION: {
+      // Public team thread — visible to all staff. Permission gate (messaging.startInternalThread)
+      // is enforced at the call site, not here. Caller may pass an optional firstMessage to seed
+      // the thread non-empty, and an optional id for deterministic navigation.
+      const title = (action.title || '').trim();
+      if (!title) return state;
+      const id = action.id || newId('cv');
+      const now = nowIso();
+      const conversation = {
+        id,
+        channel: 'internal',
+        contactId: null,
+        clientId: null,
+        title,
+        createdAt: now,
+        lastMessageAt: now,
+        assignedUserId: null,
+        status: 'open',
+        snoozedUntil: null,
+        starred: false,
+        followedUserIds: [],
+      };
+      const firstBody = (action.firstMessage || '').trim();
+      const messages = firstBody
+        ? [
+            ...state.messages,
+            {
+              id: newId('m'),
+              conversationId: id,
+              direction: 'internal',
+              text: firstBody,
+              authorUserId: action.authorUserId || state.currentUserId || null,
+              snippetId: null,
+              sentAt: now,
+              readAt: null,
+            },
+          ]
+        : state.messages;
+      return {
+        ...state,
+        conversations: [...(state.conversations || []), conversation],
+        messages,
+      };
     }
     case ACTIONS.UPDATE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, action.patch) };
@@ -697,10 +743,14 @@ export function reducer(state, action) {
         messages: state.messages.map((m) => (m.id === target.id ? { ...m, readAt: null } : m)),
       };
     }
-    case ACTIONS.ARCHIVE_CONVERSATION:
-      return { ...state, conversations: replaceById(state.conversations, action.id, { archived: true }) };
-    case ACTIONS.UNARCHIVE_CONVERSATION:
-      return { ...state, conversations: replaceById(state.conversations, action.id, { archived: false }) };
+    case ACTIONS.DELETE_CONVERSATION: {
+      const id = action.id;
+      return {
+        ...state,
+        conversations: (state.conversations || []).filter((c) => c.id !== id),
+        messages: (state.messages || []).filter((m) => m.conversationId !== id),
+      };
+    }
 
     // ---------- Snippets ----------
     case ACTIONS.ADD_SNIPPET: {
@@ -797,12 +847,13 @@ export function reducer(state, action) {
         messages: state.messages.map((m) => (targets.has(m.id) ? { ...m, readAt: null } : m)),
       };
     }
-    case ACTIONS.BULK_ARCHIVE_CONVERSATIONS: {
+    case ACTIONS.BULK_DELETE_CONVERSATIONS: {
       const set = new Set(action.ids || []);
       if (set.size === 0) return state;
       return {
         ...state,
-        conversations: state.conversations.map((c) => (set.has(c.id) ? { ...c, archived: true } : c)),
+        conversations: (state.conversations || []).filter((c) => !set.has(c.id)),
+        messages: (state.messages || []).filter((m) => !set.has(m.conversationId)),
       };
     }
     case ACTIONS.BULK_ASSIGN_CONVERSATIONS: {
@@ -1132,7 +1183,6 @@ export function reducer(state, action) {
 
       // Find existing open SMS conversation for this contact OR by phone-only thread title.
       const existing = state.conversations.find((c) => {
-        if (c.archived) return false;
         if (c.channel !== 'sms') return false;
         if (matchContact && c.contactId === matchContact.id) return true;
         if (!matchContact && c.title === fromPhone) return true;
@@ -1149,7 +1199,6 @@ export function reducer(state, action) {
         const newConv = {
           id: convId,
           channel: 'sms',
-          archived: false,
           createdAt: now,
           lastMessageAt: now,
           contactId: matchContact?.id || null,

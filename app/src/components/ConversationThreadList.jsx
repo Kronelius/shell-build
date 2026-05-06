@@ -12,8 +12,11 @@ import { fmtRelative } from '../lib/dates';
 
 function previewText(msg, channel) {
   if (!msg) return '';
-  // DMs are already a private channel — don't double-label them with [Internal].
-  const prefix = msg.direction === 'internal' && channel !== 'dm' ? '[Internal] ' : '';
+  // The [Internal] prefix only matters on EXTERNAL threads (sms/email) where it
+  // distinguishes a staff-side note from the customer-facing thread. On internal
+  // team threads and DMs every message is internal by definition, so the prefix
+  // is pure noise.
+  const prefix = msg.direction === 'internal' && channel !== 'dm' && channel !== 'internal' ? '[Internal] ' : '';
   return `${prefix}${msg.text || ''}`;
 }
 
@@ -133,18 +136,32 @@ export default function ConversationThreadList({
   onBulkAssign,
   onBulkMarkRead,
   onBulkMarkUnread,
-  onBulkArchive,
+  onBulkDelete,
   canAssign,
   canBulk,
   selectedInbox,
+  onNewInternalThread,
+  canStartInternalThread,
 }) {
   const isDmInbox = selectedInbox === 'dm';
+  const isInternalInbox = selectedInbox === 'internal';
   const selectedCount = selectedIds?.size || 0;
   const allSelected = selectedCount > 0 && conversations.every((c) => selectedIds.has(c.id));
 
   return (
     <section className="thread-list-pane">
       <div className="thread-list-head">
+        {isInternalInbox && canStartInternalThread && (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm thread-list-new-thread"
+            onClick={onNewInternalThread}
+            title="Start a new team thread visible to all staff"
+          >
+            <Icon name="plus" size={14} />
+            <span>New thread</span>
+          </button>
+        )}
         <div className="thread-list-search">
           <Icon name="search" size={14} />
           <input
@@ -185,9 +202,10 @@ export default function ConversationThreadList({
           onAssign={onBulkAssign}
           onMarkRead={onBulkMarkRead}
           onMarkUnread={onBulkMarkUnread}
-          onArchive={onBulkArchive}
+          onDelete={onBulkDelete}
           canAssign={canAssign}
           canBulk={canBulk}
+          inbox={selectedInbox}
         />
       )}
       <div className="thread-list-rows">

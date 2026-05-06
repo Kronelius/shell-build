@@ -65,7 +65,7 @@ export default function ConversationMessagePanel({
   canAssign,
   currentUser,
   onSend,
-  onArchiveToggle,
+  onDelete,
   onAssign,
   onSetStatus,
   onSnooze,
@@ -196,9 +196,9 @@ export default function ConversationMessagePanel({
               <AssignMenu conversation={conversation} onAssign={onAssign} disabled={!canAssign} />
             </>
           )}
-          <button type="button" className="btn btn-outline btn-sm" onClick={onArchiveToggle}>
-            <Icon name="archive" size={14} />
-            {conversation.archived ? 'Unarchive' : 'Archive'}
+          <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>
+            <Icon name="trash" size={14} />
+            Delete
           </button>
         </div>
       </div>

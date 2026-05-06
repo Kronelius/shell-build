@@ -6,7 +6,7 @@
 //
 // Phase 2b shipped: assignment, status lifecycle (open/snoozed/closed),
 // auto-unsnooze (read-side), starring, following, folder membership,
-// bulk actions (mark read/unread, archive, assign), crew visibility gate.
+// bulk actions (mark read/unread, delete, assign).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,6 +17,8 @@ import ConversationMessagePanel from '../components/ConversationMessagePanel';
 import ConversationContextPanel from '../components/ConversationContextPanel';
 import NewConversationModal from '../components/NewConversationModal';
 import NewDmModal from '../components/NewDmModal';
+import NewInternalThreadModal from '../components/NewInternalThreadModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
@@ -179,6 +181,7 @@ export default function Messaging() {
   const { currentUser } = useAuth();
 
   const canStart = usePermission('messaging.startConversation');
+  const canStartInternalThread = usePermission('messaging.startInternalThread');
   const canAssign = usePermission('messaging.assign');
   const canBulk = usePermission('messaging.bulkActions');
   const canViewExternalInbox = usePermission('messaging.startConversation');
@@ -205,6 +208,9 @@ export default function Messaging() {
   const [activeId, setActiveId] = useState(paramId || null);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [newDmOpen, setNewDmOpen] = useState(false);
+  const [newInternalThreadOpen, setNewInternalThreadOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const paneContainerRef = useRef(null);
   const panes = usePaneSizes(paneContainerRef);
@@ -388,12 +394,15 @@ export default function Messaging() {
       });
   };
 
-  const handleArchiveToggle = () => {
+  const handleDeleteConversation = () => {
     if (!activeConversation) return;
-    dispatch({
-      type: activeConversation.archived ? ACTIONS.UNARCHIVE_CONVERSATION : ACTIONS.ARCHIVE_CONVERSATION,
-      id: activeConversation.id,
-    });
+    const id = activeConversation.id;
+    dispatch({ type: ACTIONS.DELETE_CONVERSATION, id });
+    setConfirmDeleteOpen(false);
+    toast.success('Conversation deleted');
+    // Drop the route param so the message panel doesn't try to render a now-missing thread.
+    setActiveId(null);
+    navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
   };
 
   // --- Phase 2b per-thread action handlers -------------------------------
@@ -450,9 +459,17 @@ export default function Messaging() {
   const handleBulkMarkUnread = () => {
     dispatch({ type: ACTIONS.BULK_MARK_CONVERSATIONS_UNREAD, ids: Array.from(selectedIds) });
   };
-  const handleBulkArchive = () => {
-    dispatch({ type: ACTIONS.BULK_ARCHIVE_CONVERSATIONS, ids: Array.from(selectedIds) });
+  const handleBulkDelete = () => {
+    const ids = Array.from(selectedIds);
+    dispatch({ type: ACTIONS.BULK_DELETE_CONVERSATIONS, ids });
+    setConfirmBulkDeleteOpen(false);
     setSelectedIds(new Set());
+    toast.success(`${ids.length} thread${ids.length === 1 ? '' : 's'} deleted`);
+    // If the user had one of the deleted threads open, drop them back to the inbox view.
+    if (activeId && ids.includes(activeId)) {
+      setActiveId(null);
+      navigate('/messaging' + (selectedInbox !== 'inbox' ? `?inbox=${selectedInbox}` : ''));
+    }
   };
 
   return (
@@ -492,10 +509,12 @@ export default function Messaging() {
             onBulkAssign={handleBulkAssign}
             onBulkMarkRead={handleBulkMarkRead}
             onBulkMarkUnread={handleBulkMarkUnread}
-            onBulkArchive={handleBulkArchive}
+            onBulkDelete={() => setConfirmBulkDeleteOpen(true)}
             canAssign={canAssign}
             canBulk={canBulk}
             selectedInbox={selectedInbox}
+            onNewInternalThread={() => setNewInternalThreadOpen(true)}
+            canStartInternalThread={canStartInternalThread}
           />
           <div
             className={`msg-pane-handle msg-pane-handle-left ${panes.dragging === 'left' ? 'is-dragging' : ''}`}
@@ -512,7 +531,7 @@ export default function Messaging() {
             canAssign={canAssign}
             currentUser={currentUser}
             onSend={handleSend}
-            onArchiveToggle={handleArchiveToggle}
+            onDelete={() => setConfirmDeleteOpen(true)}
             onAssign={handleAssign}
             onSetStatus={handleSetStatus}
             onSnooze={handleSnooze}
@@ -544,6 +563,31 @@ export default function Messaging() {
       <NewDmModal
         open={newDmOpen}
         onClose={() => setNewDmOpen(false)}
+      />
+
+      <NewInternalThreadModal
+        open={newInternalThreadOpen}
+        onClose={() => setNewInternalThreadOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Delete this conversation?"
+        message="The thread and all of its messages will be permanently removed. This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDeleteConversation}
+        onClose={() => setConfirmDeleteOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmBulkDeleteOpen}
+        title={`Delete ${selectedIds.size} thread${selectedIds.size === 1 ? '' : 's'}?`}
+        message="The selected threads and all of their messages will be permanently removed. This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleBulkDelete}
+        onClose={() => setConfirmBulkDeleteOpen(false)}
       />
     </>
   );

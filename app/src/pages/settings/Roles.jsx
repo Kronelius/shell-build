@@ -7,10 +7,10 @@ import { ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS, PERMISSIONS } from '../../lib/ro
 // Permissions grouped by surface area for scannability. Order = display order.
 const PERM_GROUPS = [
   { id: 'schedule',     label: 'Schedule & Jobs',      keys: ['dashboard.view', 'schedule.view', 'schedule.edit', 'schedule.statusTransition'] },
-  { id: 'clients',      label: 'Accounts & Sites',     keys: ['clients.view', 'clients.edit', 'clients.archive', 'sites.edit'] },
+  { id: 'clients',      label: 'Accounts & Sites',     keys: ['clients.view', 'clients.edit', 'clients.delete', 'sites.edit'] },
   { id: 'contacts',     label: 'Contacts & Pipeline',  keys: ['contacts.view', 'contacts.view.all', 'contacts.edit', 'contacts.edit.own', 'contacts.delete', 'contacts.assignOwner', 'tags.manage', 'pipeline.view', 'pipeline.edit'] },
   { id: 'invoices',     label: 'Invoices & Reminders', keys: ['invoices.view', 'invoices.edit', 'invoices.recordPayment', 'reminders.view', 'reminders.edit'] },
-  { id: 'messaging',    label: 'Messaging',            keys: ['messaging.use', 'messaging.startConversation', 'messaging.internalComment', 'messaging.manageSnippets', 'messaging.assign', 'messaging.bulkActions'] },
+  { id: 'messaging',    label: 'Messaging',            keys: ['messaging.use', 'messaging.startConversation', 'messaging.startInternalThread', 'messaging.internalComment', 'messaging.manageSnippets', 'messaging.assign', 'messaging.bulkActions'] },
   { id: 'settings',     label: 'Settings',             keys: ['settings.company', 'settings.services', 'settings.team.view', 'settings.team.edit', 'settings.roles.edit', 'settings.account'] },
   { id: 'integrations', label: 'Integrations',         keys: ['integrations.view', 'integrations.manage'] },
   { id: 'super',        label: 'Super Admin Only',     keys: ['staff.assignRoles', 'staff.editOverrides'] },
@@ -19,7 +19,7 @@ const PERM_GROUPS = [
 // Permissions where flipping ON for a non-owner role is high-impact / hard to undo.
 // Surfaces a "Sensitive" pill in the matrix and a warning-toned toast on grant.
 const DANGER_KEYS = new Set([
-  'clients.archive',
+  'clients.delete',
   'contacts.delete',
   'invoices.edit',
   'invoices.recordPayment',

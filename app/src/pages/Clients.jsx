@@ -11,6 +11,7 @@ import TagPicker from '../components/TagPicker';
 import AddClientModal from '../components/AddClientModal';
 import AddContactModal from '../components/AddContactModal';
 import CsvImportModal from '../components/CsvImportModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useAuth } from '../hooks/useAuth';
@@ -28,7 +29,6 @@ const LIFECYCLE_VARIANTS = {
   prospect: 'blue',
   customer: 'green',
   vendor: 'slate',
-  archived: 'slate',
 };
 
 const LIFECYCLES = ['all', 'lead', 'prospect', 'customer', 'vendor'];
@@ -81,6 +81,8 @@ export default function Clients() {
   const [bulkOwnerId, setBulkOwnerId] = useState('');
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [confirmContactDeleteOpen, setConfirmContactDeleteOpen] = useState(false);
+  const [confirmClientDeleteOpen, setConfirmClientDeleteOpen] = useState(false);
 
   // Accounts (Clients) filters (URL-backed, prefixed to avoid collision)
   const aSearch = searchParams.get('aq') || '';
@@ -93,7 +95,6 @@ export default function Clients() {
   const filteredContacts = useMemo(() => {
     const q = cSearch.trim().toLowerCase();
     return visibleContacts.filter((c) => {
-      if (c.lifecycle === 'archived') return false;
       if (cLifecycle !== 'all' && c.lifecycle !== cLifecycle) return false;
       if (cOwner !== 'all') {
         if (cOwner === 'unassigned' && c.ownerUserId) return false;
@@ -156,9 +157,11 @@ export default function Clients() {
     clearSelection();
     toast.success('Tags applied');
   };
-  const bulkArchive = () => {
-    selectedIds.forEach((id) => dispatch({ type: ACTIONS.ARCHIVE_CONTACT, id }));
+  const bulkDelete = () => {
+    selectedIds.forEach((id) => dispatch({ type: ACTIONS.DELETE_CONTACT, id }));
+    setConfirmContactDeleteOpen(false);
     clearSelection();
+    toast.success(`${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'} deleted`);
   };
 
   // Account (Client) selection — mirrors the Contacts pattern.
@@ -174,9 +177,11 @@ export default function Clients() {
     else setSelectedClientIds(new Set(filteredClients.map((c) => c.id)));
   };
   const clearClientSelection = () => setSelectedClientIds(new Set());
-  const bulkArchiveClients = () => {
-    selectedClientIds.forEach((id) => dispatch({ type: ACTIONS.ARCHIVE_CLIENT, id }));
+  const bulkDeleteClients = () => {
+    selectedClientIds.forEach((id) => dispatch({ type: ACTIONS.DELETE_CLIENT, id }));
+    setConfirmClientDeleteOpen(false);
     clearClientSelection();
+    toast.success(`${selectedClientIds.size} account${selectedClientIds.size === 1 ? '' : 's'} deleted`);
   };
 
   return (
@@ -242,8 +247,8 @@ export default function Clients() {
                     <button className="btn btn-primary btn-sm" disabled={!bulkOwnerId} onClick={bulkAssignOwner}>Assign</button>
                   </>
                 )}
-                <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={bulkArchive}>Archive</button>
-                <button className="btn btn-danger btn-sm" onClick={clearSelection}>Cancel</button>
+                <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setConfirmContactDeleteOpen(true)}>Delete</button>
+                <button className="btn btn-outline btn-sm" onClick={clearSelection}>Cancel</button>
               </>
             )}
           </div>
@@ -416,8 +421,8 @@ export default function Clients() {
             </span>
             {selectedClientIds.size > 0 && (
               <>
-                <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={bulkArchiveClients}>Archive</button>
-                <button className="btn btn-danger btn-sm" onClick={clearClientSelection}>Cancel</button>
+                <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setConfirmClientDeleteOpen(true)}>Delete</button>
+                <button className="btn btn-outline btn-sm" onClick={clearClientSelection}>Cancel</button>
               </>
             )}
           </div>
@@ -536,6 +541,25 @@ export default function Clients() {
         </>
       )}
 
+      <ConfirmDialog
+        open={confirmContactDeleteOpen}
+        title={`Delete ${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'}?`}
+        message="The selected contacts will be permanently removed. Their conversations will be unlinked but preserved."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={bulkDelete}
+        onClose={() => setConfirmContactDeleteOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmClientDeleteOpen}
+        title={`Delete ${selectedClientIds.size} account${selectedClientIds.size === 1 ? '' : 's'}?`}
+        message="The selected accounts will be permanently removed along with their contacts, sites, jobs, and invoices. This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={bulkDeleteClients}
+        onClose={() => setConfirmClientDeleteOpen(false)}
+      />
     </>
   );
 }
