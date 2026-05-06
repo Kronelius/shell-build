@@ -33,7 +33,6 @@ export default function PipelineBoard() {
   const pipelines = selectPipelines(state);
   const activePipeline = selectActivePipeline(state);
 
-  const [ownerFilter, setOwnerFilter] = useState('all');
   const [manageStagesOpen, setManageStagesOpen] = useState(false);
   const [dropTarget, setDropTarget] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -50,12 +49,11 @@ export default function PipelineBoard() {
   const byStage = useMemo(() => {
     const map = Object.fromEntries(stages.map((s) => [s.key, []]));
     contacts.forEach((c) => {
-      if (ownerFilter !== 'all' && c.ownerUserId !== ownerFilter) return;
       if (!map[c.stage]) return;
       map[c.stage].push(c);
     });
     return map;
-  }, [contacts, ownerFilter, stages]);
+  }, [contacts, stages]);
 
   const visibleIds = useMemo(() => {
     const out = new Set();
@@ -234,13 +232,6 @@ export default function PipelineBoard() {
           value={activePipeline?.id || ''}
           onChange={(e) => dispatch({ type: ACTIONS.SET_ACTIVE_PIPELINE, id: e.target.value })}
           options={pipelines.map((p) => ({ value: p.id, label: p.label }))}
-        />
-        <FormField
-          label="Owner"
-          as="select"
-          value={ownerFilter}
-          onChange={(e) => setOwnerFilter(e.target.value)}
-          options={[{ value: 'all', label: 'All owners' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
         />
         {canEdit && (
           <div className="pipeline-toolbar-actions">
