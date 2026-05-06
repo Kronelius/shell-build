@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import {
   parseCsv, guessField, applyMapping,
-  CONTACT_FIELDS, CLIENT_FIELDS,
-  normalizeContact, normalizeClient,
-  validateContactRow, validateClientRow,
+  CONTACT_FIELDS, CONTACT_IDENTIFIER_KEYS,
+  normalizeContact, validateContactRow,
+  buildSampleContactCsv,
 } from '../lib/csv';
+import { newId } from '../lib/ids';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useToast } from './Toast';
@@ -14,14 +15,10 @@ import Select from './Select';
 
 const STEP = { UPLOAD: 'upload', MAP: 'map', PREVIEW: 'preview', RESULT: 'result' };
 
-export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
+export default function CsvImportModal({ open, onClose }) {
   const state = useStore();
   const dispatch = useDispatch();
   const toast = useToast();
-
-  const fields = entity === 'contacts' ? CONTACT_FIELDS : CLIENT_FIELDS;
-  const validateRow = entity === 'contacts' ? validateContactRow : validateClientRow;
-  const normalize = entity === 'contacts' ? normalizeContact : normalizeClient;
 
   const [step, setStep] = useState(STEP.UPLOAD);
   const [parsed, setParsed] = useState({ headers: [], rows: [] });
@@ -38,7 +35,7 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
     setPasted('');
     setParseError(null);
     setResults(null);
-  }, [open, entity]);
+  }, [open]);
 
   const handleFile = (file) => {
     if (!file) return;
@@ -63,38 +60,49 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
     // Auto-guess mapping
     const next = {};
     result.headers.forEach((h, idx) => {
-      const guess = guessField(h, fields);
+      const guess = guessField(h, CONTACT_FIELDS);
       if (guess) next[idx] = guess;
     });
     setMapping(next);
     setStep(STEP.MAP);
   };
 
-  const requiredFields = fields.filter((f) => f.required).map((f) => f.key);
-  const mappingValid = requiredFields.every((rf) => Object.values(mapping).includes(rf));
+  // At least one identifier column must be mapped — otherwise no row can be valid.
+  const mappingValid = CONTACT_IDENTIFIER_KEYS.some((k) => Object.values(mapping).includes(k));
+
+  const downloadSample = () => {
+    const csv = buildSampleContactCsv();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rainier-contacts-sample.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const previewRows = useMemo(() => {
     if (step !== STEP.PREVIEW && step !== STEP.MAP) return null;
-    const existing = entity === 'contacts'
-      ? new Set((state.contacts || []).map((c) => (c.email || '').toLowerCase()))
-      : new Set((state.clients || []).map((c) => (c.name || '').toLowerCase().trim()));
+    const existing = new Set((state.contacts || []).map((c) => (c.email || '').toLowerCase()).filter(Boolean));
     const seenInBatch = new Set();
     return parsed.rows.map((row, i) => {
-      const mapped = normalize(applyMapping(row, parsed.headers, mapping));
-      const validation = validateRow(mapped);
+      const mapped = normalizeContact(applyMapping(row, parsed.headers, mapping));
+      const validation = validateContactRow(mapped);
       let status = validation.valid ? 'ok' : 'invalid';
       let reason = validation.reason || null;
       if (validation.valid) {
-        const key = entity === 'contacts'
-          ? (mapped.email || '').toLowerCase()
-          : (mapped.name || '').toLowerCase().trim();
-        if (existing.has(key)) { status = 'duplicate'; reason = `Already exists`; }
-        else if (seenInBatch.has(key)) { status = 'duplicate'; reason = `Duplicate in file`; }
-        else { seenInBatch.add(key); }
+        const email = (mapped.email || '').toLowerCase();
+        if (email) {
+          if (existing.has(email)) { status = 'duplicate'; reason = 'Already exists'; }
+          else if (seenInBatch.has(email)) { status = 'duplicate'; reason = 'Duplicate in file'; }
+          else { seenInBatch.add(email); reason = null; }
+        } else {
+          reason = 'No email — dedup skipped';
+        }
       }
       return { rowIndex: i, mapped, status, reason };
     });
-  }, [parsed, mapping, step, entity, state, normalize, validateRow]);
+  }, [parsed, mapping, step, state]);
 
   const stats = useMemo(() => {
     if (!previewRows) return { ok: 0, duplicate: 0, invalid: 0 };
@@ -103,39 +111,77 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
 
   const doImport = () => {
     if (!previewRows) return;
+    // Pre-build a lowercase-keyed map of existing accounts; track accounts created
+    // during this batch so the same company name across many rows yields one new account.
+    const clientByName = new Map(
+      (state.clients || []).map((c) => [c.name.toLowerCase().trim(), c.id])
+    );
+    const newClientIds = new Map(); // nameLower -> id
+
     let imported = 0;
+    let newAccountsCreated = 0;
+
     for (const row of previewRows) {
       if (row.status !== 'ok') continue;
-      if (entity === 'contacts') {
-        // Resolve company name → companyId (best-effort match against existing clients)
-        const companyName = row.mapped.company;
-        let companyId = null;
-        if (companyName) {
-          const match = state.clients.find((c) => c.name.toLowerCase() === companyName.toLowerCase());
-          if (match) companyId = match.id;
+
+      const companyRaw = row.mapped.company;
+      let companyId = null;
+      if (companyRaw) {
+        const key = companyRaw.toLowerCase().trim();
+        if (clientByName.has(key)) {
+          companyId = clientByName.get(key);
+        } else if (newClientIds.has(key)) {
+          companyId = newClientIds.get(key);
+        } else {
+          // Spillover: contact references a company we don't have yet — create the account.
+          const id = newId('cl');
+          dispatch({ type: ACTIONS.ADD_CLIENT, client: { id, name: companyRaw.trim() } });
+          newClientIds.set(key, id);
+          companyId = id;
+          newAccountsCreated++;
         }
-        const payload = { ...row.mapped };
-        delete payload.company;
-        if (companyId) payload.companyId = companyId;
-        dispatch({ type: ACTIONS.ADD_CONTACT, contact: payload });
-      } else {
-        dispatch({ type: ACTIONS.ADD_CLIENT, client: row.mapped });
       }
+
+      const payload = { ...row.mapped };
+      delete payload.company;
+      if (companyId) payload.companyId = companyId;
+      dispatch({ type: ACTIONS.ADD_CONTACT, contact: payload });
       imported++;
     }
-    setResults({ imported, skipped: previewRows.length - imported, total: previewRows.length });
+
+    setResults({
+      imported,
+      skipped: previewRows.length - imported,
+      total: previewRows.length,
+      newAccountsCreated,
+    });
     setStep(STEP.RESULT);
-    if (imported > 0) toast.success(`Imported ${imported} ${entity === 'contacts' ? 'contact' : 'account'}${imported === 1 ? '' : 's'}`);
+    if (imported > 0) {
+      const msg = newAccountsCreated > 0
+        ? `Imported ${imported} contact${imported === 1 ? '' : 's'} · ${newAccountsCreated} new account${newAccountsCreated === 1 ? '' : 's'}`
+        : `Imported ${imported} contact${imported === 1 ? '' : 's'}`;
+      toast.success(msg);
+    }
   };
 
-  const title = entity === 'contacts' ? 'Import Contacts (CSV)' : 'Import Accounts (CSV)';
-
   return (
-    <Modal open={open} onClose={onClose} title={title} size="lg">
+    <Modal open={open} onClose={onClose} title="Import Contacts (CSV)" size="lg">
       {step === STEP.UPLOAD && (
         <div>
-          <p className="text-sm text-muted" style={{ marginBottom: 14 }}>
-            Upload a CSV file with a header row. Required: <strong>{fields.filter((f) => f.required).map((f) => f.label.replace(' *', '')).join(', ')}</strong>.
+          <p className="text-sm text-muted" style={{ marginBottom: 6 }}>
+            Upload a CSV file with a header row. Each contact needs at least one of: <strong>email, phone, first name, last name, or company</strong>.
+          </p>
+          <p className="text-xs text-muted" style={{ marginBottom: 6 }}>
+            Duplicates are matched by email — rows without an email skip the duplicate check.
+          </p>
+          <p className="text-xs" style={{ marginBottom: 14 }}>
+            <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); downloadSample(); }}
+            >
+              Download sample CSV ↓
+            </a>
+            <span className="text-muted"> · all 8 supported columns with example rows</span>
           </p>
           <label className="csv-dropzone">
             <input
@@ -152,9 +198,7 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
           <textarea
             className="input"
             rows={6}
-            placeholder={entity === 'contacts'
-              ? 'first_name,last_name,email,phone\nJane,Doe,jane@example.com,555-0100'
-              : 'name,address,phone,email\nAcme Co.,123 Main St,555-0100,info@acme.com'}
+            placeholder={'firstName,lastName,email,phone,title,company,lifecycle,notes\nJane,Doe,jane@example.com,555-0100,Office Manager,Acme Co,prospect,'}
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
             style={{ fontFamily: 'monospace', fontSize: 12 }}
@@ -190,7 +234,7 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
                   ariaLabel="CSV column mapping"
                   value={mapping[idx] || ''}
                   onChange={(v) => setMapping({ ...mapping, [idx]: v || null })}
-                  options={[{ value: '', label: '— Skip —' }, ...fields.map((f) => ({ value: f.key, label: f.label }))]}
+                  options={[{ value: '', label: '— Skip —' }, ...CONTACT_FIELDS.map((f) => ({ value: f.key, label: f.label }))]}
                 />
               </div>
             ))}
@@ -198,7 +242,7 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
           {!mappingValid && (
             <div className="conflict-warning" style={{ marginTop: 10 }}>
               <Icon name="warning" size={14} />
-              <span>Required fields not mapped: {requiredFields.filter((rf) => !Object.values(mapping).includes(rf)).join(', ')}</span>
+              <span>Map at least one of: Email, Phone, First Name, Last Name, or Company — otherwise no rows can be imported.</span>
             </div>
           )}
           <div className="modal-actions">
@@ -231,9 +275,9 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
               <thead>
                 <tr>
                   <th style={{ width: 28 }}></th>
-                  {fields.map((f) => (
+                  {CONTACT_FIELDS.map((f) => (
                     Object.values(mapping).includes(f.key)
-                      ? <th key={f.key}>{f.label.replace(' *', '')}</th>
+                      ? <th key={f.key}>{f.label}</th>
                       : null
                   ))}
                   <th>Note</th>
@@ -247,7 +291,7 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
                       {r.status === 'duplicate' && <Icon name="warning" size={14} />}
                       {r.status === 'invalid' && <Icon name="x" size={14} />}
                     </td>
-                    {fields.map((f) => (
+                    {CONTACT_FIELDS.map((f) => (
                       Object.values(mapping).includes(f.key)
                         ? <td key={f.key}>{r.mapped[f.key] || <span className="text-muted">—</span>}</td>
                         : null
@@ -266,7 +310,7 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
           <div className="modal-actions">
             <button type="button" className="btn btn-outline" onClick={() => setStep(STEP.MAP)}>Back</button>
             <button type="button" className="btn btn-primary" disabled={stats.ok === 0} onClick={doImport}>
-              Import {stats.ok} {entity === 'contacts' ? (stats.ok === 1 ? 'contact' : 'contacts') : (stats.ok === 1 ? 'account' : 'accounts')}
+              Import {stats.ok} {stats.ok === 1 ? 'contact' : 'contacts'}
             </button>
           </div>
         </div>
@@ -283,10 +327,16 @@ export default function CsvImportModal({ open, onClose, entity = 'contacts' }) {
               <strong>{results.skipped}</strong>
               <span>Skipped</span>
             </div>
+            {results.newAccountsCreated > 0 && (
+              <div className="csv-stat ok">
+                <strong>{results.newAccountsCreated}</strong>
+                <span>New accounts</span>
+              </div>
+            )}
           </div>
           <p className="text-sm" style={{ marginTop: 14 }}>
             {results.imported > 0
-              ? `Successfully added ${results.imported} new ${entity === 'contacts' ? 'contact' : 'account'}${results.imported === 1 ? '' : 's'}.`
+              ? `Successfully added ${results.imported} new contact${results.imported === 1 ? '' : 's'}${results.newAccountsCreated > 0 ? ` and created ${results.newAccountsCreated} new account${results.newAccountsCreated === 1 ? '' : 's'} from company columns` : ''}.`
               : 'No new records were added.'}
           </p>
           <div className="modal-actions">

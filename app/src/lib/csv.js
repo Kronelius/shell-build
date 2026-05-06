@@ -112,7 +112,7 @@ export function applyMapping(row, headers, mapping) {
 export const CONTACT_FIELDS = [
   { key: 'firstName', label: 'First Name', aliases: ['first', 'firstname', 'first name', 'given name', 'fname'] },
   { key: 'lastName',  label: 'Last Name',  aliases: ['last', 'lastname', 'last name', 'surname', 'family name', 'lname'] },
-  { key: 'email',     label: 'Email *',    aliases: ['email', 'email address', 'e-mail', 'mail'], required: true },
+  { key: 'email',     label: 'Email',      aliases: ['email', 'email address', 'e-mail', 'mail'] },
   { key: 'phone',     label: 'Phone',      aliases: ['phone', 'phone number', 'mobile', 'cell', 'tel', 'telephone'] },
   { key: 'title',     label: 'Title',      aliases: ['title', 'job title', 'position', 'role'] },
   { key: 'company',   label: 'Company',    aliases: ['company', 'company name', 'account', 'organization', 'org'] },
@@ -120,13 +120,9 @@ export const CONTACT_FIELDS = [
   { key: 'notes',     label: 'Notes',      aliases: ['notes', 'note', 'description', 'comment', 'comments'] },
 ];
 
-export const CLIENT_FIELDS = [
-  { key: 'name',    label: 'Name *',  aliases: ['name', 'company', 'company name', 'account', 'account name', 'client', 'client name'], required: true },
-  { key: 'address', label: 'Address', aliases: ['address', 'street', 'mailing address', 'location'] },
-  { key: 'phone',   label: 'Phone',   aliases: ['phone', 'phone number', 'tel', 'telephone'] },
-  { key: 'email',   label: 'Email',   aliases: ['email', 'email address', 'e-mail', 'mail'] },
-  { key: 'notes',   label: 'Notes',   aliases: ['notes', 'note', 'description', 'comment'] },
-];
+// A row is valid if at least one of these fields is non-empty.
+// Mirrors GHL: people can be leads with just a phone, or just a name + company.
+export const CONTACT_IDENTIFIER_KEYS = ['email', 'phone', 'firstName', 'lastName', 'company'];
 
 // Normalize a value for a specific field. Coerces lifecycle into the canonical set,
 // strips obvious garbage. Returns the cleaned value or null if invalid.
@@ -141,21 +137,30 @@ export function normalizeContact(raw) {
   return out;
 }
 
-export function normalizeClient(raw) {
-  const out = { ...raw };
-  if (out.email) out.email = out.email.toLowerCase().trim();
-  if (out.name) out.name = out.name.trim();
-  return out;
-}
-
 // Validate a row. Returns { valid: bool, reason?: string }.
+// If email is provided, its format must be valid. Otherwise any one of
+// CONTACT_IDENTIFIER_KEYS being non-empty is enough to accept the row.
 export function validateContactRow(mapped) {
-  if (!mapped.email) return { valid: false, reason: 'Missing email' };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mapped.email)) return { valid: false, reason: 'Invalid email' };
+  if (mapped.email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mapped.email)) return { valid: false, reason: 'Invalid email' };
+    return { valid: true };
+  }
+  const hasAny = CONTACT_IDENTIFIER_KEYS.some((k) => mapped[k] && String(mapped[k]).trim());
+  if (!hasAny) return { valid: false, reason: 'Need at least one of email, phone, name, or company' };
   return { valid: true };
 }
 
-export function validateClientRow(mapped) {
-  if (!mapped.name) return { valid: false, reason: 'Missing name' };
-  return { valid: true };
+// Build a downloadable sample CSV that documents every supported column
+// and demonstrates the variety of identifier combinations the importer accepts.
+export function buildSampleContactCsv() {
+  const headers = CONTACT_FIELDS.map((f) => f.key);
+  const rows = [
+    ['Pat', 'Ramirez', 'pat@evergreenmgmt.com', '555-0142', 'Property Manager', 'Evergreen Management', 'customer', 'Long-time customer; prefers Tuesday visits'],
+    ['Morgan', 'Choi', 'morgan@lakesidehoa.org', '', 'Board President', 'Lakeside HOA', 'prospect', ''],
+    ['Sasha', 'Lin', '', '555-0188', 'Operations Lead', 'Mt Baker Hospitality', 'lead', 'Phone-only — referred by Lee Thompson'],
+  ];
+  const all = [headers, ...rows];
+  return all
+    .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
 }

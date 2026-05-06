@@ -187,10 +187,7 @@ export default function Clients() {
             </>
           )}
           {tab === 'accounts' && canCreateClient && (
-            <>
-              <button className="btn btn-success" onClick={() => setCsvImportOpen(true)}>Import CSV</button>
-              <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Account</button>
-            </>
+            <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Account</button>
           )}
         </div>
       </div>
@@ -364,7 +361,7 @@ export default function Clients() {
           )}
 
           <AddContactModal open={addContactOpen} onClose={() => setAddContactOpen(false)} />
-          <CsvImportModal open={csvImportOpen} onClose={() => setCsvImportOpen(false)} entity="contacts" />
+          <CsvImportModal open={csvImportOpen} onClose={() => setCsvImportOpen(false)} />
         </>
       )}
 
@@ -502,7 +499,6 @@ export default function Clients() {
           )}
 
           <AddClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} />
-          <CsvImportModal open={csvImportOpen} onClose={() => setCsvImportOpen(false)} entity="clients" />
         </>
       )}
 
