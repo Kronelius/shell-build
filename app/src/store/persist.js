@@ -1,3 +1,15 @@
+// v27: Email System foundation. Two additive state surfaces in lockstep:
+//   1. company.integrations.email — system transactional provider (Resend)
+//      that powers invitations, reminder emails, and (later) billing.
+//      Mirrors company.integrations.twilio in shape and reducer pattern.
+//   2. connectedInboxes — per-user mailbox connections for the Messaging
+//      email channel. Each row pairs a userId with a provider (google /
+//      microsoft / smtp). Tokens + SMTP passwords NEVER live in client
+//      state; backend holds them encrypted at rest.
+// Migration is purely additive: slots in the default `email` block where
+// missing and ensures `connectedInboxes` exists as an array. Existing data
+// is preserved.
+//
 // v26: Drop the half-baked "internal note on an external thread" feature.
 // External threads (sms/email) now only carry direction='in'/'out'. Any
 // existing direction='internal' messages on sms/email threads are removed
@@ -32,7 +44,29 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v26';
+const STORAGE_KEY = 'pp.store.v27';
+
+// Default shape for company.integrations.email (kept here so the migration
+// and future seed reseeds stay in lockstep without importing seed.js).
+const DEFAULT_EMAIL_INTEGRATION = {
+  connected: false,
+  provider: null,
+  apiKeyLast4: null,
+  verifiedDomain: null,
+  defaultFrom: null,
+  defaultReplyTo: null,
+  connectedAt: null,
+  lastVerifiedAt: null,
+  lastError: null,
+  domain: {
+    status: 'not_started',
+    dkimRecords: [],
+    spfStatus: null,
+    dmarcStatus: null,
+    lastCheckedAt: null,
+    failureReason: null,
+  },
+};
 
 function migrateV14toV15(state) {
   const defaultPipelineId = 'pl_seed_default';
@@ -275,6 +309,30 @@ function migrateV25toV26(state) {
   return { ...state, version: 26, messages };
 }
 
+// v27: Email System foundation — slot the system email-provider integration
+// into company.integrations AND ensure connectedInboxes is a valid array.
+// Additive — preserves any existing `email` block (so a manually-seeded test
+// fixture isn't clobbered) and only inserts defaults where missing.
+function migrateV26toV27(state) {
+  const company = state.company || {};
+  const integrations = company.integrations || {};
+  const existingEmail = integrations.email;
+  return {
+    ...state,
+    version: 27,
+    company: {
+      ...company,
+      integrations: {
+        ...integrations,
+        email: existingEmail
+          ? { ...DEFAULT_EMAIL_INTEGRATION, ...existingEmail, domain: { ...DEFAULT_EMAIL_INTEGRATION.domain, ...(existingEmail.domain || {}) } }
+          : DEFAULT_EMAIL_INTEGRATION,
+      },
+    },
+    connectedInboxes: Array.isArray(state.connectedInboxes) ? state.connectedInboxes : [],
+  };
+}
+
 // v25: Drop hiddenForUserIds; require participantUserIds on internal threads.
 // Backfill existing internal threads with the current set of active users so
 // prior team threads stay visible to everyone (matching the pre-membership
@@ -300,64 +358,70 @@ export function loadState() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 26) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 27) return parsed;
     }
-    // Attempt v25 → v26 migration
+    // Attempt v26 → v27 migration
+    const v26Raw = window.localStorage.getItem('pp.store.v26');
+    if (v26Raw) {
+      const v26 = JSON.parse(v26Raw);
+      if (v26 && typeof v26 === 'object' && v26.version === 26) return migrateV26toV27(v26);
+    }
+    // Attempt v25 → v26 → v27 migration chain
     const v25Raw = window.localStorage.getItem('pp.store.v25');
     if (v25Raw) {
       const v25 = JSON.parse(v25Raw);
-      if (v25 && typeof v25 === 'object' && v25.version === 25) return migrateV25toV26(v25);
+      if (v25 && typeof v25 === 'object' && v25.version === 25) return migrateV26toV27(migrateV25toV26(v25));
     }
-    // Attempt v24 → v25 → v26 migration chain
+    // Attempt v24 → v25 → v26 → v27 migration chain
     const v24Raw = window.localStorage.getItem('pp.store.v24');
     if (v24Raw) {
       const v24 = JSON.parse(v24Raw);
-      if (v24 && typeof v24 === 'object' && v24.version === 24) return migrateV25toV26(migrateV24toV25(v24));
+      if (v24 && typeof v24 === 'object' && v24.version === 24) return migrateV26toV27(migrateV25toV26(migrateV24toV25(v24)));
     }
-    // Attempt v23 → v24 → v25 → v26 migration chain
+    // Attempt v23 → v24 → v25 → v26 → v27 migration chain
     const v23Raw = window.localStorage.getItem('pp.store.v23');
     if (v23Raw) {
       const v23 = JSON.parse(v23Raw);
-      if (v23 && typeof v23 === 'object' && v23.version === 23) return migrateV25toV26(migrateV24toV25(migrateV23toV24(v23)));
+      if (v23 && typeof v23 === 'object' && v23.version === 23) return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(v23))));
     }
-    // Attempt v22 → v23 → v24 → v25 → v26 migration chain
+    // Attempt v22 → v23 → v24 → v25 → v26 → v27 migration chain
     const v22Raw = window.localStorage.getItem('pp.store.v22');
     if (v22Raw) {
       const v22 = JSON.parse(v22Raw);
-      if (v22 && typeof v22 === 'object' && v22.version === 22) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(v22))));
+      if (v22 && typeof v22 === 'object' && v22.version === 22) return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(v22)))));
     }
-    // Attempt v21 → v22 → v23 → v24 → v25 → v26 migration chain
+    // Attempt v21 → v22 → v23 → v24 → v25 → v26 → v27 migration chain
     const v21Raw = window.localStorage.getItem('pp.store.v21');
     if (v21Raw) {
       const v21 = JSON.parse(v21Raw);
-      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(v21)))));
+      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(v21))))));
     }
-    // Attempt v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
+    // Attempt v20 → v21 → v22 → v23 → v24 → v25 → v26 → v27 migration chain
     const v20Raw = window.localStorage.getItem('pp.store.v20');
     if (v20Raw) {
       const v20 = JSON.parse(v20Raw);
-      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(v20))))));
+      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(v20)))))));
     }
-    // Attempt v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
+    // Attempt v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 → v27 migration chain
     const v19Raw = window.localStorage.getItem('pp.store.v19');
     if (v19Raw) {
       const v19 = JSON.parse(v19Raw);
-      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19)))))));
+      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19))))))));
     }
-    // Attempt v18 → v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
+    // Attempt v18 → v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 → v27 migration chain
     const v18Raw = window.localStorage.getItem('pp.store.v18');
     if (v18Raw) {
       const v18 = JSON.parse(v18Raw);
       if (v18 && typeof v18 === 'object' && v18.version === 18) {
-        return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18))))))));
+        return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)))))))));
       }
     }
-    // Attempt v17 → v18 → v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 migration chain
+    // Attempt v17 → v18 → v19 → v20 → v21 → v22 → v23 → v24 → v25 → v26 → v27 migration chain
     const v17Raw = window.localStorage.getItem('pp.store.v17');
     if (v17Raw) {
       const v17 = JSON.parse(v17Raw);
       if (v17 && typeof v17 === 'object' && v17.version === 17) {
-        return migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17)))))))));
+        return migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))))))))));
       }
     }
     return null;

@@ -229,6 +229,125 @@ export const selectTwilioBlockers = (s) => {
   return blockers;
 };
 
+// ---------- Integrations / Email Provider (Resend) ----------
+// System transactional sender — used for invitations, reminder emails, and
+// future billing. Per-user conversational email (Messaging suite) lives in
+// connectedInboxes (Phase 3) and has its own selectors.
+export const selectEmailIntegration = (s) => s.company?.integrations?.email || null;
+export const selectEmailConnected = (s) =>
+  Boolean(s.company?.integrations?.email?.connected);
+export const selectEmailVerifiedDomain = (s) =>
+  s.company?.integrations?.email?.verifiedDomain || null;
+
+// Default From for system transactional sends. Falls back to the company
+// email so the existing AddUserModal flow keeps working in stub/dev mode
+// before the provider is connected. Once connected, `email.defaultFrom`
+// must be on the verified domain (backend enforces this).
+export const selectEmailDefaultFrom = (s) =>
+  s.company?.integrations?.email?.defaultFrom || s.company?.email || null;
+
+export const selectEmailDefaultReplyTo = (s) =>
+  s.company?.integrations?.email?.defaultReplyTo || null;
+
+// Sending real transactional email requires both: the provider account is
+// connected AND the verified domain has cleared DKIM/SPF/DMARC checks.
+// In stub/dev mode we deliberately don't gate sends so the existing
+// invitation + reminder flows keep working without a connected provider —
+// the UI surfaces the "Dev mode" banner so it's clear what's happening.
+export const selectIsEmailSendReady = (s) => {
+  const em = s.company?.integrations?.email;
+  if (!em?.connected) return false;
+  if (!em.verifiedDomain) return false;
+  if (em.domain?.status !== 'verified') return false;
+  return true;
+};
+
+// Reasons a system email send would be blocked, in display order. Empty
+// array = ready. Mirrors selectTwilioBlockers shape so the Settings UI can
+// reuse the same blocker-list pattern.
+export const selectEmailBlockers = (s) => {
+  const em = s.company?.integrations?.email;
+  const blockers = [];
+  if (!em?.connected) {
+    blockers.push({ key: 'not_connected', label: 'Email provider not connected' });
+    return blockers;
+  }
+  if (!em.verifiedDomain) {
+    blockers.push({ key: 'no_domain', label: 'No sending domain configured' });
+  }
+  if (em.domain?.status !== 'verified') {
+    const status = em.domain?.status || 'not_started';
+    const map = {
+      not_started: 'Domain verification not started',
+      pending: 'Domain verification pending — DNS records propagating',
+      failed: 'Domain verification failed — check DKIM/SPF/DMARC records',
+    };
+    blockers.push({ key: `domain_${status}`, label: map[status] || 'Domain not verified' });
+  }
+  if (!em.defaultFrom) {
+    blockers.push({ key: 'no_default_from', label: 'No default From address set' });
+  }
+  return blockers;
+};
+
+// ---------- Connected Inboxes (per-user mailbox connections) ----------
+// Each user can connect one or more mailboxes (Gmail OAuth / Microsoft 365
+// OAuth / SMTP). Sending email from Messaging routes through the user's
+// default inbox so messages come from the rep's own address — not the
+// system "notifications@" sender. Tokens + SMTP passwords NEVER live in
+// state (backend holds them encrypted at rest).
+export const selectConnectedInboxes = (s) =>
+  Array.isArray(s.connectedInboxes) ? s.connectedInboxes : [];
+
+export const selectConnectedInboxById = (s, id) =>
+  (s.connectedInboxes || []).find((i) => i.id === id) || null;
+
+export const selectConnectedInboxesForUser = (s, userId) =>
+  (s.connectedInboxes || []).filter((i) => i.userId === userId);
+
+// Returns the user's chosen default if it's still active; otherwise the
+// most-recently-connected active inbox; otherwise null. The Messaging
+// compose pane reads this to populate the "Sending as" dropdown.
+export const selectDefaultConnectedInbox = (s, userId) => {
+  const all = (s.connectedInboxes || []).filter((i) => i.userId === userId);
+  if (!all.length) return null;
+  const explicit = all.find((i) => i.isDefault && i.status === 'active');
+  if (explicit) return explicit;
+  const actives = all
+    .filter((i) => i.status === 'active')
+    .sort((a, b) => (a.connectedAt < b.connectedAt ? 1 : -1));
+  return actives[0] || null;
+};
+
+// Whether the given user has at least one active connected inbox. Sending
+// email through Messaging is gated on this — without an active connection,
+// the compose pane blocks Email-channel sends with an inline CTA to
+// Settings → My Account → Connected Inboxes.
+export const selectUserHasActiveInbox = (s, userId) =>
+  (s.connectedInboxes || []).some((i) => i.userId === userId && i.status === 'active');
+
+// Reasons the email channel is blocked for a given user, in display order.
+// Empty array = ready to send. Used by the Messaging compose pane to render
+// the "connect your inbox" CTA when sending email isn't possible.
+export const selectMessagingEmailBlockersForUser = (s, userId) => {
+  const inboxes = (s.connectedInboxes || []).filter((i) => i.userId === userId);
+  const blockers = [];
+  if (!inboxes.length) {
+    blockers.push({ key: 'no_inbox', label: 'No connected inbox — connect Gmail / Outlook / SMTP in My Account → Connected Inboxes' });
+    return blockers;
+  }
+  const actives = inboxes.filter((i) => i.status === 'active');
+  if (!actives.length) {
+    const expired = inboxes.find((i) => i.status === 'expired');
+    if (expired) {
+      blockers.push({ key: 'token_expired', label: `Reconnect ${expired.email} — authorization expired` });
+    } else {
+      blockers.push({ key: 'all_inboxes_error', label: 'All connected inboxes are in an error state — reconnect or check provider' });
+    }
+  }
+  return blockers;
+};
+
 // Merge explicit contact activities with synthesized events from related records (invoices, jobs, messages).
 // Used by the ContactDetail Activity timeline.
 export function selectSynthesizedActivityForContact(s, contactId) {

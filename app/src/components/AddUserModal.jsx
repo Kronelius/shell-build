@@ -3,7 +3,13 @@ import Modal from './Modal';
 import FormField from './FormField';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
-import { selectUserByEmail, selectCompany, selectCurrentUser } from '../store/selectors';
+import {
+  selectUserByEmail,
+  selectCompany,
+  selectCurrentUser,
+  selectEmailDefaultFrom,
+  selectEmailDefaultReplyTo,
+} from '../store/selectors';
 import { useToast } from './Toast';
 import { ROLES, ROLE_LABELS } from '../lib/roles';
 import { sendEmail, buildInviteEmail } from '../lib/email';
@@ -17,6 +23,8 @@ export default function AddUserModal({ open, onClose }) {
   const toast = useToast();
   const company = selectCompany(state);
   const currentUser = selectCurrentUser(state);
+  const emailDefaultFrom = selectEmailDefaultFrom(state);
+  const emailDefaultReplyTo = selectEmailDefaultReplyTo(state);
 
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
@@ -56,10 +64,18 @@ export default function AddUserModal({ open, onClose }) {
       });
       await sendEmail({
         to: email,
-        from: company.email || 'no-reply@example.com',
+        // Prefer the configured Resend default From; fall back to company
+        // email so dev/stub mode still produces sane email metadata before
+        // the provider is wired up. The backend re-validates `from` against
+        // the verified-domain allowlist when running for real.
+        from: emailDefaultFrom || company.email || 'no-reply@example.com',
         subject,
         body,
-        replyTo: currentUser?.email || company.email,
+        // Replies go to the inviter so onboarding questions land with a
+        // human, not the system address. The configured Reply-To override
+        // wins if set explicitly in Settings → Integrations.
+        replyTo: emailDefaultReplyTo || currentUser?.email || company.email,
+        tags: ['invitation'],
       });
     } catch (err) {
       setSending(false);
