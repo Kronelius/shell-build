@@ -55,7 +55,13 @@ export default function SettingsNotifications() {
     <div>
       <div className="page-head-text">
         <h1 className="page-head-title">Reminders</h1>
-        <p className="page-head-subtitle">Templates, sequence, and delivery log for automated customer reminders.</p>
+        <p className="page-head-subtitle">
+          Templates, sequence, and delivery log for automated customer reminders.{' '}
+          <strong>Email reminders</strong> are sent from the system address configured at{' '}
+          <em>Settings → Integrations → Email Provider</em>.{' '}
+          <strong>Direct emails to clients in Messaging</strong> come from each user's own
+          mailbox at <em>Settings → Connected Inboxes</em> — these are different layers.
+        </p>
       </div>
 
       <div className="info-banner">

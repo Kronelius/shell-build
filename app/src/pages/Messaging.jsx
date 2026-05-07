@@ -27,8 +27,12 @@ import {
   selectContactById, selectConversationById, selectMessagesForConversation,
   selectUnreadForConversation, selectConversationsForInbox, selectUnreadCountForInbox,
   selectEffectiveStatus, selectIsTwilioSendReady, selectTwilioPhone, selectTwilioBlockers,
+  selectConnectedInboxesForUser, selectDefaultConnectedInbox,
+  selectMessagingEmailBlockersForUser, selectEmailDefaultReplyTo,
+  selectConversationsForContact,
 } from '../store/selectors';
 import { sendSMS, subscribeToDelivery } from '../lib/twilio';
+import { sendViaInbox } from '../lib/connectedInboxes';
 import { useToast } from '../components/Toast';
 
 const DATE_WINDOW_MS = {
@@ -185,6 +189,14 @@ export default function Messaging() {
   const blockers = selectTwilioBlockers(state);
   const twilioPhone = selectTwilioPhone(state);
 
+  // Per-user Connected Inboxes — drive the "Sending as" dropdown + Email
+  // channel send flow. Email blockers surface inline in the compose pane
+  // when the user has no active inbox.
+  const myConnectedInboxes = selectConnectedInboxesForUser(state, currentUser?.id);
+  const myDefaultInbox = selectDefaultConnectedInbox(state, currentUser?.id);
+  const emailBlockers = selectMessagingEmailBlockersForUser(state, currentUser?.id);
+  const emailDefaultReplyTo = selectEmailDefaultReplyTo(state);
+
   // Read ?inbox=… from the URL once on mount so deep-links from "New DM" land on the DMs tab.
   const initialInbox = (() => {
     try {
@@ -307,9 +319,36 @@ export default function Messaging() {
     // DM messages all carry direction='internal' (peer-to-peer, no external counterpart).
     const direction = isDmThread || opts?.channel === 'internal' ? 'internal' : 'out';
     const isSMS = activeConversation.channel === 'sms' && direction === 'out';
+    const isEmail = activeConversation.channel === 'email' && direction === 'out';
+
+    // Resolve email metadata up front so the optimistic message carries
+    // it. Threading headers (In-Reply-To / References) chain off the most
+    // recent prior email message in this thread so Gmail / Outlook group
+    // the conversation correctly.
+    let emailSubject = null;
+    let emailFromInboxId = null;
+    let emailHeaders = null;
+    if (isEmail) {
+      emailSubject = opts?.subject || null;
+      if (!emailSubject) {
+        // Replies inherit subject from the most recent prior email message.
+        const prior = [...activeMessages].reverse().find((m) => m.emailSubject);
+        emailSubject = prior?.emailSubject || null;
+      }
+      emailFromInboxId = opts?.inboxId || myDefaultInbox?.id || null;
+      // Build threading headers from prior emails in this thread.
+      const priorEmails = activeMessages.filter((m) => m.emailHeaders?.messageId);
+      const messageId = `<msg-${activeConversation.id}-${Date.now()}@app.local>`;
+      const inReplyTo = priorEmails.length ? priorEmails[priorEmails.length - 1].emailHeaders.messageId : null;
+      const references = priorEmails.length
+        ? priorEmails.map((m) => m.emailHeaders.messageId).join(' ')
+        : null;
+      emailHeaders = { messageId, inReplyTo, references };
+    }
 
     // Optimistically insert the outbound message so the UI updates immediately.
     // For SMS we'll also kick off the Twilio adapter and patch deliveryStatus as it cycles.
+    // For Email we kick off the per-user-inbox send and patch the same way.
     const messageId = `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     dispatch({
       type: ACTIONS.ADD_MESSAGE,
@@ -320,10 +359,85 @@ export default function Messaging() {
         text,
         authorUserId: currentUser?.id || null,
         snippetId: opts?.snippetId || null,
-        // SMS-only: track delivery state. Email/internal pass through as before.
+        // SMS-only: track delivery state.
         ...(isSMS ? { deliveryStatus: 'queued' } : {}),
+        // Email-only: subject + threading + which inbox sent it.
+        ...(isEmail
+          ? {
+              deliveryStatus: 'queued',
+              emailSubject,
+              emailFromInboxId,
+              emailHeaders,
+            }
+          : {}),
       },
     });
+
+    if (isEmail) {
+      // Gate: must have an active connected inbox + the contact must have
+      // an email address on file. Empty array == ready in the selector.
+      if (emailBlockers.length > 0 || !emailFromInboxId) {
+        const reasons = emailBlockers.map((b) => b.label).join('; ') || 'No connected inbox selected';
+        dispatch({
+          type: ACTIONS.SET_MESSAGE_DELIVERY,
+          id: messageId,
+          status: 'failed',
+          failureReason: reasons,
+        });
+        toast.error(`Email not sent: ${reasons}`);
+        return;
+      }
+      const toEmail = activeContact?.email || null;
+      if (!toEmail) {
+        dispatch({
+          type: ACTIONS.SET_MESSAGE_DELIVERY,
+          id: messageId,
+          status: 'failed',
+          failureReason: 'No recipient email address on this thread',
+        });
+        toast.error('Email not sent: no recipient email on this thread.');
+        return;
+      }
+      const inbox = myConnectedInboxes.find((i) => i.id === emailFromInboxId);
+      const fromAddress = inbox?.displayName ? `${inbox.displayName} <${inbox.email}>` : inbox?.email;
+      // Reply-To: when the inbox supports inbound capture (Phase 4c), set
+      // it to a per-conversation address so replies thread back into the
+      // app. Otherwise omit (replies land in the user's actual mailbox).
+      const replyTo = inbox?.inboundEnabled
+        ? `reply+${activeConversation.id}@inbound.app.local`
+        : (emailDefaultReplyTo || undefined);
+      sendViaInbox(emailFromInboxId, {
+        to: toEmail,
+        from: fromAddress,
+        subject: emailSubject || '(no subject)',
+        body: text,
+        replyTo,
+        headers: emailHeaders ? {
+          'Message-ID': emailHeaders.messageId,
+          ...(emailHeaders.inReplyTo ? { 'In-Reply-To': emailHeaders.inReplyTo } : {}),
+          ...(emailHeaders.references ? { References: emailHeaders.references } : {}),
+        } : undefined,
+        tags: ['messaging'],
+      })
+        .then((result) => {
+          dispatch({
+            type: ACTIONS.SET_MESSAGE_DELIVERY,
+            id: messageId,
+            status: result.status === 'sent' ? 'delivered' : (result.status || 'sent'),
+            emailMessageId: result.id,
+          });
+        })
+        .catch((err) => {
+          dispatch({
+            type: ACTIONS.SET_MESSAGE_DELIVERY,
+            id: messageId,
+            status: 'failed',
+            failureReason: err.message || 'Send error',
+          });
+          toast.error(`Email not sent: ${err.message || 'Unknown error'}`);
+        });
+      return;
+    }
 
     if (!isSMS) return;
 
@@ -427,6 +541,49 @@ export default function Messaging() {
       id: activeConversation.id,
       patch: { contactId: contactId || null },
     });
+  };
+
+  // Channel toggle in the compose pane: pivot the user to the contact's
+  // other-channel thread (SMS ↔ Email), creating one if it doesn't exist
+  // yet. Each channel keeps its own thread per the existing schema; this
+  // gives the GHL-style "I want to talk to this contact via X now" pivot
+  // without merging channels into a single thread.
+  const handleSwitchChannel = (targetChannel) => {
+    if (!activeConversation || !activeContact) return;
+    if (activeConversation.channel === targetChannel) return;
+    if (targetChannel === 'sms' && !activeContact.phone) {
+      toast.error('Contact has no phone number on file.');
+      return;
+    }
+    if (targetChannel === 'email' && !activeContact.email) {
+      toast.error('Contact has no email address on file.');
+      return;
+    }
+    // Find an existing conversation for this contact in the target channel.
+    const peers = selectConversationsForContact(state, activeContact.id);
+    const existing = peers.find((c) => c.channel === targetChannel);
+    if (existing) {
+      navigate(`/messaging/${existing.id}`);
+      return;
+    }
+    // None — create one and navigate to it.
+    const newConvId = `cv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    dispatch({
+      type: ACTIONS.ADD_CONVERSATION,
+      conversation: {
+        id: newConvId,
+        channel: targetChannel,
+        contactId: activeContact.id,
+        clientId: activeContact.companyId || null,
+        title: null,
+        createdByUserId: currentUser?.id || null,
+        status: 'open',
+        snoozedUntil: null,
+        starred: false,
+        mutedByUserIds: [],
+      },
+    });
+    navigate(`/messaging/${newConvId}`);
   };
 
   // --- Bulk selection ----------------------------------------------------
@@ -547,6 +704,10 @@ export default function Messaging() {
             onToggleStar={handleToggleStarActive}
             onToggleMute={handleToggleMute}
             onBack={handleBackToInbox}
+            connectedInboxes={myConnectedInboxes}
+            defaultInboxId={myDefaultInbox?.id || null}
+            emailBlockers={emailBlockers}
+            onSwitchChannel={handleSwitchChannel}
           />
           <div
             className={`msg-pane-handle msg-pane-handle-right ${panes.dragging === 'right' ? 'is-dragging' : ''}`}

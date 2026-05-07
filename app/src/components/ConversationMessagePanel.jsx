@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useFromHere } from '../hooks/useFromHere';
 import Avatar from './Avatar';
 import ChannelBadge from './ChannelBadge';
@@ -68,6 +68,13 @@ export default function ConversationMessagePanel({
   onToggleStar,
   onToggleMute,
   onBack,
+  // Phase 4a: per-user connected inboxes for the "Sending as" dropdown +
+  // channel-toggle availability. The parent (Messaging.jsx) computes these
+  // from selectors so the panel stays presentation-focused.
+  connectedInboxes = [],
+  defaultInboxId = null,
+  emailBlockers = [],            // [{ key, label }] when sending email is blocked
+  onSwitchChannel,               // (targetChannel) => void — finds/creates contact's other-channel thread
 }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
@@ -77,6 +84,41 @@ export default function ConversationMessagePanel({
   const composeChannel = conversation?.channel || 'sms';
   const [draft, setDraft] = useState('');
   const [snippetId, setSnippetId] = useState(null);
+  const [subject, setSubject] = useState('');
+  const [selectedInboxId, setSelectedInboxId] = useState(defaultInboxId || null);
+
+  // Whether SMS↔Email toggle should appear at all on this thread. Only on
+  // external (sms/email) channels with a linked contact who has both modes.
+  const isExternalThread = composeChannel === 'sms' || composeChannel === 'email';
+  const contactHasPhone = Boolean(contact?.phone);
+  const contactHasEmail = Boolean(contact?.email);
+  const showChannelToggle = isExternalThread && contact && contactHasPhone && contactHasEmail;
+
+  // Pre-fill subject with "Re: <prior subject>" when continuing an email
+  // thread; first message in a thread starts with an empty subject.
+  useEffect(() => {
+    if (composeChannel !== 'email') return;
+    const prior = [...messages].reverse().find((m) => m.emailSubject);
+    if (prior?.emailSubject) {
+      const base = prior.emailSubject.replace(/^(Re:\s*)+/i, '');
+      setSubject(`Re: ${base}`);
+    } else {
+      setSubject('');
+    }
+  }, [conversation?.id, composeChannel, messages]);
+
+  // Keep selected inbox synced with the default unless the user picked one.
+  useEffect(() => {
+    setSelectedInboxId((prev) => {
+      if (prev && connectedInboxes.some((i) => i.id === prev && i.status === 'active')) return prev;
+      return defaultInboxId || null;
+    });
+  }, [defaultInboxId, connectedInboxes]);
+
+  const activeInbox = useMemo(
+    () => connectedInboxes.find((i) => i.id === selectedInboxId) || null,
+    [connectedInboxes, selectedInboxId]
+  );
 
   // Compose textarea height — controlled in JS so the drag handle can grow it
   // *upward* from the top edge (the native textarea resize only goes down from
@@ -121,6 +163,16 @@ export default function ConversationMessagePanel({
     setSnippetId(null);
   }, [conversation?.id]);
 
+  // Whether the Send button should be disabled. Email channel is gated on
+  // having an active connected inbox AND a Subject (subject only required
+  // for the FIRST message in the thread; replies inherit via `emailSubject`).
+  const hasPriorEmail = composeChannel === 'email' && messages.some((m) => m.emailSubject);
+  const subjectRequired = composeChannel === 'email' && !hasPriorEmail;
+  const emailBlocked = composeChannel === 'email' && (!activeInbox || emailBlockers.length > 0);
+  const sendDisabled = !draft.trim()
+    || (subjectRequired && !subject.trim())
+    || emailBlocked;
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages.length, conversation?.id]);
@@ -163,11 +215,23 @@ export default function ConversationMessagePanel({
 
   const handleSend = (e) => {
     e.preventDefault();
+    if (sendDisabled) return;
     const text = draft.trim();
     if (!text) return;
-    onSend(text, { channel: composeChannel, snippetId });
+    onSend(text, {
+      channel: composeChannel,
+      snippetId,
+      subject: composeChannel === 'email' ? subject.trim() : undefined,
+      inboxId: composeChannel === 'email' ? selectedInboxId : undefined,
+    });
     setDraft('');
     setSnippetId(null);
+    // Keep Subject populated as "Re: …" for the next reply, but clear it on
+    // the FIRST send (since the next send is now a reply, not a new thread).
+    if (composeChannel === 'email' && subject.trim()) {
+      const base = subject.trim().replace(/^(Re:\s*)+/i, '');
+      setSubject(`Re: ${base}`);
+    }
   };
 
   const handleKey = (e) => {
@@ -261,6 +325,81 @@ export default function ConversationMessagePanel({
       </div>
 
       <form className="compose-bar" onSubmit={handleSend}>
+        {/* Channel toggle + email metadata strip — external threads only,
+            and only when the contact has both phone + email. Toggling
+            switches to the contact's other-channel thread (auto-creates one
+            if needed) so each channel keeps its own thread. */}
+        {showChannelToggle && (
+          <div className="compose-channel-toggle" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <span className="text-xs text-muted">Send as:</span>
+            <button
+              type="button"
+              className={`btn btn-sm ${composeChannel === 'sms' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => composeChannel !== 'sms' && onSwitchChannel?.('sms')}
+              disabled={!contactHasPhone}
+              title={contactHasPhone ? 'Switch to SMS' : 'Contact has no phone number'}
+            >
+              SMS
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${composeChannel === 'email' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => composeChannel !== 'email' && onSwitchChannel?.('email')}
+              disabled={!contactHasEmail}
+              title={contactHasEmail ? 'Switch to email' : 'Contact has no email address'}
+            >
+              Email
+            </button>
+          </div>
+        )}
+
+        {/* Email-only: Subject + Sending-as picker. */}
+        {composeChannel === 'email' && (
+          <div className="compose-email-meta" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+            {connectedInboxes.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="text-xs text-muted" style={{ minWidth: 80 }}>Sending as:</span>
+                <select
+                  className="form-input"
+                  style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+                  value={selectedInboxId || ''}
+                  onChange={(e) => setSelectedInboxId(e.target.value)}
+                >
+                  {connectedInboxes
+                    .filter((i) => i.status === 'active')
+                    .map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.email}{i.isDefault ? ' (default)' : ''} · via {i.provider === 'google' ? 'Gmail' : i.provider === 'microsoft' ? 'Microsoft' : 'SMTP'}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <div className="card" style={{ padding: '8px 10px', background: 'var(--surface-muted, #f4f4f5)', fontSize: 13 }}>
+                <strong>No connected inbox.</strong>{' '}
+                <Link to="/settings/inboxes">Connect Gmail, Outlook, or SMTP</Link>{' '}
+                so emails come from your real address.
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="text-xs text-muted" style={{ minWidth: 80 }}>Subject:</span>
+              <input
+                type="text"
+                className="form-input"
+                style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+                placeholder={subjectRequired ? 'Subject (required for new threads)' : 'Subject'}
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+            </div>
+            {emailBlockers.length > 0 && (
+              <div className="form-error" style={{ fontSize: 12, marginTop: 2 }}>
+                {emailBlockers.map((b) => b.label).join(' · ')}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="compose-row">
           <div
             className={`compose-input-wrap ${isResizingCompose ? 'is-resizing' : ''}`}
@@ -293,7 +432,7 @@ export default function ConversationMessagePanel({
             {!isDmThread && (
               <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
             )}
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!draft.trim()}>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={sendDisabled}>
               Send
             </button>
           </div>
