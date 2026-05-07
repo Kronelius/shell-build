@@ -1,10 +1,72 @@
 # Rainier Facility Solutions — Deployment Handoff
 
-**Last session end (2026-05-06):** Contacts CSV import overhaul — GHL-style, contacts-only.
+**Last session end (2026-05-06):** Email System — full Phase 1–4 frontend build (Resend + Connected Inboxes + Messaging email channel).
+
+Wired the complete email surface that was previously stub-only. Two distinct layers ship together: **system transactional** (Resend, app-owned subdomain — invitations, reminders, billing) and **per-user conversational** (Connected Inboxes — Gmail OAuth, Microsoft 365 OAuth, SMTP/IMAP — sent FROM each employee's real address inside Messaging). Marketing/drip is explicitly out of scope and called out in copy as living in higher-tier add-ons.
+
+**State changes (v26 → v27):**
+- `company.integrations.email` slot mirroring `…twilio` — `{ connected, provider, apiKeyLast4, verifiedDomain, defaultFrom, defaultReplyTo, connectedAt, lastVerifiedAt, lastError, domain: { status, dkimRecords[], spfStatus, dmarcStatus, lastCheckedAt, failureReason } }`.
+- `connectedInboxes: []` — per-user mailbox connections. Each row: `{ id, userId, provider, email, displayName, status, isDefault, smtpHost?/Port?/Security?, imapHost?/Port?/Security?, inboundCapability, inboundEnabled }`. **Tokens + SMTP passwords NEVER live in client state** — backend holds them encrypted at rest.
+- v27 migration is purely additive — slots in defaults where missing.
+
+**Reducer (`reducer.js`):** new ACTIONS `CONNECT_EMAIL_PROVIDER`, `DISCONNECT_EMAIL_PROVIDER`, `UPDATE_EMAIL_DOMAIN_STATUS`, `UPDATE_EMAIL_DEFAULT_FROM`, `UPDATE_EMAIL_ERROR`, `ADD_CONNECTED_INBOX`, `UPDATE_CONNECTED_INBOX`, `REMOVE_CONNECTED_INBOX`, `SET_DEFAULT_CONNECTED_INBOX`, `RECEIVE_EMAIL`. `SET_MESSAGE_DELIVERY` extended to carry `emailMessageId`.
+
+**Selectors (`selectors.js`):** `selectEmailIntegration`, `selectEmailConnected`, `selectEmailVerifiedDomain`, `selectEmailDefaultFrom` (falls back to `company.email` so dev/stub mode keeps working), `selectEmailDefaultReplyTo`, `selectIsEmailSendReady`, `selectEmailBlockers`, `selectConnectedInboxes`, `selectConnectedInboxById`, `selectConnectedInboxesForUser`, `selectDefaultConnectedInbox`, `selectUserHasActiveInbox`, `selectMessagingEmailBlockersForUser`.
+
+**Frontend adapters:**
+- `lib/email.js` — `sendEmail({ to, from, subject, body, replyTo, headers, tags })` extended with `headers` + `tags` (backwards compatible). New `getEmailHealth()` for domain status polling. New `simulateInboundEmail()` dev helper.
+- `lib/connectedInboxes.js` (new) — `connectGoogle()`, `connectMicrosoft()`, `connectSmtp()`, `disconnectInbox()`, `testInboxSend()`, `sendViaInbox()`. Stub mode simulates the full handshake/send shape. OAuth popup helper handles `postMessage`-back protocol.
+
+**UI surfaces shipped:**
+- **Settings → Integrations** — added Resend section (Connection card, Domain Verification card with copyable DKIM rows + status polling, blocker banner, Test Email card). `ConnectEmailProviderModal` mirrors `ConnectTwilioModal`.
+- **Settings → Connected Inboxes** (new page at `/settings/inboxes`, gated on `messaging.use`) — empty-state + connected-mailbox rows with provider chip, status badge, Default toggle, Test send (inline form), Disconnect (with confirm).
+- **`ConnectInboxModal`** (new) — provider tiles (Gmail/Microsoft/SMTP) with collapsible per-ESP help panels: Gmail Workspace admin guidance, Microsoft tenant consent, Yahoo/iCloud/Fastmail/Zoho app-password setup, custom-domain SMTP guidance, plus a troubleshooting table on failure (auth/connection/timeout/TLS/less-secure-apps).
+- **Messaging compose pane** — segmented `SMS | Email` channel toggle (renders only when contact has both phone + email; disabled buttons explain why); Email channel reveals Subject + "Sending as" inbox dropdown; auto-prefills `Re: <subject>` on replies; inline "Connect your inbox" CTA when no active connection. Toggling channel auto-creates / navigates to the contact's other-channel thread (preserves the existing per-channel-conversation schema).
+- **`Messaging.handleSend`** — branches on channel: SMS via `sendSMS()` (existing), Email via `sendViaInbox(inboxId, …)` with `Message-ID` / `In-Reply-To` / `References` headers built from prior messages so Gmail/Outlook group correctly. Per-conversation `Reply-To: reply+<convId>@inbound.<verified-domain>` only when the inbox has inbound capture enabled (Phase 4c).
+- **`RECEIVE_EMAIL` reducer action** — mirrors `RECEIVE_SMS`. Threads inbound by `In-Reply-To → priorMessage.emailHeaders.messageId` first, falls back to from-email contact match, finally creates an unlinked thread.
+- **Settings → Notifications** — boundary banner explicitly distinguishes system reminder sender (Resend default From) from per-user Messaging sends (Connected Inbox).
+- **`.env.example`** (new at `app/`) — documents `VITE_EMAIL_BACKEND_URL`, `RESEND_*`, Google/Microsoft OAuth client IDs, `INBOX_TOKEN_ENCRYPTION_KEY`, etc. Frontend env vs backend env clearly partitioned.
+
+**What's NOT in this repo (deployment companion responsibility):**
+- `app/api/email/{send,health,inbound}.js` — Resend wrapper + Resend Inbound webhook handler.
+- `app/api/inbox/connect/{google,microsoft,smtp}.js` — OAuth flows + SMTP handshake.
+- `app/api/inbox/[id]/{send,test,disconnect}.js` — per-user routes.
+- `app/api/inbox/webhook/{google,microsoft}.js` + `imap-poll.js` — inbound capture (Gmail Pub/Sub / Graph webhooks / IMAP poll).
+
+The frontend adapters all fall into local stub mode when `VITE_EMAIL_BACKEND_URL` is unset, so the full UX is exercisable end-to-end without the backend wired.
+
+**Mobile-responsive verification (per CLAUDE.md):** ran the full pass at 320×568 / 375×812 / 641×800. All touched surfaces — `/settings/integrations`, `/settings/inboxes`, `ConnectInboxModal` (step 1 tiles + step 2 SMTP form), `/settings/notifications` boundary banner, Messaging compose pane (toggle + Subject + Sending-as) — render with zero horizontal scroll at every viewport. ConnectInboxModal SMTP step (9 inputs × 4 form rows) fits at 320 with no row overflow. Verified via `preview_eval` DOM-rect assertions; the `preview_screenshot` tool was timing out so visual confirmation is by element-bounds checks rather than image inspection.
+
+**Build:** `npm --prefix app run build` clean; bundle 674.65 kB / 179.44 kB gzip (up ~50 kB from baseline for the new flows). No new lint errors introduced (existing pre-v15 migration unused-var warnings unchanged).
+
+Files touched this session:
+- `app/src/lib/email.js` (extended)
+- `app/src/lib/connectedInboxes.js` (new)
+- `app/src/data/seed.js` (`email` slot under `integrations`, `connectedInboxes: []`, version → 27)
+- `app/src/store/persist.js` (STORAGE_KEY → `pp.store.v27`, `migrateV26toV27`, `DEFAULT_EMAIL_INTEGRATION` constant)
+- `app/src/store/reducer.js` (5 email-provider actions + 4 inbox actions + `RECEIVE_EMAIL` + `SET_MESSAGE_DELIVERY` extension)
+- `app/src/store/selectors.js` (12 new selectors)
+- `app/src/components/AddUserModal.jsx` (uses `selectEmailDefaultFrom`)
+- `app/src/components/ConnectEmailProviderModal.jsx` (new)
+- `app/src/components/ConnectInboxModal.jsx` (new — provider tiles + per-ESP help + troubleshooting table)
+- `app/src/components/ConversationMessagePanel.jsx` (channel toggle + Subject + Sending-as + email-block gate)
+- `app/src/pages/settings/Integrations.jsx` (Resend section: Connection + Domain Verification + Test Email + blockers banner)
+- `app/src/pages/settings/ConnectedInboxes.jsx` (new — per-user inbox list + test-send + disconnect)
+- `app/src/pages/settings/Notifications.jsx` (boundary banner)
+- `app/src/pages/settings/SettingsLayout.jsx` (added "Connected Inboxes" pill)
+- `app/src/pages/Messaging.jsx` (email branch in `handleSend` + `handleSwitchChannel` + new selectors imported + new props passed to panel)
+- `app/src/App.jsx` (route `/settings/inboxes`)
+- `app/.env.example` (new — documents the full env surface)
+
+**Open / next session:** all four phases shipped; commit when ready (suggest splitting by phase). Backend API routes (`app/api/*`) need to land in the deployment companion before stub mode can be turned off in prod. After that, real-world verification of OAuth round-trips (Google + Microsoft) requires hosting + DNS + provider client-IDs configured.
+
+---
+
+## Prior session (2026-05-06) — Contacts CSV import overhaul
 
 The Accounts CSV import path was dropped entirely; in GHL accounts derive from contacts, so the modal now lives only on the Contacts tab. Row validation relaxed from "email required" to "any one of email / phone / firstName / lastName / company" — phone-only and name-only contacts now land. Email is still the dedup key; rows without email surface a `No email — dedup skipped` note in the preview so the tradeoff is explicit. Unknown company names auto-create accounts during import (case-insensitive match against existing clients, batch-deduped so the same company across 50 rows produces one account, not 50). New "Download sample CSV ↓" link in the upload step ships an 8-column template with three example rows demonstrating the variety. Reducer `ADD_CONTACT` was the load-bearing change: it used to silently swallow email-less dispatches; uniqueness check now scopes to rows that have an email. Single-add (AddContactModal) still requires email at the form layer — only CSV bulk-import is lenient.
 
-Files: `app/src/lib/csv.js`, `app/src/components/CsvImportModal.jsx`, `app/src/pages/Clients.jsx`, `app/src/store/reducer.js`. Two commits on main: `343938f` (reducer guard relaxation) → `b323531` (CSV overhaul). Storage key unchanged (`pp.store.v26`) — schema shape didn't change, just the validation invariant.
+Files: `app/src/lib/csv.js`, `app/src/components/CsvImportModal.jsx`, `app/src/pages/Clients.jsx`, `app/src/store/reducer.js`. Two commits on main: `343938f` (reducer guard relaxation) → `b323531` (CSV overhaul). Storage key was `pp.store.v26` at that point (now `v27` after this session's migration).
 
 ---
 
@@ -152,7 +214,7 @@ npm --prefix app install
 npm --prefix app run dev   # → http://localhost:5175 (or whatever Vite picks)
 ```
 
-Storage key: `pp.store.v26` / seed version 26. Default user is Kyle Boyden (Super Admin). Switch via the user chip in the sidebar footer.
+Storage key: `pp.store.v27` / seed version 27. Default user is Kyle Boyden (Super Admin). Switch via the user chip in the sidebar footer.
 
 ---
 
