@@ -92,19 +92,19 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
           />
         </label>
       )}
-      {hideCheckbox && isOwnedByMe && (
-        <span
-          className="thread-row-owner-pin"
-          title="You created this thread — bulk delete is disabled. Use the Delete button on the thread itself (single-thread, with confirm)."
-          aria-label="You own this thread — not bulk-selectable"
-        >
-          <Icon name="star" size={12} />
-        </span>
-      )}
       <Avatar initials={initials} variant={avatarVariant} size="sm" />
       <div className="thread-row-body">
         <div className="thread-row-name">
           {displayName}
+          {isOwnedByMe && (
+            <span
+              className="thread-row-owner-mark"
+              title="You created this thread"
+              aria-label="You created this thread"
+            >
+              <Icon name="star" size={12} />
+            </span>
+          )}
           {isMuted && (
             <span
               className="thread-row-mute-mark"
@@ -160,13 +160,13 @@ export default function ConversationThreadList({
   const isInternalInbox = selectedInbox === 'internal';
   const selectedCount = selectedIds?.size || 0;
 
-  // Owned threads are NOT bulk-selectable. Hard-deleting your own thread is
-  // single-thread-only with a heavy confirm (in the message panel head) — the
-  // bulk path skips them so you can't accidentally nuke a thread you created
-  // in a multi-select. The owner-pin star renders in place of the checkbox so
-  // you can still see at a glance which rows are yours.
+  // Owned-by-current-user is surfaced as a small star next to the name (see
+  // ThreadRow). Bulk multi-select INCLUDES owned threads — the bulk-delete
+  // handler in Messaging.jsx (handleBulkDeleteRequest) enforces per-thread
+  // permissions (creator-or-Super-Admin) and shows a heavy confirm before
+  // any destructive action, so the visual gate isn't needed.
   const isOwned = (c) => Boolean(currentUser && c.createdByUserId === currentUser.id);
-  const selectableConversations = conversations.filter((c) => !isOwned(c));
+  const selectableConversations = conversations;
   const allSelected = selectedCount > 0 && selectableConversations.length > 0
     && selectableConversations.every((c) => selectedIds.has(c.id));
 
@@ -190,7 +190,7 @@ export default function ConversationThreadList({
                 : `${conversations.length} of ${totalBeforeFilter}`}
             </span>
           ) : (
-            <label className="thread-list-selectall" title="Select all visible (your own threads aren't selectable)">
+            <label className="thread-list-selectall" title="Select all visible threads">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -234,7 +234,7 @@ export default function ConversationThreadList({
               onSelect={onSelect}
               onToggleSelect={onToggleSelect}
               onToggleStar={onToggleStar}
-              hideCheckbox={isDmInbox || isOwned(c)}
+              hideCheckbox={isDmInbox}
               isOwnedByMe={isOwned(c)}
             />
           );

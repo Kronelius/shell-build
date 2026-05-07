@@ -3070,17 +3070,17 @@ tr.clickable:hover { background: var(--inset-bg); }
   transition: opacity 0.15s;
 }
 .thread-row:hover .thread-row-check,
+.thread-row.active .thread-row-check,
 .thread-row.selected .thread-row-check { opacity: 1; }
 .thread-row-check input { cursor: pointer; }
 
-/* Owner pin: replaces the bulk-select checkbox slot on threads the current user
-   created, so they can't be bulk-deleted alongside others. The icon doubles as
-   a visual "you own this" cue. */
-.thread-row-owner-pin {
+/* Owner mark: small inline star next to the name on threads the current user
+   created. Visual "you own this" cue without taking the checkbox slot —
+   owned threads are now bulk-selectable; the bulk-delete handler enforces
+   per-thread permissions before any destructive action. */
+.thread-row-owner-mark {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px;
-  padding: 2px;
-  color: var(--primary);
+  margin-left: 6px; color: var(--primary); vertical-align: -1px;
   opacity: 0.85;
 }
 .thread-row.is-owner { box-shadow: inset 2px 0 0 var(--primary); }
