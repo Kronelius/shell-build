@@ -1,6 +1,27 @@
 # Rainier Facility Solutions — Deployment Handoff
 
-**Last session end (2026-05-07):** Notifications follow-ups — persistent in-app notifications inbox + bell, two-column Account layout with Mobile Push moved to left, mobile-push pref defaulted on. Storage v28 → v29.
+**Last session end (2026-05-07):** Pipelines reseeded to GHL parity (1.1 Leads / 1.2 Sales / 1.3 Clients). Storage v29 → v30. Pipeline page chrome refactored to match Contacts pattern. StageManagerModal save-bar overlap fixed.
+
+**Pipelines (v29 → v30, data + storage bump):**
+- `data/seed.js` — `pipelines` array swapped from a single placeholder "Sales Pipeline" to three starter pipelines mirroring Rainier's GoHighLevel set: 1.1 Leads (15 stages, full intake → walkthrough cadence), 1.2 Sales (17 stages, walkthrough → estimate → bid won/lost + ghosted nurture + 1w–6m follow-ups), 1.3 Clients (7 stages, new client → check-ins → cancel). The Sales pipeline preserves stage key `won` (lifecycle promotion semantics in the reducer).
+- `INITIAL_STATE.version` 29 → 30, `STORAGE_KEY` `pp.store.v29` → `v30`, in-place version-check bumped — no migration function added (this is seed-only data; existing local v29 state falls through to fresh seed). Pure logic change, mobile pass deferred per CLAUDE.md.
+
+**Pipeline page UI refactor:**
+- `pages/Pipeline.jsx` — now owns the action button surface (`page-head-actions`) and both modals (StageManagerModal + Create Pipeline). Mirrors the Contacts page pattern: title/subtitle on the left, "Add Pipeline" (btn-success) + "Manage Stages" (btn-primary) on the right.
+- `components/PipelineBoard.jsx` — slimmed: removed manage/create state, removed StageManagerModal + create-pipeline Modal imports, removed `useToast`. Toolbar now carries only the active-pipeline selector.
+- `index.css` `.pipeline-toolbar .form-group` — `flex: 1 1 200px` → `flex: 0 0 240px` (fixed-width selector instead of stretch). `.pipeline-toolbar-actions` rule deleted.
+
+**StageManagerModal — sticky save bar overlap fix:**
+- `index.css` `.stage-add` — `margin-bottom: 12px` → `76px`. The sticky `.stage-save-bar` always reserves layout space (toggles via `opacity`, not display), so even with no changes pending the add-stage form was being covered. The clearance is unconditional (76px ≈ 61px bar height + buffer); when the bar is hidden the empty pocket is acceptable since the bar is in flow regardless.
+
+**Open / leftover:**
+- 5 demo lead/prospect contacts (Jamie, Robin, Taylor, Morgan, Sam) still reference the deleted `seedId('pl', 'default')` pipelineId and old stage keys (`hot`/`drip`/`walkthrough`/`quote`). On a fresh reseed they don't render on any board (no crash, just invisible). Deferred per user direction — remap or null-out is a one-line edit when wanted.
+
+**Suggested next pickup:** either the contact-stage remap above, or whatever the user queues next. SHELL_ROADMAP CORE work continues unchanged.
+
+---
+
+## 2026-05-07 (earlier) — Notifications follow-ups — persistent in-app notifications inbox + bell, two-column Account layout with Mobile Push moved to left, mobile-push pref defaulted on. Storage v28 → v29.
 
 Builds on the same-day notifications redesign (v27 → v28). The headline addition: a real **persistent notifications inbox** (`state.notifications`) backed by a bell icon visible on every page. The tab title now mirrors the bell badge — both read from the same unread count. Toasts still fire transiently for the same events; they're no longer the only delivery surface.
 
