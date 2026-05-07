@@ -187,21 +187,68 @@ const tags = [
 const tagId = (key) => seedId('tg', key);
 
 // ---------- Pipelines ----------
-// Per Q2 + Q3 — mirror Rainier's existing GoHighLevel sales plan:
-// Hot Lead vs Drip Campaign on intake, then walkthrough/quote → Won/Lost.
-// Reducer keys 'won' and 'lost' for lifecycle promotion semantics.
+// Generic starter pipelines mirroring Rainier's GoHighLevel set
+// (1.1 Leads / 1.2 Sales / 1.3 Clients). Reducer key 'won' on the Sales
+// pipeline carries lifecycle-promotion semantics (contact → customer).
 const pipelines = [
   {
-    id: seedId('pl', 'default'),
-    label: 'Sales Pipeline',
+    id: seedId('pl', 'leads'),
+    label: '1.1 Leads',
     createdAt: daysAgo(420),
     stages: [
-      { id: seedId('ps', 'hot'),         key: 'hot',         label: 'Hot Lead' },
-      { id: seedId('ps', 'drip'),        key: 'drip',        label: 'Drip Campaign' },
-      { id: seedId('ps', 'walkthrough'), key: 'walkthrough', label: 'Walkthrough Scheduled' },
-      { id: seedId('ps', 'quote'),       key: 'quote',       label: 'Quote Sent' },
-      { id: seedId('ps', 'won'),         key: 'won',         label: 'Won' },
-      { id: seedId('ps', 'lost'),        key: 'lost',        label: 'Lost' },
+      { id: seedId('ps', 'new-lead'),              key: 'new-lead',              label: 'New Lead' },
+      { id: seedId('ps', 'not-interested'),        key: 'not-interested',        label: 'Not Interested' },
+      { id: seedId('ps', 'contact-info'),          key: 'contact-info',          label: 'Have Contact Info' },
+      { id: seedId('ps', 'day-1'),                 key: 'day-1',                 label: 'Day 1 — Call / VM / Email' },
+      { id: seedId('ps', 'day-2'),                 key: 'day-2',                 label: 'Day 2 — Rest Day' },
+      { id: seedId('ps', 'day-3'),                 key: 'day-3',                 label: 'Day 3 — Call / Email' },
+      { id: seedId('ps', 'day-4'),                 key: 'day-4',                 label: 'Day 4 — Call / VM' },
+      { id: seedId('ps', 'day-5'),                 key: 'day-5',                 label: 'Day 5 — Call / Email' },
+      { id: seedId('ps', 'day-6'),                 key: 'day-6',                 label: 'Day 6 — Rest Day' },
+      { id: seedId('ps', 'day-7'),                 key: 'day-7',                 label: 'Day 7 — Call / VM / Email' },
+      { id: seedId('ps', 'actively-working'),      key: 'actively-working',      label: 'Actively Working' },
+      { id: seedId('ps', 'sales-campaign'),        key: 'sales-campaign',        label: 'Add to Sales Campaign' },
+      { id: seedId('ps', 'nurture-campaign'),      key: 'nurture-campaign',      label: 'Add to Nurture Campaign' },
+      { id: seedId('ps', 'walkthrough-scheduled'), key: 'walkthrough-scheduled', label: 'Walkthrough Scheduled' },
+      { id: seedId('ps', 'closed-lead'),           key: 'closed-lead',           label: 'Closed' },
+    ],
+  },
+  {
+    id: seedId('pl', 'sales'),
+    label: '1.2 Sales',
+    createdAt: daysAgo(420),
+    stages: [
+      { id: seedId('ps', 'walkthrough'),    key: 'walkthrough',    label: 'Walkthrough Scheduled' },
+      { id: seedId('ps', 'estimate-ghl'),   key: 'estimate-ghl',   label: 'Estimate Given Via GHL or Zap+' },
+      { id: seedId('ps', 'estimate-phone'), key: 'estimate-phone', label: 'Estimate Given Via Phone or Email' },
+      { id: seedId('ps', 'no-reply-1'),     key: 'no-reply-1',     label: 'Estimate Given + No-Reply (1st)' },
+      { id: seedId('ps', 'no-reply-2'),     key: 'no-reply-2',     label: 'Estimate Given + No-Reply (2nd)' },
+      { id: seedId('ps', 'no-reply-3'),     key: 'no-reply-3',     label: 'Estimate Given + No-Reply (3rd)' },
+      { id: seedId('ps', 'won'),            key: 'won',            label: 'Bid Won' },
+      { id: seedId('ps', 'lost'),           key: 'lost',           label: 'Bid Lost' },
+      { id: seedId('ps', 'ghosted'),        key: 'ghosted',        label: 'Ghosted — Add to Warm Nurture' },
+      { id: seedId('ps', 'follow-up-1w'),   key: 'follow-up-1w',   label: '1 Week Follow-Up' },
+      { id: seedId('ps', 'follow-up-2w'),   key: 'follow-up-2w',   label: '2 Week Follow-Up' },
+      { id: seedId('ps', 'follow-up-1m'),   key: 'follow-up-1m',   label: '1 Month Follow-Up' },
+      { id: seedId('ps', 'follow-up-2m'),   key: 'follow-up-2m',   label: '2 Month Follow-Up' },
+      { id: seedId('ps', 'follow-up-3m'),   key: 'follow-up-3m',   label: '3 Month Follow-Up' },
+      { id: seedId('ps', 'follow-up-4m'),   key: 'follow-up-4m',   label: '4 Month Follow-Up' },
+      { id: seedId('ps', 'follow-up-5m'),   key: 'follow-up-5m',   label: '5 Month Follow-Up' },
+      { id: seedId('ps', 'follow-up-6m'),   key: 'follow-up-6m',   label: '6 Month Follow-Up' },
+    ],
+  },
+  {
+    id: seedId('pl', 'clients'),
+    label: '1.3 Clients',
+    createdAt: daysAgo(420),
+    stages: [
+      { id: seedId('ps', 'new-client'),      key: 'new-client',      label: 'New Client+' },
+      { id: seedId('ps', 'launch-sequence'), key: 'launch-sequence', label: 'Launch Sequence' },
+      { id: seedId('ps', 'check-in-1m'),     key: 'check-in-1m',     label: '1 Month Check-In+' },
+      { id: seedId('ps', 'check-in-3m'),     key: 'check-in-3m',     label: '3 Month Check-In+' },
+      { id: seedId('ps', 'check-in-6m'),     key: 'check-in-6m',     label: '6 Month Check-In+' },
+      { id: seedId('ps', 'check-in-12m'),    key: 'check-in-12m',    label: '12 Month Check-In' },
+      { id: seedId('ps', 'canceled-client'), key: 'canceled-client', label: 'Canceled Client' },
     ],
   },
 ];
@@ -486,7 +533,7 @@ const notifications = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 29,
+  version: 30,
   company,
   currentUserId,
   users,

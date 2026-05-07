@@ -55,7 +55,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v29';
+const STORAGE_KEY = 'pp.store.v30';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.
@@ -401,7 +401,7 @@ export function loadState() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 29) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 30) return parsed;
     }
     // Attempt v28 → v29 migration
     const v28Raw = window.localStorage.getItem('pp.store.v28');
