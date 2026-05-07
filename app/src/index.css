@@ -2252,7 +2252,10 @@ tr.clickable:hover { background: var(--inset-bg); }
 .stage-row-label { flex: 1; min-width: 0; }
 .stage-row-count { flex: 0 0 auto; white-space: nowrap; min-width: 72px; text-align: right; }
 .stage-row-delete { color: var(--danger); }
-.stage-add { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+/* Reserve clearance below the add-stage form so the sticky save bar
+   (which always occupies its slot, opacity-toggling between hidden and
+   visible) doesn't overlap the input. */
+.stage-add { display: flex; align-items: center; gap: 8px; margin-bottom: 76px; }
 .stage-add .form-group { flex: 1; margin-bottom: 0; }
 .stage-save-bar {
   position: sticky; bottom: -24px;
