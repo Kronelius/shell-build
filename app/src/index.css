@@ -1188,8 +1188,24 @@ label:has(> input[type="checkbox"]) {
 
 /* Recurrence, conflict, and series indicators */
 .recurrence-section { margin-top: 4px; }
-.day-picker { display: flex; gap: 4px; margin-bottom: 8px; }
+.day-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .day-picker .chip { min-width: 40px; justify-content: center; padding: 4px 6px; font-size: 11px; }
+.custom-summary {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; margin-bottom: 8px;
+  background: var(--primary-bg); border: 1px solid var(--primary-soft, var(--border-light));
+  border-radius: var(--btn-radius); color: var(--primary-deep, var(--primary));
+  font-size: 12px; font-weight: 500;
+}
+.custom-summary svg { color: var(--primary); }
+.custom-summary-edit {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--primary); font-size: 11px; font-weight: 600;
+  text-decoration: underline; padding: 0;
+}
+.custom-summary-edit:hover { color: var(--primary-deep, var(--primary)); }
+.custom-repeat-body { display: flex; flex-direction: column; }
+.custom-repeat-body .modal-actions { margin-top: auto; padding-top: 8px; }
 .conflict-warning {
   display: flex; gap: 8px; align-items: flex-start; padding: 10px 14px;
   background: linear-gradient(180deg, var(--color-semantic-warning-50) 0%, var(--card-bg) 100%);

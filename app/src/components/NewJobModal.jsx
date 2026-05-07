@@ -11,6 +11,14 @@ import { composeIso, splitIso, todayIso, fmtTimeRange } from '../lib/dates';
 import { RECURRENCE_DEFAULTS, previewEndDate } from '../lib/recurrence';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const CUSTOM_DAYS = [
+  { dow: 1, label: 'Mon' },
+  { dow: 2, label: 'Tue' },
+  { dow: 3, label: 'Wed' },
+  { dow: 4, label: 'Thu' },
+  { dow: 5, label: 'Fri' },
+  { dow: 6, label: 'Sat' },
+];
 
 function buildEmpty(state, preset = {}) {
   return {
@@ -39,6 +47,8 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
   const crewPool = selectActiveUsers(state);
 
   const [form, setForm] = useState(() => buildEmpty(state, { clientId: presetClientId, siteId: presetSiteId }));
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customDraft, setCustomDraft] = useState({ days: [], endType: 'count', endCount: 12, endDate: '' });
 
   useEffect(() => {
     if (!open) return;
@@ -105,9 +115,11 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
 
   const recurrence = useMemo(() => {
     if (form.repeat === 'none') return null;
+    if (form.repeat === 'custom' && !form.daysOfWeek.length) return null;
+    const isMultiDay = (form.repeat === 'weekly' || form.repeat === 'custom') && form.daysOfWeek.length;
     return {
-      frequency: form.repeat,
-      daysOfWeek: form.repeat === 'weekly' && form.daysOfWeek.length ? form.daysOfWeek : null,
+      frequency: form.repeat === 'custom' ? 'weekly' : form.repeat,
+      daysOfWeek: isMultiDay ? form.daysOfWeek : null,
       endType: form.endType,
       endCount: form.endType === 'count' ? (Number(form.endCount) || 12) : null,
       endDate: form.endType === 'date' ? composeIso(form.endDate, '23:59') : null,
@@ -153,6 +165,46 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
     setForm({ ...form, daysOfWeek: on ? form.daysOfWeek.filter((d) => d !== dow) : [...form.daysOfWeek, dow].sort() });
   };
 
+  const onRepeatChange = (value) => {
+    if (value === 'custom') {
+      setCustomDraft({
+        days: form.repeat === 'custom' ? [...form.daysOfWeek] : [],
+        endType: form.repeat === 'custom' ? form.endType : 'count',
+        endCount: form.repeat === 'custom' ? form.endCount : 12,
+        endDate: form.repeat === 'custom' ? form.endDate : '',
+      });
+      setCustomOpen(true);
+      return;
+    }
+    setForm({ ...form, repeat: value, daysOfWeek: [] });
+  };
+
+  const toggleCustomDay = (dow) => {
+    const on = customDraft.days.includes(dow);
+    setCustomDraft({
+      ...customDraft,
+      days: on ? customDraft.days.filter((d) => d !== dow) : [...customDraft.days, dow].sort(),
+    });
+  };
+
+  const applyCustom = () => {
+    if (!customDraft.days.length) return;
+    setForm({
+      ...form,
+      repeat: 'custom',
+      daysOfWeek: customDraft.days,
+      endType: customDraft.endType,
+      endCount: customDraft.endCount,
+      endDate: customDraft.endDate,
+    });
+    setCustomOpen(false);
+  };
+
+  const customSummary = useMemo(() => {
+    if (form.repeat !== 'custom' || !form.daysOfWeek.length) return '';
+    return form.daysOfWeek.map((d) => DAY_LABELS[d]).join(', ');
+  }, [form.repeat, form.daysOfWeek]);
+
   return (
     <Modal open={open} onClose={onClose} title={mode === 'edit' ? 'Edit Job' : 'New Job'}>
       <form onSubmit={submit}>
@@ -175,8 +227,8 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
           options={[{ value: '', label: 'Select a service' }, ...services.map((s) => ({ value: s.id, label: s.name }))]}
           help={service ? `Default duration: ${service.defaultDurationMins} min` : undefined}
         />
+        <FormField label="Date" type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
         <div className="form-row">
-          <FormField label="Date" type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           <FormField label="Start" type="time" required value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
           <FormField label="End" type="time" required value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
         </div>
@@ -184,13 +236,14 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
         {mode !== 'edit' && (
           <div className="recurrence-section">
             <FormField label="Repeat" as="select" value={form.repeat}
-              onChange={(e) => setForm({ ...form, repeat: e.target.value, daysOfWeek: [] })}
+              onChange={(e) => onRepeatChange(e.target.value)}
               options={[
                 { value: 'none', label: 'Does not repeat' },
                 { value: 'daily', label: 'Daily' },
                 { value: 'weekly', label: 'Weekly' },
                 { value: 'biweekly', label: 'Every 2 weeks' },
                 { value: 'monthly', label: 'Monthly' },
+                { value: 'custom', label: 'Custom…' },
               ]}
             />
             {form.repeat === 'weekly' && (
@@ -203,33 +256,40 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
                 ))}
               </div>
             )}
-            {form.repeat !== 'none' && (
-              <>
-                <div className="form-row" style={{ alignItems: 'flex-end' }}>
-                  <FormField label="Ends" as="select" value={form.endType}
-                    onChange={(e) => setForm({ ...form, endType: e.target.value })}
-                    options={[
-                      { value: 'count', label: 'After N occurrences' },
-                      { value: 'date', label: 'On a specific date' },
-                      { value: 'never', label: 'Never (auto-capped)' },
-                    ]}
-                  />
-                  {form.endType === 'count' && (
-                    <FormField label="Times" type="number" min={1} max={52} value={form.endCount}
-                      onChange={(e) => setForm({ ...form, endCount: e.target.value })} />
-                  )}
-                  {form.endType === 'date' && (
-                    <FormField label="Until" type="date" value={form.endDate}
-                      onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
-                  )}
-                </div>
-                {preview && (
-                  <div className="text-xs text-muted" style={{ marginTop: 4, marginBottom: 8 }}>
-                    <Icon name="repeat" size={12} /> Will create {preview.count} jobs through{' '}
-                    {new Date(preview.lastDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </div>
+            {form.repeat === 'custom' && customSummary && (
+              <div className="custom-summary">
+                <Icon name="repeat" size={12} />
+                <span>Custom: {customSummary}</span>
+                <button type="button" className="custom-summary-edit" onClick={() => onRepeatChange('custom')}>
+                  Edit
+                </button>
+              </div>
+            )}
+            {form.repeat !== 'none' && form.repeat !== 'custom' && (
+              <div className="form-row" style={{ alignItems: 'flex-end' }}>
+                <FormField label="Ends" as="select" value={form.endType}
+                  onChange={(e) => setForm({ ...form, endType: e.target.value })}
+                  options={[
+                    { value: 'count', label: 'After N occurrences' },
+                    { value: 'date', label: 'On a specific date' },
+                    { value: 'never', label: 'Never (auto-capped)' },
+                  ]}
+                />
+                {form.endType === 'count' && (
+                  <FormField label="Times" type="number" min={1} max={52} value={form.endCount}
+                    onChange={(e) => setForm({ ...form, endCount: e.target.value })} />
                 )}
-              </>
+                {form.endType === 'date' && (
+                  <FormField label="Until" type="date" value={form.endDate}
+                    onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+                )}
+              </div>
+            )}
+            {form.repeat !== 'none' && preview && (
+              <div className="text-xs text-muted" style={{ marginTop: 4, marginBottom: 8 }}>
+                <Icon name="repeat" size={12} /> Will create {preview.count} jobs through{' '}
+                {new Date(preview.lastDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
             )}
           </div>
         )}
@@ -271,6 +331,75 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
           <button type="submit" className="btn btn-primary">{mode === 'edit' ? 'Save Changes' : recurrence ? `Create ${preview?.count || ''} Jobs` : 'Create Job'}</button>
         </div>
       </form>
+
+      <Modal
+        open={customOpen}
+        onClose={() => setCustomOpen(false)}
+        title="Custom Repeat"
+        size="sm"
+      >
+        <div className="custom-repeat-body">
+          <p className="text-xs text-muted" style={{ marginBottom: 10 }}>
+            Pick the days of the week this job runs. The same start and end time
+            ({form.startTime || '—'}–{form.endTime || '—'}) will apply to every selected day.
+          </p>
+          <div className="form-label" style={{ marginBottom: 6 }}>Days</div>
+          <div className="day-picker" style={{ marginBottom: 14 }}>
+            {CUSTOM_DAYS.map(({ dow, label }) => (
+              <button
+                key={dow}
+                type="button"
+                className={`chip ${customDraft.days.includes(dow) ? 'on' : ''}`}
+                onClick={() => toggleCustomDay(dow)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="form-row" style={{ alignItems: 'flex-end' }}>
+            <FormField
+              label="Ends"
+              as="select"
+              value={customDraft.endType}
+              onChange={(e) => setCustomDraft({ ...customDraft, endType: e.target.value })}
+              options={[
+                { value: 'count', label: 'After N occurrences' },
+                { value: 'date', label: 'On a specific date' },
+                { value: 'never', label: 'Never (auto-capped)' },
+              ]}
+            />
+            {customDraft.endType === 'count' && (
+              <FormField
+                label="Times"
+                type="number"
+                min={1}
+                max={52}
+                value={customDraft.endCount}
+                onChange={(e) => setCustomDraft({ ...customDraft, endCount: e.target.value })}
+              />
+            )}
+            {customDraft.endType === 'date' && (
+              <FormField
+                label="Until"
+                type="date"
+                value={customDraft.endDate}
+                onChange={(e) => setCustomDraft({ ...customDraft, endDate: e.target.value })}
+              />
+            )}
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-outline" onClick={() => setCustomOpen(false)}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!customDraft.days.length}
+              onClick={applyCustom}
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 }
