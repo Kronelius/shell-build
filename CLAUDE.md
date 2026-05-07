@@ -1,5 +1,13 @@
 # PolishPoint Platform — Build Notes
 
+## CRITICAL — File modification rule
+
+**When a file changes, write the FULL file. Do not use partial/patch-style edits.**
+
+Every modified file must be emitted as a complete replacement (Write tool, not Edit). This applies to source code, CSS, markdown, JSON — every file type. Reasoning: partial edits create cross-machine inconsistency risk when multiple workstations sync the repo; a fully-replaced file is unambiguous in git diffs and unambiguous on pull. **No exceptions.**
+
+(System default prefers Edit for diff size; this project's rule overrides that default.)
+
 ## Doc set (read in this order at session start)
 
 1. **`CLAUDE.md`** (this file) — stable project context, conventions, file map. Auto-loaded.
