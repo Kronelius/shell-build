@@ -29,6 +29,7 @@ import SettingsRoles from './pages/settings/Roles';
 import SettingsNotifications from './pages/settings/Notifications';
 import SettingsAccount from './pages/settings/Account';
 import SettingsIntegrations from './pages/settings/Integrations';
+import SettingsConnectedInboxes from './pages/settings/ConnectedInboxes';
 
 function HomeRoute() {
   const hasDashboard = usePermission('dashboard.view');
@@ -78,6 +79,7 @@ export default function App() {
                 <Route path="notifications" element={<RequirePerm perm="reminders.view"><SettingsNotifications /></RequirePerm>} />
                 <Route path="account" element={<RequirePerm perm="settings.account"><SettingsAccount /></RequirePerm>} />
                 <Route path="integrations" element={<RequirePerm perm="integrations.view"><SettingsIntegrations /></RequirePerm>} />
+                <Route path="inboxes" element={<RequirePerm perm="messaging.use"><SettingsConnectedInboxes /></RequirePerm>} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

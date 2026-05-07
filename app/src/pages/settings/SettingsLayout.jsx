@@ -13,6 +13,7 @@ const ITEMS = [
   { to: 'roles',         label: 'Roles & Permissions', icon: 'lock',     perm: 'settings.roles.edit' },
   { to: 'notifications', label: 'Reminders',           icon: 'bell',     perm: 'reminders.view'      },
   { to: 'integrations',  label: 'Integrations',        icon: 'phone',    perm: 'integrations.view'   },
+  { to: 'inboxes',       label: 'Connected Inboxes',   icon: 'mail',     perm: 'messaging.use'       },
 ];
 
 export default function SettingsLayout() {
