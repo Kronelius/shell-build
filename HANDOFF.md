@@ -1,6 +1,123 @@
 # Rainier Facility Solutions — Deployment Handoff
 
-**Last session end (2026-05-06):** Email System — full Phase 1–4 frontend build (Resend + Connected Inboxes + Messaging email channel).
+**Last session end (2026-05-07):** Notifications follow-ups — persistent in-app notifications inbox + bell, two-column Account layout with Mobile Push moved to left, mobile-push pref defaulted on. Storage v28 → v29.
+
+Builds on the same-day notifications redesign (v27 → v28). The headline addition: a real **persistent notifications inbox** (`state.notifications`) backed by a bell icon visible on every page. The tab title now mirrors the bell badge — both read from the same unread count. Toasts still fire transiently for the same events; they're no longer the only delivery surface.
+
+**State (v28 → v29, additive):**
+- `state.notifications: []` — top-level array of `{ id, userId, eventKey, title, body, url, createdAt, readAt }`. Per-user, capped at 200 entries per user (oldest fall off when the listener pushes the 201st). Bell shows the most recent 50 by default.
+- Migration `migrateV28toV29` slots in an empty array on existing states.
+- `STORAGE_KEY` `pp.store.v28` → `pp.store.v29`.
+
+**Reducer:** new actions `ADD_NOTIFICATION`, `MARK_NOTIFICATION_READ`, `MARK_ALL_NOTIFICATIONS_READ`, `CLEAR_NOTIFICATIONS`. ADD_NOTIFICATION enforces the per-user cap.
+
+**Selectors:** `selectNotificationsForUser(s, userId, limit?)` (newest-first, optional limit), `selectUnreadNotificationCount(s, userId)`.
+
+**Listener (`components/NotificationListener.jsx`):** now dispatches `ADD_NOTIFICATION` for every event the user has the toggle on for AND has visibility for, in addition to firing the toast. The tab title is driven by `selectUnreadNotificationCount` — bell badge and tab badge always agree.
+
+**Bell + panel (`components/NotificationsBell.jsx`):** persistent button mounted twice in `AppLayout.jsx` — once inside the existing `.mobile-header` (right side, replaces empty space) for mobile, once inside a fixed-position `.bell-floater` at top-right of the viewport for desktop. CSS hides the desktop floater below the 640px breakpoint where the mobile-header takes over. The dropdown panel is anchored to the bell, 360px wide on desktop and `calc(100vw - 24px)` on mobile, max-height 70vh with internal scroll. Each row: title (bold) + 2-line body preview + relative time. Click → `MARK_NOTIFICATION_READ` + `navigate(url, { state: nav })` (referrer-aware, per project rule). "Mark all read" link in the panel head clears unread for the user. Click-outside (mousedown) and `Esc` close the panel; route changes also auto-close.
+
+**Account → Notifications layout (this session):**
+- Two-column `.account-grid` (1fr 1fr, gap 16, collapses to 1 column at 900px).
+- **Left column** (`.account-col`, vertical flex): profile form on top, MobilePushCard underneath as its own `.card.detail-card` (was previously nested inside the notifications card on the right — moved per UX feedback that height mismatch made the layout look lopsided).
+- **Right column**: notifications card with grouped event toggles only.
+- Heights now balance ~647px / ~636px = 1.02 ratio at desktop.
+
+**Mobile push pref:** default flipped from `false` to `true` per user direction ("ALWAYS BE ON FOR ALL"). The pref is intent ("do you want push on devices where you're subscribed?") — separate from per-device subscription state, which still requires explicit browser permission per device. The MobilePushCard now distinguishes the two: when pref=true but the device isn't subscribed yet (no PushSubscription), a "Subscribe this device" CTA appears below the toggle. When subscribed, the test-push button + per-device list show. iOS-not-installed-as-PWA and `Notification.permission === 'denied'` each render their own contextual copy.
+
+**Push adapter:** added `isCurrentDeviceSubscribed()` mode-aware helper — checks the in-memory stub in stub mode, the real PushSubscription in hosted mode. Used by MobilePushCard to render the right state without reading internal stub variables.
+
+**Files touched this session:**
+- `app/src/data/seed.js` — `notifications: []` slot, version 28 → 29, `mobilePushEnabled` default true
+- `app/src/store/persist.js` — `STORAGE_KEY` v28 → v29, `migrateV28toV29`, chains updated, default prefs now have `mobilePushEnabled: true`
+- `app/src/store/reducer.js` — 4 new notification actions
+- `app/src/store/selectors.js` — 2 new notification selectors
+- `app/src/components/NotificationListener.jsx` — dispatches `ADD_NOTIFICATION`; tab title sourced from `selectUnreadNotificationCount`
+- `app/src/components/NotificationsBell.jsx` (new) — bell button + dropdown panel
+- `app/src/layouts/AppLayout.jsx` — mounts NotificationsBell twice (mobile-header + .bell-floater)
+- `app/src/lib/push.js` — `isCurrentDeviceSubscribed()` helper
+- `app/src/pages/settings/Account.jsx` — `.account-grid` with `.account-col` flex container; MobilePushCard moved to left column under profile; new state-based copy for the push card; "Subscribe this device" CTA when pref=on but not subscribed
+- `app/src/index.css` — `.bell-*` styles (button, badge, panel, list, items, dot, link), `.bell-floater` fixed positioning, `.account-col` flex wrapper, mobile-header bell theming
+
+**Verification:**
+- `npm --prefix app run build` clean (682.03 kB / 181.96 kB gzip).
+- v29 migration / fresh seed: `notifications: []`, all users get `notificationPrefs.mobilePushEnabled: true`.
+- Bell renders top-right of viewport on desktop, inside mobile-header on mobile (320 / 375 / 1280 all checked).
+- Empty state shows "You're all caught up." Seeded 3 test notifications via direct localStorage write + reload: badge shows `2` (one was pre-marked read), panel renders all 3 in correct chronological order with right unread/read styling, time-ago labels work ("just now" / "1h ago" / "1d ago").
+- "Mark all read" clears badge + tab title; click-outside (mousedown) closes panel; `Esc` closes; route changes auto-close.
+- Item click navigates to `/invoices` AND marks notification read AND resets tab title.
+- Account layout heights at 1280×800: left col 647px, right col 636px, both tops aligned. At 320px / 375px viewport: collapses cleanly to single column, no horizontal overflow.
+
+**Open / next session:** Backend `/api/push/*` routes still need to land in the deployment companion before stub mode can be turned off in prod. With the bell now persisted, the next obvious extension is server-pushed notifications: when the backend forwards a push event, the user's open browser session(s) should also receive an `ADD_NOTIFICATION` dispatch. Today, only client-side state changes feed the listener.
+
+---
+
+## 2026-05-07 (earlier) — Notifications redesign — deleted /settings/notifications, added per-user toggles, shipped PWA + Web Push.
+
+The previous "Reminders" settings page was removed entirely (templates editor, sequence enable/disable, delivery inbox — all gone). Operators don't need to manage reminder templates or audit deliveries; the scheduler keeps firing customer-facing reminders in the background, failures fail silently. The Notifications surface is now a per-user, role-aware toggle list co-located inside Account → Notifications, and a Mobile Push card next to it that drives Web Push subscription on the current device.
+
+**State (v27 → v28, additive):**
+- `users[i].notificationPrefs` on every user — per-event toggles (`newCustomerMessage`, `newDM`, `newInternalMessage`, `jobCreatedOrRescheduled`, `jobCancelled`, `invoicePaid`, `invoiceOverdue`) plus a `mobilePushEnabled` master flag. Defaults: all event toggles on, mobile push off.
+- Migration `migrateV27toV28` backfills `notificationPrefs` on existing users (merges with any pre-seeded fixture).
+- `STORAGE_KEY` `pp.store.v27` → `pp.store.v28`.
+
+**Reducer:** new `UPDATE_NOTIFICATION_PREFS` action (`{ userId, patch }`).
+
+**Selectors:** `selectNotificationPrefs(s, userId)`, `selectVisibleNotificationGroups(s, userId)`, `selectShouldNotifyUser(s, userId, eventKey)`. `selectUnreadForConversation` now respects `mutedByUserIds` for ALL channels (sms/email/internal/dm) — previously only DMs checked muting (and even there, the existing handling was incidental). Muting a thread silences both the unread badge AND the in-app listener.
+
+**Catalog (`app/src/lib/notifications.js`):** single source of truth for the toggle list, role allowlists, and permission gates. Crew see Schedule + DMs/internal-message only. Owner/Admin see everything subject to permission gates (invoice toggles require `invoices.view`).
+
+**UI:**
+- `app/src/pages/settings/Account.jsx` — added a Notifications section: grouped toggle list (Messaging / Schedule / Invoices) with `pref-row` styling, plus a `MobilePushCard` subcomponent at the bottom. The card detects iOS-not-installed-as-PWA + shows install instructions, surfaces stub-mode notice when push backend isn't wired, lists per-device subscriptions with Remove buttons, and includes a "Send test push" affordance.
+- `app/src/pages/settings/SettingsLayout.jsx` — Notifications pill + reminder badge wiring removed.
+- `app/src/App.jsx` — `/settings/notifications` route redirects to `/settings/account`; `/reminders` redirects to `/`. Notifications page import + `SettingsNotifications` component removed.
+- `app/src/index.css` — added `.pref-row*`, `.push-card*`, `.push-device-*` styles.
+
+**In-app delivery:**
+- `app/src/components/NotificationListener.jsx` (new) — root-mounted alongside `<ReminderScheduler>`. Subscribes to relevant store deltas (new messages, new/rescheduled/cancelled jobs assigned to the current user, invoice status transitions to paid/overdue). For each event: looks up the receiving user's `notificationPrefs`, checks role/permission visibility, checks mute, then fires `toast.info()` + updates `document.title` to `(N) Rainier CRM`. First-mount guard seeds the "seen" sets so existing state doesn't fire a flood.
+- `app/src/lib/documentTitle.js` (new) — small helper for tab title management. Idle = base title; unread = `(N) <base>`.
+
+**PWA install:**
+- `app/public/manifest.json` (new) — name "Rainier Facility Solutions", short_name "Rainier", `display: standalone`, brand `#212269` theme + background, icons array.
+- `app/public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` (new) — generated from `rainier-facilities-logo.png` via `app/scripts/gen-pwa-icons.mjs` (one-shot Node + sharp). Re-run the script when the logo or brand color changes.
+- `app/index.html` — added `<link rel="manifest">`, `<meta name="theme-color">`, `<link rel="apple-touch-icon">`, iOS PWA meta tags (`apple-mobile-web-app-*`).
+- `app/package.json` — `sharp` added as devDep (used only by the icon generator script; not imported by the app bundle).
+
+**Service worker:**
+- `app/public/sw.js` (new) — hand-rolled, no Workbox. Handles `push` (parses `{ title, body, url, tag }` payload, calls `showNotification`) and `notificationclick` (focuses existing client + navigates, or opens new). No offline caching.
+- `app/src/main.jsx` — registers `/sw.js` with scope `/` on `load`, gated on `'serviceWorker' in navigator`.
+
+**Push adapter:**
+- `app/src/lib/push.js` (new) — mirrors `lib/twilio.js` / `lib/email.js` adapter pattern. Exports: `enableMobilePush`, `disableMobilePush`, `getCurrentSubscription`, `getDevices`, `removeDevice`, `sendTestPush`, `urlBase64ToUint8Array`, `isPushSupported`, `isStandalonePWA`, `isIOS`, `isPushAvailable`, `PUSH_BACKEND_URL`. Branches on `VITE_PUSH_BACKEND_URL`; stub mode keeps an in-memory subscription list and fires a local Notification for the test-push path so the dev experience exercises the full UI without a backend.
+
+**Env (`app/.env.example`):**
+- `VITE_PUSH_BACKEND_URL` — points at deployment companion's `/api/push/*` routes.
+- `VITE_VAPID_PUBLIC_KEY` — Web Push VAPID public key (safe in frontend bundle).
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — backend env (private key NEVER reaches the client). Generate keypair via `npx web-push generate-vapid-keys`.
+
+**Backend contract (deployment companion repo, NOT in this repo):**
+- `POST /api/push/subscribe` — `{ userId, subscription, deviceLabel }` → upsert in `push_subscriptions` table keyed by `(userId, endpoint)`. Returns `{ ok, subscriptionId }`.
+- `DELETE /api/push/subscribe` — `{ userId, endpoint }` → drop row.
+- `GET /api/push/devices?userId=` → list for per-device UI: `[{ subscriptionId, deviceLabel, endpointMasked, lastSeenAt }]`.
+- `POST /api/push/test` → `{ delivered, failed, expired }`. Server-side fans out a canned payload to all of the user's subscriptions.
+- Push fan-out service called from existing event sources (Twilio webhook, email inbound, scheduled reminders, etc.) using the `web-push` Node library + VAPID. Looks up `notificationPrefs.mobilePushEnabled` AND the per-event toggle before sending. 410 Gone responses delete dead subscriptions.
+
+**Removed:**
+- `app/src/pages/settings/Notifications.jsx` (deleted, 467 lines) — templates editor + sequence + delivery inbox.
+
+**Verification:**
+- `npm --prefix app run build` clean (677.86 kB / 180.98 kB gzip).
+- Mobile responsive pass at 320×568, 375×812, 641×800: all viewports clean (no horizontal scroll, all toggle rows + mobile push card render within bounds).
+- Service worker registers on `/` scope; tab title shows `(N) Rainier CRM` reflecting unread count from initial seed.
+- `/settings/notifications` correctly redirects to `/settings/account`; `/reminders` redirects to `/`.
+- Toggle round-trip: clicking a `.pref-row .toggle` updates `notificationPrefs[key]` in localStorage; reload preserves the value.
+- Fresh reseed at v28 produces the right `notificationPrefs` shape (no leftover `conversationAssigned` from earlier drafts).
+
+**Open / next session:** Backend `/api/push/*` routes need to land in the deployment companion before stub mode can be turned off in prod. After that, real-world verification of iOS Safari 16.4+ end-to-end (install PWA → grant permission → subscribe → trigger from backend → notification fires with app closed) is the ship-blocker for the mobile push promise.
+
+---
+
+## 2026-05-06 — Email System — full Phase 1–4 frontend build (Resend + Connected Inboxes + Messaging email channel)
 
 Wired the complete email surface that was previously stub-only. Two distinct layers ship together: **system transactional** (Resend, app-owned subdomain — invitations, reminders, billing) and **per-user conversational** (Connected Inboxes — Gmail OAuth, Microsoft 365 OAuth, SMTP/IMAP — sent FROM each employee's real address inside Messaging). Marketing/drip is explicitly out of scope and called out in copy as living in higher-tier add-ons.
 

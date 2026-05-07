@@ -6,6 +6,7 @@ import RequirePerm from './components/RequirePerm';
 import NotFound from './components/NotFound';
 import TwilioInboundListener from './components/TwilioInboundListener';
 import ReminderScheduler from './components/ReminderScheduler';
+import NotificationListener from './components/NotificationListener';
 import { usePermission } from './hooks/usePermission';
 
 import Dashboard from './pages/Dashboard';
@@ -26,7 +27,6 @@ import SettingsTags from './pages/settings/Tags';
 import SettingsTeam from './pages/settings/Team';
 import SettingsTeamDetail from './pages/settings/TeamDetail';
 import SettingsRoles from './pages/settings/Roles';
-import SettingsNotifications from './pages/settings/Notifications';
 import SettingsAccount from './pages/settings/Account';
 import SettingsIntegrations from './pages/settings/Integrations';
 import SettingsConnectedInboxes from './pages/settings/ConnectedInboxes';
@@ -43,6 +43,7 @@ export default function App() {
       <ToastProvider>
         <TwilioInboundListener />
         <ReminderScheduler />
+        <NotificationListener />
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
@@ -63,7 +64,7 @@ export default function App() {
               <Route path="invoices" element={<RequirePerm perm="invoices.view"><Invoices /></RequirePerm>} />
               <Route path="invoices/:invoiceId" element={<RequirePerm perm="invoices.view"><InvoiceDetail /></RequirePerm>} />
 
-              <Route path="reminders" element={<Navigate to="/settings/notifications" replace />} />
+              <Route path="reminders" element={<Navigate to="/" replace />} />
 
               <Route path="messaging" element={<RequirePerm perm="messaging.use"><Messaging /></RequirePerm>} />
               <Route path="messaging/:conversationId" element={<RequirePerm perm="messaging.use"><Messaging /></RequirePerm>} />
@@ -76,7 +77,7 @@ export default function App() {
                 <Route path="team" element={<RequirePerm perm="settings.team.view"><SettingsTeam /></RequirePerm>} />
                 <Route path="team/:userId" element={<RequirePerm perm="settings.team.view"><SettingsTeamDetail /></RequirePerm>} />
                 <Route path="roles" element={<RequirePerm perm="settings.roles.edit"><SettingsRoles /></RequirePerm>} />
-                <Route path="notifications" element={<RequirePerm perm="reminders.view"><SettingsNotifications /></RequirePerm>} />
+                <Route path="notifications" element={<Navigate to="/settings/account" replace />} />
                 <Route path="account" element={<RequirePerm perm="settings.account"><SettingsAccount /></RequirePerm>} />
                 <Route path="integrations" element={<RequirePerm perm="integrations.view"><SettingsIntegrations /></RequirePerm>} />
                 <Route path="inboxes" element={<RequirePerm perm="messaging.use"><SettingsConnectedInboxes /></RequirePerm>} />

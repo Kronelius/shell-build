@@ -64,26 +64,55 @@ Largely built. Audit:
 
 ## `[x]` Automated Reminders (staff/clients) `[Core]`
 
-Audit complete — all DoD items shipped:
-- `[x]` 24-hour reminder template wired (auto-fires when job startAt is 12–30h away)
-- `[x]` Day-of reminder template wired (auto-fires when startAt is 0–12h away)
-- `[x]` Booking confirmation template wired (auto-fires immediately on `ADD_JOB` for upcoming jobs)
-- `[x]` Post-service template wired (auto-fires when job status flips to `completed`)
-- `[x]` Real retry behavior (re-delivers through adapter, not just status flip)
-- `[x]` Failure escalation (clear failure reason in inbox + toast; pending state visible)
-- `[x]` Per-event read/unread
+Customer-facing reminder scheduler — fully wired, no operator UI.
 
-**Architecture:** `lib/reminderScheduler.js` exposes pure functions (`shouldFire`, `getDueReminders`, `retryDelivery`, `interpolate`, `buildTokens`). `components/ReminderScheduler.jsx` mounts at app root, reacts to state changes, ticks every 60s, dispatches `ADD_REMINDER_EVENT` (status `pending`) → calls adapter → dispatches `UPDATE_REMINDER_EVENT` with final status.
+- `[x]` 24-hour reminder template (auto-fires when job startAt is 12–30h away)
+- `[x]` Day-of reminder template (auto-fires when startAt is 0–12h away)
+- `[x]` Booking confirmation template (auto-fires immediately on `ADD_JOB` for upcoming jobs)
+- `[x]` Post-service template (auto-fires when job status flips to `completed`)
 
-`lib/email.js` adds the matching email adapter (mirrors `twilio.js`; branches on `VITE_EMAIL_BACKEND_URL`, ~5% stub failure rate). SMS reminders route through `lib/twilio.sendSMS`; email reminders through `lib/email.sendEmail`.
+**Architecture:** `lib/reminderScheduler.js` exposes pure functions (`shouldFire`, `getDueReminders`, `interpolate`, `buildTokens`). `components/ReminderScheduler.jsx` mounts at app root, ticks every 60s, dispatches `ADD_REMINDER_EVENT` (status `pending`) → calls `lib/twilio.sendSMS` or `lib/email.sendEmail` → dispatches `UPDATE_REMINDER_EVENT` with final status. Token interpolation: `{client_contact} {company} {service} {site_name} {date} {time}`. Module-level `inFlight` Set + state-based `hasFired()` handle dedup.
 
-Module-level `inFlight` Set guards against React.StrictMode's dev-only double-mount race (a useRef would be reset on remount, allowing duplicate fires before state propagates). Once a `(templateKey, jobId)` pair is added, it's never deleted; state-based `hasFired()` handles cross-session dedup.
+The reminder *settings UI* (templates editor, sequence enable/disable, delivery inbox) was deleted in the v28 notifications redesign — operators don't need to edit templates or audit deliveries. The scheduler keeps firing in the background; failures fail silently. `state.reminderTemplates` and `state.reminderEvents` remain in seed/state because the scheduler reads them.
 
-Token interpolation: `{client_contact} {company} {service} {site_name} {date} {time}`. Recipient resolution: SMS → site/contact/client phone; email → site/contact/client email.
+## `[x]` Per-user notification preferences + PWA + Web Push `[Core]`
 
-New reducer action: `UPDATE_REMINDER_EVENT` (generic patch — used by scheduler + retry). The old `RETRY_REMINDER_EVENT` action remains but is unused now; retry goes through `retryDelivery()`.
+Replaced the previous "Reminders" settings page with per-user, role-aware notification preferences co-located inside Account, plus a PWA install + Web Push pipeline so staff can receive notifications on their phone when the app is closed.
 
-Inbox surface in `pages/settings/Notifications.jsx` (Settings → Reminders, Delivery Inbox tab): status badge handles `sent / pending / failed`; failed rows show the failure reason inline; rows show `recipient` under client name; retry button calls `retryDelivery()` (re-delivers through adapter and patches the same event). The standalone `/reminders` route was consolidated into Settings — sequence + templates + delivery inbox now live as three tabs under one page; `/reminders` redirects to `/settings/notifications` for backwards compat.
+**State (v27 → v28, additive):**
+- `users[i].notificationPrefs` — per-event toggles + `mobilePushEnabled` master flag. All event toggles default on; mobile push defaults off until the user opts in. Migration backfills defaults on existing users.
+- New reducer action `UPDATE_NOTIFICATION_PREFS` (`{ userId, patch }`) for partial updates.
+- New selectors `selectNotificationPrefs`, `selectVisibleNotificationGroups`, `selectShouldNotifyUser`.
+- `selectUnreadForConversation` now respects `mutedByUserIds` — muting a thread silences both badges and the listener.
+
+**Catalog (`lib/notifications.js`):** single source of truth for the toggle list, role allowlists, and permission gates. Three groups: Messaging (new customer message, DM, internal chat), Schedule (job created/rescheduled, job cancelled), Invoices (paid, overdue — gated on `invoices.view`). Crew see Schedule + DMs/internal only. Owner/Admin see everything subject to role allowlist.
+
+**Account → Notifications:** Account page now has a grouped toggle list (`pref-row` styling) plus a Mobile Push card. The mobile push card detects iOS-not-installed-as-PWA and shows install instructions; surfaces stub-mode notice when no backend is wired; lists per-device subscriptions with Remove buttons; includes a "Send test push" button.
+
+**In-app delivery (`components/NotificationListener.jsx` + `lib/documentTitle.js`):** root-mounted listener diffs state for new messages / job changes / invoice status changes. Fires `toast.info()` and updates `document.title` to `(N) Rainier CRM`. First-mount guard seeds the "seen" set so existing items don't trigger a flood. Mute respected.
+
+**PWA install:**
+- `app/public/manifest.json` (name + short_name + icons + standalone display + brand `#212269` theme).
+- Brand icons generated from `rainier-facilities-logo.png` via `scripts/gen-pwa-icons.mjs` (one-shot Node + sharp): `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`. Re-run the script when the logo or brand color changes.
+- `index.html` head: manifest link, theme-color, apple-touch-icon, iOS PWA meta tags.
+
+**Service worker (`app/public/sw.js`) + registration in `main.jsx`:** hand-rolled, no Workbox. Two handlers — `push` (showNotification with title/body/icon/tag/data.url) and `notificationclick` (focus existing client + navigate, or open new). No offline caching.
+
+**Push adapter (`lib/push.js`):** mirrors `lib/twilio.js` / `lib/email.js`. `enableMobilePush` / `disableMobilePush` / `getCurrentSubscription` / `getDevices` / `removeDevice` / `sendTestPush` / `urlBase64ToUint8Array` / `isPushSupported` / `isStandalonePWA` / `isIOS`. Branches on `VITE_PUSH_BACKEND_URL`; stub mode keeps an in-memory subscription list and fires a local Notification for the test-push path so the dev experience is exercisable without a backend.
+
+**Backend contract (deployment companion repo, not this repo):**
+- `POST /api/push/subscribe` — `{ userId, subscription, deviceLabel }` → upsert in `push_subscriptions`.
+- `DELETE /api/push/subscribe` — `{ userId, endpoint }` → drop row.
+- `GET /api/push/devices?userId=` → device list for the per-device UI.
+- `POST /api/push/test` → `{ delivered, failed, expired }`.
+- Push fan-out service called from existing event sources (Twilio webhook, email inbound, etc.) using `web-push` + VAPID.
+
+**Env (`.env.example`):** new `VITE_PUSH_BACKEND_URL`, `VITE_VAPID_PUBLIC_KEY` (frontend); `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (backend). Generate keypair with `npx web-push generate-vapid-keys`.
+
+**Removed:**
+- `pages/settings/Notifications.jsx` (deleted; 467 lines).
+- `Notifications` pill + reminder badge wiring in `SettingsLayout.jsx`.
+- `/settings/notifications` route now redirects to `/settings/account`; `/reminders` redirects to `/`.
 
 ## `[x]` Messaging Suite `[Core]`
 

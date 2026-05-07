@@ -27,6 +27,13 @@ export const ACTIONS = {
   ADD_USER: 'ADD_USER',
   UPDATE_USER: 'UPDATE_USER',
   DELETE_USER: 'DELETE_USER',
+  UPDATE_NOTIFICATION_PREFS: 'UPDATE_NOTIFICATION_PREFS',
+
+  // Notifications inbox (persistent in-app, surfaced via the bell)
+  ADD_NOTIFICATION: 'ADD_NOTIFICATION',
+  MARK_NOTIFICATION_READ: 'MARK_NOTIFICATION_READ',
+  MARK_ALL_NOTIFICATIONS_READ: 'MARK_ALL_NOTIFICATIONS_READ',
+  CLEAR_NOTIFICATIONS: 'CLEAR_NOTIFICATIONS',
 
   // Clients
   ADD_CLIENT: 'ADD_CLIENT',
@@ -226,6 +233,62 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_USER:
       return { ...state, users: replaceById(state.users, action.id, action.patch) };
+    case ACTIONS.UPDATE_NOTIFICATION_PREFS: {
+      const { userId, patch } = action;
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === userId
+            ? { ...u, notificationPrefs: { ...(u.notificationPrefs || {}), ...patch } }
+            : u
+        ),
+      };
+    }
+
+    // ---------- Notifications inbox ----------
+    case ACTIONS.ADD_NOTIFICATION: {
+      // Cap the per-user inbox so we don't grow unbounded. 200 is plenty —
+      // older entries fall off; the bell only shows the most recent 50 anyway.
+      const NOTIFICATION_LIMIT_PER_USER = 200;
+      const incoming = {
+        id: action.notification.id || newId('nt'),
+        createdAt: action.notification.createdAt || nowIso(),
+        readAt: null,
+        ...action.notification,
+      };
+      const list = state.notifications || [];
+      const sameUser = list.filter((n) => n.userId === incoming.userId);
+      const others = list.filter((n) => n.userId !== incoming.userId);
+      const trimmed = [incoming, ...sameUser].slice(0, NOTIFICATION_LIMIT_PER_USER);
+      return { ...state, notifications: [...trimmed, ...others] };
+    }
+    case ACTIONS.MARK_NOTIFICATION_READ: {
+      const { id } = action;
+      const stamp = nowIso();
+      return {
+        ...state,
+        notifications: (state.notifications || []).map((n) =>
+          n.id === id && !n.readAt ? { ...n, readAt: stamp } : n
+        ),
+      };
+    }
+    case ACTIONS.MARK_ALL_NOTIFICATIONS_READ: {
+      const { userId } = action;
+      const stamp = nowIso();
+      return {
+        ...state,
+        notifications: (state.notifications || []).map((n) =>
+          n.userId === userId && !n.readAt ? { ...n, readAt: stamp } : n
+        ),
+      };
+    }
+    case ACTIONS.CLEAR_NOTIFICATIONS: {
+      const { userId } = action;
+      return {
+        ...state,
+        notifications: (state.notifications || []).filter((n) => n.userId !== userId),
+      };
+    }
     case ACTIONS.DELETE_USER: {
       const id = action.id;
       return {

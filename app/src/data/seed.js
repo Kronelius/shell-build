@@ -107,6 +107,21 @@ const company = {
 };
 
 // ---------- Users ----------
+// Default per-user notification preferences — every toggle defaults on,
+// including mobilePushEnabled. The pref is "do you want push on devices
+// where you're subscribed?" — separate from per-device subscription state,
+// which still requires an explicit browser permission grant on each device.
+export const DEFAULT_NOTIFICATION_PREFS = {
+  newCustomerMessage: true,
+  newDM: true,
+  newInternalMessage: true,
+  jobCreatedOrRescheduled: true,
+  jobCancelled: true,
+  invoicePaid: true,
+  invoiceOverdue: true,
+  mobilePushEnabled: true,
+};
+
 // Per Q24 & questionnaire: Kyle + Steve own the business (Super Admin);
 // Heather runs hiring/onboarding/accounting; Lauren runs scheduling.
 // Cleaner roster names are placeholders — Rainier's actual roster lands
@@ -120,7 +135,7 @@ const users = [
   { id: seedId('u', 'crew2'),   name: 'Riley Diaz',      email: 'riley@rainierfs.com',    phone: '(253) 555-0122', role: 'crew',  status: 'active', avatar: 1, initials: 'RD', createdAt: daysAgo(220) },
   { id: seedId('u', 'crew3'),   name: 'Jamie Sato',      email: 'jamie@rainierfs.com',    phone: '(253) 555-0123', role: 'crew',  status: 'active', avatar: 2, initials: 'JS', createdAt: daysAgo(180) },
   { id: seedId('u', 'crew4'),   name: 'Casey Vega',      email: 'casey@rainierfs.com',    phone: '(253) 555-0124', role: 'crew',  status: 'active', avatar: 3, initials: 'CV', createdAt: daysAgo(120) },
-];
+].map((u) => ({ ...u, notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS } }));
 
 // ---------- Services ----------
 // Per Q23 — Rainier offers residential, commercial, and specialized lines.
@@ -463,12 +478,15 @@ const reminderEvents = (() => {
 
 const contactActivities = [];
 const userPermissionOverrides = [];
+// Persistent in-app notifications surfaced through the bell. Per-user, capped
+// at NOTIFICATION_LIMIT in the reducer so we don't grow unbounded over time.
+const notifications = [];
 
 // Default current user is Kyle (super admin). Switcher in UI changes this.
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 27,
+  version: 29,
   company,
   currentUserId,
   users,
@@ -500,4 +518,5 @@ export const INITIAL_STATE = {
   // only. New users start with zero connections; the email channel in
   // Messaging is gated on having at least one active connection.
   connectedInboxes: [],
+  notifications,
 };

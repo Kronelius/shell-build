@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import NotificationsBell from '../components/NotificationsBell';
 import { useStore } from '../store';
 import { selectCompany } from '../store/selectors';
 
@@ -19,6 +20,7 @@ export default function AppLayout() {
           <span />
         </button>
         <div className="mobile-brand">{company.name}</div>
+        <NotificationsBell />
       </div>
       <div
         className={`sidebar-overlay ${mobileOpen ? 'visible' : ''}`}
@@ -29,6 +31,9 @@ export default function AppLayout() {
         onCloseMobile={() => setMobileOpen(false)}
       />
       <main className="main">
+        <div className="bell-floater">
+          <NotificationsBell />
+        </div>
         <Outlet />
       </main>
     </>

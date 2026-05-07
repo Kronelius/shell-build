@@ -1,6 +1,7 @@
 // Selectors — read-only helpers over state. Kept pure; callers can memoize if hot.
 
 import { effectivePermissions } from '../lib/roles';
+import { getVisibleNotificationGroups, isNotificationVisibleForUser } from '../lib/notifications';
 
 export const selectCompany = (s) => s.company;
 export const selectUsers = (s) => s.users;
@@ -53,6 +54,49 @@ export const selectClientById = (s, id) => s.clients.find((c) => c.id === id) ||
 export const selectSiteById   = (s, id) => s.sites.find((x) => x.id === id) || null;
 export const selectServiceById = (s, id) => s.services.find((x) => x.id === id) || null;
 export const selectUserById    = (s, id) => s.users.find((x) => x.id === id) || null;
+
+// ---------- Notification preferences ----------
+// Per-user toggles + mobilePushEnabled live on user.notificationPrefs.
+// All event toggles default true; mobilePushEnabled defaults false.
+export const selectNotificationPrefs = (s, userId) => {
+  const u = s.users.find((x) => x.id === userId);
+  return u?.notificationPrefs || null;
+};
+
+// Returns the toggle catalog filtered for a user's role + permission overrides.
+// Used by Account → Notifications to render only the rows the user can act on.
+export const selectVisibleNotificationGroups = (s, userId) => {
+  const user = s.users.find((x) => x.id === userId);
+  return getVisibleNotificationGroups(user, s.permissions, s.userPermissionOverrides);
+};
+
+// Used by NotificationListener to gate event firing: true only when the user
+// has the toggle on AND the toggle is visible to their role/permissions.
+export const selectShouldNotifyUser = (s, userId, eventKey) => {
+  const user = s.users.find((x) => x.id === userId);
+  if (!user) return false;
+  const prefs = user.notificationPrefs;
+  if (!prefs || prefs[eventKey] !== true) return false;
+  return isNotificationVisibleForUser(eventKey, user, s.permissions, s.userPermissionOverrides);
+};
+
+// Persistent notifications inbox (surfaced through the bell). Sorted newest
+// first. Pass an optional limit to cap; bell uses 50.
+export const selectNotificationsForUser = (s, userId, limit) => {
+  if (!userId) return [];
+  const list = (s.notifications || [])
+    .filter((n) => n.userId === userId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return typeof limit === 'number' ? list.slice(0, limit) : list;
+};
+
+export const selectUnreadNotificationCount = (s, userId) => {
+  if (!userId) return 0;
+  return (s.notifications || []).reduce(
+    (acc, n) => acc + (n.userId === userId && !n.readAt ? 1 : 0),
+    0
+  );
+};
 export const selectJobById     = (s, id) => s.jobs.find((x) => x.id === id) || null;
 export const selectInvoiceById = (s, id) => s.invoices.find((x) => x.id === id) || null;
 export const selectConversationById = (s, id) => s.conversations.find((x) => x.id === id) || null;
@@ -616,10 +660,15 @@ export function selectReminderStats(s) {
 // Unread messages count per conversation. For DMs, "unread for me" means messages
 // authored by the *other* participant that I haven't read yet — not direction='in'
 // (DM messages all carry direction='internal').
+//
+// Muted threads (the current user is in `mutedByUserIds`) report zero unread —
+// muting silences both the in-app toast and the visible badge on the thread row.
 export function selectUnreadForConversation(s, conversationId) {
   const conv = s.conversations.find((c) => c.id === conversationId);
-  if (conv?.channel === 'dm') {
-    const uid = s.currentUserId;
+  if (!conv) return 0;
+  const uid = s.currentUserId;
+  if (Array.isArray(conv.mutedByUserIds) && conv.mutedByUserIds.includes(uid)) return 0;
+  if (conv.channel === 'dm') {
     return s.messages.filter(
       (m) => m.conversationId === conversationId && m.authorUserId && m.authorUserId !== uid && !m.readAt
     ).length;
