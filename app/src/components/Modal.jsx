@@ -1,12 +1,26 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+const __modalStack = [];
 
 export default function Modal({ open, onClose, title, children, size }) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const close = () => onCloseRef.current && onCloseRef.current();
+    __modalStack.push(close);
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (__modalStack[__modalStack.length - 1] === close) close();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const idx = __modalStack.indexOf(close);
+      if (idx !== -1) __modalStack.splice(idx, 1);
+    };
+  }, [open]);
 
   if (!open) return null;
   return (
