@@ -9,10 +9,7 @@ import { money } from '../lib/dates';
 import PipelineCard from './PipelineCard';
 import FormField from './FormField';
 import Icon from './Icon';
-import StageManagerModal from './StageManagerModal';
 import AddContactsToStageModal from './AddContactsToStageModal';
-import Modal from './Modal';
-import { useToast } from './Toast';
 
 const EDGE_ZONE = 80;
 const MAX_SPEED = 18;
@@ -23,7 +20,6 @@ export default function PipelineBoard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const nav = useFromHere();
-  const toast = useToast();
   const canEdit = usePermission('pipeline.edit');
   const canDelete = usePermission('contacts.delete');
   const contacts = selectPipelineContacts(state);
@@ -31,12 +27,9 @@ export default function PipelineBoard() {
   const pipelines = selectPipelines(state);
   const activePipeline = selectActivePipeline(state);
 
-  const [manageStagesOpen, setManageStagesOpen] = useState(false);
   const [dropTarget, setDropTarget] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const [createPipelineOpen, setCreatePipelineOpen] = useState(false);
-  const [newPipelineName, setNewPipelineName] = useState('');
   const [addContactsStage, setAddContactsStage] = useState(null);
 
   // Auto-scroll refs
@@ -196,20 +189,6 @@ export default function PipelineBoard() {
     dispatch({ type: ACTIONS.SET_CONTACT_STAGE, id, stage: stageKey, pipelineId: activePipeline?.id, insertBeforeId });
   };
 
-  const handleCreatePipeline = (e) => {
-    e.preventDefault();
-    const label = newPipelineName.trim();
-    if (!label) return;
-    if (pipelines.some((p) => p.label.toLowerCase() === label.toLowerCase())) {
-      toast.error(`A pipeline named "${label}" already exists.`);
-      return;
-    }
-    dispatch({ type: ACTIONS.ADD_PIPELINE, label });
-    toast.success(`Pipeline "${label}" created and saved`);
-    setNewPipelineName('');
-    setCreatePipelineOpen(false);
-  };
-
   const selectionCount = effectiveSelected.size;
 
   return (
@@ -222,12 +201,6 @@ export default function PipelineBoard() {
           onChange={(e) => dispatch({ type: ACTIONS.SET_ACTIVE_PIPELINE, id: e.target.value })}
           options={pipelines.map((p) => ({ value: p.id, label: p.label }))}
         />
-        {canEdit && (
-          <div className="pipeline-toolbar-actions">
-            <button className="btn btn-success" onClick={() => setCreatePipelineOpen(true)}>Add Pipeline</button>
-            <button className="btn btn-primary" onClick={() => setManageStagesOpen(true)}>Manage Stages</button>
-          </div>
-        )}
       </div>
 
       <div className={`bulk-bar ${selectionCount === 0 ? 'is-empty' : ''}`}>
@@ -253,8 +226,6 @@ export default function PipelineBoard() {
         )}
       </div>
 
-      <StageManagerModal open={manageStagesOpen} onClose={() => setManageStagesOpen(false)} />
-
       <AddContactsToStageModal
         open={!!addContactsStage}
         onClose={() => setAddContactsStage(null)}
@@ -262,22 +233,6 @@ export default function PipelineBoard() {
         stageKey={addContactsStage?.key}
         stageLabel={addContactsStage?.label || ''}
       />
-
-      <Modal open={createPipelineOpen} onClose={() => setCreatePipelineOpen(false)} title="Create Pipeline" size="sm">
-        <form onSubmit={handleCreatePipeline}>
-          <FormField
-            label="Pipeline name"
-            value={newPipelineName}
-            onChange={(e) => setNewPipelineName(e.target.value)}
-            placeholder="e.g. Recruiting, Partnerships"
-            autoFocus
-          />
-          <div className="modal-actions">
-            <button type="button" className="btn btn-outline" onClick={() => setCreatePipelineOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={!newPipelineName.trim()}>Create</button>
-          </div>
-        </form>
-      </Modal>
 
       <div
         className="pipeline-board"
