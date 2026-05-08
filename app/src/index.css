@@ -2854,9 +2854,10 @@ tr.clickable:hover { background: var(--inset-bg); }
   background: var(--inset-bg);
 }
 .chat-bubble-author {
-  font-size: 10px; font-weight: 600; color: rgba(var(--color-white-rgb), 0.85);
+  font-size: 10px; font-weight: 600; color: var(--text-primary);
   margin-bottom: 2px;
 }
+.chat-bubble.outgoing .chat-bubble-author { color: rgba(var(--color-white-rgb), 0.85); }
 
 /* Email preview bubble — collapsed to chat-bubble size, with Expand trigger */
 .email-preview-bubble {
