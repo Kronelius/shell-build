@@ -129,7 +129,7 @@ export const DEFAULT_NOTIFICATION_PREFS = {
 const users = [
   { id: seedId('u', 'kyler'),   name: 'Kyle Boyden',     email: 'kyle@rainierfs.com',     phone: '(253) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'KB', createdAt: daysAgo(720) },
   { id: seedId('u', 'steve'),   name: 'Steve Whitfield', email: 'steve@rainierfs.com',    phone: '(253) 555-0102', role: 'owner', status: 'active', avatar: 2, initials: 'SW', createdAt: daysAgo(720) },
-  { id: seedId('u', 'heather'), name: 'Heather Cole',    email: 'heather@rainierfs.com',  phone: '(253) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'HC', createdAt: daysAgo(540) },
+  { id: seedId('u', 'heather'), name: 'Heather Warren',  email: 'heather@rainierfs.com',  phone: '(253) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'HW', createdAt: daysAgo(540) },
   { id: seedId('u', 'lauren'),  name: 'Lauren Park',     email: 'lauren@rainierfs.com',   phone: '(253) 555-0104', role: 'admin', status: 'active', avatar: 4, initials: 'LP', createdAt: daysAgo(420) },
   { id: seedId('u', 'crew1'),   name: 'Marcus Greene',   email: 'marcus@rainierfs.com',   phone: '(253) 555-0121', role: 'crew',  status: 'active', avatar: 5, initials: 'MG', createdAt: daysAgo(300) },
   { id: seedId('u', 'crew2'),   name: 'Riley Diaz',      email: 'riley@rainierfs.com',    phone: '(253) 555-0122', role: 'crew',  status: 'active', avatar: 1, initials: 'RD', createdAt: daysAgo(220) },
@@ -549,7 +549,7 @@ const notifications = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 34,
+  version: 35,
   company,
   currentUserId,
   users,

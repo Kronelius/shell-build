@@ -1,3 +1,7 @@
+// v35: Heather's real last name. Seed previously used "Heather Cole" as a
+// placeholder; corrected to "Heather Warren" (real team member). Migration
+// updates the user's name + initials on existing stored state.
+//
 // v34: Nomenclature consolidation — "Customer" lifecycle stage renamed to
 // "Client" (matching the company entity already named Client in the data
 // layer) AND the notification pref key newCustomerMessage renamed to
@@ -79,7 +83,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v34';
+const STORAGE_KEY = 'pp.store.v35';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.
@@ -477,34 +481,52 @@ function migrateV33toV34(state) {
   return { ...state, version: 34, contacts, users, permissions };
 }
 
-// Compose v29 → v33 → v34 hops on top of any earlier migration chain. v29 is
-// the last numbered shape change before v33 (intermediate v30/v31/v32 storage
-// keys existed but never bumped state.version); v34 is the nomenclature
-// consolidation. This single composition covers all stored states from v17
-// through v33.
-const toLatest = (s) => migrateV33toV34(migrateV29toV33(migrateV28toV29(s)));
+// v35: Heather Cole → Heather Warren rename on the seeded user. Real team
+// member last name correction. Idempotent: only patches the matching record.
+function migrateV34toV35(state) {
+  const users = (state.users || []).map((u) => {
+    if (u.email === 'heather@rainierfs.com' || u.name === 'Heather Cole') {
+      return { ...u, name: 'Heather Warren', initials: 'HW' };
+    }
+    return u;
+  });
+  return { ...state, version: 35, users };
+}
+
+// Compose v29 → v33 → v34 → v35 hops on top of any earlier migration chain.
+// v29 is the last numbered shape change before v33 (intermediate v30/v31/v32
+// storage keys existed but never bumped state.version); v34 is the nomenclature
+// consolidation; v35 is the Heather Warren rename. This single composition
+// covers all stored states from v17 through v34.
+const toLatest = (s) => migrateV34toV35(migrateV33toV34(migrateV29toV33(migrateV28toV29(s))));
 
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 34) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 35) return parsed;
     }
-    // v33 direct accept: previous storage key, fully-shaped except for the
-    // nomenclature flip. Run the v33 → v34 hop.
+    // v34 direct accept: previous storage key, fully-shaped except the
+    // Heather rename. Run the v34 → v35 hop.
+    const v34Raw = window.localStorage.getItem('pp.store.v34');
+    if (v34Raw) {
+      const parsed = JSON.parse(v34Raw);
+      if (parsed && typeof parsed === 'object') return migrateV34toV35(parsed);
+    }
+    // v33 direct accept: previous storage key. Run v33 → v34 → v35.
     const v33Raw = window.localStorage.getItem('pp.store.v33');
     if (v33Raw) {
       const parsed = JSON.parse(v33Raw);
-      if (parsed && typeof parsed === 'object') return migrateV33toV34(parsed);
+      if (parsed && typeof parsed === 'object') return migrateV34toV35(migrateV33toV34(parsed));
     }
     // Stale-key direct accepts: prior storage keys (v28-v32) parked here as
-    // version=29-shaped data. Run v29→v33→v34.
+    // version=29-shaped data. Run v29→v33→v34→v35.
     for (const key of ['pp.store.v32', 'pp.store.v31', 'pp.store.v30', 'pp.store.v29']) {
       const r = window.localStorage.getItem(key);
       if (!r) continue;
       const parsed = JSON.parse(r);
-      if (parsed && typeof parsed === 'object') return migrateV33toV34(migrateV29toV33(parsed));
+      if (parsed && typeof parsed === 'object') return migrateV34toV35(migrateV33toV34(migrateV29toV33(parsed)));
     }
     // Attempt v28 → v29 → v33 → v34 migration
     const v28Raw = window.localStorage.getItem('pp.store.v28');
