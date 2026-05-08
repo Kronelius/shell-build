@@ -1859,12 +1859,15 @@ tr.clickable:hover { background: var(--inset-bg); }
   color: var(--color-white, #fff);
 }
 .bell-badge {
-  position: absolute; top: 50%; left: -6px; transform: translate(-100%, -50%);
-  min-width: 16px; height: 16px; padding: 0 4px;
+  /* Sits on the bell's top-left quadrant — half-overlapping the icon edge so
+     it reads as "attached" to the bell, not floating beside it. Sized a touch
+     larger than the original 16px chip for legibility without dominating the bell. */
+  position: absolute; top: -5px; left: -5px;
+  min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 999px;
   background: var(--color-semantic-danger-500, #dc2626);
   color: var(--color-white, #fff);
-  font-size: 10px; font-weight: 700; line-height: 16px;
+  font-size: 11px; font-weight: 700; line-height: 18px;
   text-align: center;
   border: 2px solid var(--card-bg, var(--color-white));
 }
