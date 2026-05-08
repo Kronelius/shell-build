@@ -1,3 +1,13 @@
+// v36: Brand domain consolidation + id-based Heather rename. Two coordinated
+// changes:
+//   1. Every team-user email on @rainierfs.com is rewritten to
+//      @rainierfacilitysolutions.com (full brand domain). Same for
+//      company.email. The short alias was a placeholder.
+//   2. Heather's user record (by stable seed id, not by name match) is
+//      force-corrected to "Heather Warren" / "HW" — catches any stale name
+//      on existing localStorage that the v35 string-match missed (e.g.
+//      "Heather Whitfield" or other prior placeholders).
+//
 // v35: Heather's real last name. Seed previously used "Heather Cole" as a
 // placeholder; corrected to "Heather Warren" (real team member). Migration
 // updates the user's name + initials on existing stored state.
@@ -83,7 +93,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v35';
+const STORAGE_KEY = 'pp.store.v36';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.
@@ -493,40 +503,70 @@ function migrateV34toV35(state) {
   return { ...state, version: 35, users };
 }
 
-// Compose v29 → v33 → v34 → v35 hops on top of any earlier migration chain.
-// v29 is the last numbered shape change before v33 (intermediate v30/v31/v32
-// storage keys existed but never bumped state.version); v34 is the nomenclature
-// consolidation; v35 is the Heather Warren rename. This single composition
-// covers all stored states from v17 through v34.
-const toLatest = (s) => migrateV34toV35(migrateV33toV34(migrateV29toV33(migrateV28toV29(s))));
+// v36: Brand domain rewrite + id-based Heather correction. Rewrites every
+// @rainierfs.com email on user records and company.email to the full
+// @rainierfacilitysolutions.com domain. Heather's record (matched by stable
+// seed id 'u_seed_heather') is force-corrected to "Heather Warren" / "HW"
+// regardless of any stale name that survived the v35 string match.
+function migrateV35toV36(state) {
+  const rewriteDomain = (email) =>
+    typeof email === 'string'
+      ? email.replace(/@rainierfs\.com$/i, '@rainierfacilitysolutions.com')
+      : email;
+  const users = (state.users || []).map((u) => {
+    const next = { ...u, email: rewriteDomain(u.email) };
+    if (u.id === 'u_seed_heather') {
+      next.name = 'Heather Warren';
+      next.initials = 'HW';
+    }
+    return next;
+  });
+  const company = state.company
+    ? { ...state.company, email: rewriteDomain(state.company.email) }
+    : state.company;
+  return { ...state, version: 36, users, company };
+}
+
+// Compose v29 → v33 → v34 → v35 → v36 hops on top of any earlier migration
+// chain. v29 is the last numbered shape change before v33 (intermediate
+// v30/v31/v32 storage keys existed but never bumped state.version); v34 is
+// the nomenclature consolidation; v35 is the Heather Warren rename; v36
+// rewrites the brand domain + force-corrects Heather by id. This single
+// composition covers all stored states from v17 through v35.
+const toLatest = (s) => migrateV35toV36(migrateV34toV35(migrateV33toV34(migrateV29toV33(migrateV28toV29(s)))));
 
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 35) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 36) return parsed;
     }
-    // v34 direct accept: previous storage key, fully-shaped except the
-    // Heather rename. Run the v34 → v35 hop.
+    // v35 direct accept: previous storage key. Run v35 → v36.
+    const v35Raw = window.localStorage.getItem('pp.store.v35');
+    if (v35Raw) {
+      const parsed = JSON.parse(v35Raw);
+      if (parsed && typeof parsed === 'object') return migrateV35toV36(parsed);
+    }
+    // v34 direct accept: previous storage key. Run v34 → v35 → v36.
     const v34Raw = window.localStorage.getItem('pp.store.v34');
     if (v34Raw) {
       const parsed = JSON.parse(v34Raw);
-      if (parsed && typeof parsed === 'object') return migrateV34toV35(parsed);
+      if (parsed && typeof parsed === 'object') return migrateV35toV36(migrateV34toV35(parsed));
     }
-    // v33 direct accept: previous storage key. Run v33 → v34 → v35.
+    // v33 direct accept: previous storage key. Run v33 → v34 → v35 → v36.
     const v33Raw = window.localStorage.getItem('pp.store.v33');
     if (v33Raw) {
       const parsed = JSON.parse(v33Raw);
-      if (parsed && typeof parsed === 'object') return migrateV34toV35(migrateV33toV34(parsed));
+      if (parsed && typeof parsed === 'object') return migrateV35toV36(migrateV34toV35(migrateV33toV34(parsed)));
     }
     // Stale-key direct accepts: prior storage keys (v28-v32) parked here as
-    // version=29-shaped data. Run v29→v33→v34→v35.
+    // version=29-shaped data. Run v29→v33→v34→v35→v36.
     for (const key of ['pp.store.v32', 'pp.store.v31', 'pp.store.v30', 'pp.store.v29']) {
       const r = window.localStorage.getItem(key);
       if (!r) continue;
       const parsed = JSON.parse(r);
-      if (parsed && typeof parsed === 'object') return migrateV34toV35(migrateV33toV34(migrateV29toV33(parsed)));
+      if (parsed && typeof parsed === 'object') return migrateV35toV36(migrateV34toV35(migrateV33toV34(migrateV29toV33(parsed))));
     }
     // Attempt v28 → v29 → v33 → v34 migration
     const v28Raw = window.localStorage.getItem('pp.store.v28');

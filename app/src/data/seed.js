@@ -51,7 +51,7 @@ const company = {
   invoicePrefix: 'RFS',
   address: '4200 Cascade Ave S, Seattle WA 98108',
   phone: '(253) 555-0100',
-  email: 'office@rainierfs.com',
+  email: 'office@rainierfacilitysolutions.com',
   businessHours: 'Mon–Fri 7:00 AM – 6:00 PM',
   taxRate: 0,
   integrations: {
@@ -78,14 +78,14 @@ const company = {
     },
     // System transactional email provider (Resend). Powers invitations,
     // reminder emails, and billing. One provider per deployment, sender locked
-    // to a verified subdomain (e.g. mail.rainierfs.com). Per-user emails
+    // to a verified subdomain (e.g. mail.rainierfacilitysolutions.com). Per-user emails
     // inside Messaging come from `connectedInboxes` instead — different layer.
     email: {
       connected: false,
       provider: null,             // 'resend' (room for future swaps)
       apiKeyLast4: null,
-      verifiedDomain: null,       // e.g. 'mail.rainierfs.com'
-      defaultFrom: null,          // 'Rainier Facility Solutions <hello@mail.rainierfs.com>'
+      verifiedDomain: null,       // e.g. 'mail.rainierfacilitysolutions.com'
+      defaultFrom: null,          // 'Rainier Facility Solutions <hello@mail.rainierfacilitysolutions.com>'
       defaultReplyTo: null,
       connectedAt: null,
       lastVerifiedAt: null,
@@ -127,14 +127,14 @@ export const DEFAULT_NOTIFICATION_PREFS = {
 // Cleaner roster names are placeholders — Rainier's actual roster lands
 // post-clone via Settings → Team → Add Member.
 const users = [
-  { id: seedId('u', 'kyler'),   name: 'Kyle Boyden',     email: 'kyle@rainierfs.com',     phone: '(253) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'KB', createdAt: daysAgo(720) },
-  { id: seedId('u', 'steve'),   name: 'Steve Whitfield', email: 'steve@rainierfs.com',    phone: '(253) 555-0102', role: 'owner', status: 'active', avatar: 2, initials: 'SW', createdAt: daysAgo(720) },
-  { id: seedId('u', 'heather'), name: 'Heather Warren',  email: 'heather@rainierfs.com',  phone: '(253) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'HW', createdAt: daysAgo(540) },
-  { id: seedId('u', 'lauren'),  name: 'Lauren Park',     email: 'lauren@rainierfs.com',   phone: '(253) 555-0104', role: 'admin', status: 'active', avatar: 4, initials: 'LP', createdAt: daysAgo(420) },
-  { id: seedId('u', 'crew1'),   name: 'Marcus Greene',   email: 'marcus@rainierfs.com',   phone: '(253) 555-0121', role: 'crew',  status: 'active', avatar: 5, initials: 'MG', createdAt: daysAgo(300) },
-  { id: seedId('u', 'crew2'),   name: 'Riley Diaz',      email: 'riley@rainierfs.com',    phone: '(253) 555-0122', role: 'crew',  status: 'active', avatar: 1, initials: 'RD', createdAt: daysAgo(220) },
-  { id: seedId('u', 'crew3'),   name: 'Jamie Sato',      email: 'jamie@rainierfs.com',    phone: '(253) 555-0123', role: 'crew',  status: 'active', avatar: 2, initials: 'JS', createdAt: daysAgo(180) },
-  { id: seedId('u', 'crew4'),   name: 'Casey Vega',      email: 'casey@rainierfs.com',    phone: '(253) 555-0124', role: 'crew',  status: 'active', avatar: 3, initials: 'CV', createdAt: daysAgo(120) },
+  { id: seedId('u', 'kyler'),   name: 'Kyle Boyden',     email: 'kyle@rainierfacilitysolutions.com',     phone: '(253) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'KB', createdAt: daysAgo(720) },
+  { id: seedId('u', 'steve'),   name: 'Steve Whitfield', email: 'steve@rainierfacilitysolutions.com',    phone: '(253) 555-0102', role: 'owner', status: 'active', avatar: 2, initials: 'SW', createdAt: daysAgo(720) },
+  { id: seedId('u', 'heather'), name: 'Heather Warren',  email: 'heather@rainierfacilitysolutions.com',  phone: '(253) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'HW', createdAt: daysAgo(540) },
+  { id: seedId('u', 'lauren'),  name: 'Lauren Park',     email: 'lauren@rainierfacilitysolutions.com',   phone: '(253) 555-0104', role: 'admin', status: 'active', avatar: 4, initials: 'LP', createdAt: daysAgo(420) },
+  { id: seedId('u', 'crew1'),   name: 'Marcus Greene',   email: 'marcus@rainierfacilitysolutions.com',   phone: '(253) 555-0121', role: 'crew',  status: 'active', avatar: 5, initials: 'MG', createdAt: daysAgo(300) },
+  { id: seedId('u', 'crew2'),   name: 'Riley Diaz',      email: 'riley@rainierfacilitysolutions.com',    phone: '(253) 555-0122', role: 'crew',  status: 'active', avatar: 1, initials: 'RD', createdAt: daysAgo(220) },
+  { id: seedId('u', 'crew3'),   name: 'Jamie Sato',      email: 'jamie@rainierfacilitysolutions.com',    phone: '(253) 555-0123', role: 'crew',  status: 'active', avatar: 2, initials: 'JS', createdAt: daysAgo(180) },
+  { id: seedId('u', 'crew4'),   name: 'Casey Vega',      email: 'casey@rainierfacilitysolutions.com',    phone: '(253) 555-0124', role: 'crew',  status: 'active', avatar: 3, initials: 'CV', createdAt: daysAgo(120) },
 ].map((u) => ({ ...u, notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS } }));
 
 // ---------- Services ----------
@@ -478,7 +478,7 @@ const messages = [
   { id: seedId('m', 'c9-m2'), conversationId: conversations[8].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Reviewing with ownership tomorrow. Will circle back.',                  sentAt: hoursAgo(20), readByUserIds: [] },
 
   // c9 Morgan Hayes (lead, Email reply in same thread)
-  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Kyle,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readByUserIds: [], emailSubject: 'Re: Rainier Facility Solutions - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'kyle@rainierfs.com', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
+  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Kyle,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readByUserIds: [], emailSubject: 'Re: Rainier Facility Solutions - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'kyle@rainierfacilitysolutions.com', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
 
   // Time Off Requests (internal, pinned)
   { id: seedId('m', 'to-m1'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[5].id, snippetId: null, text: 'Requesting next Friday off — got a family thing. Can someone cover the Lakeside floor care?', sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
@@ -549,7 +549,7 @@ const notifications = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 35,
+  version: 36,
   company,
   currentUserId,
   users,
