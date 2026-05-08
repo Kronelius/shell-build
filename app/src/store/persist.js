@@ -55,7 +55,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v30';
+const STORAGE_KEY = 'pp.store.v32';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.

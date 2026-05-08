@@ -404,7 +404,7 @@ const conversations = [
   { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
   { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   createdByUserId: users[3].id, status: 'closed',  snoozedUntil: null,        starred: false, mutedByUserIds: [] }, // Jamie (lead)
   { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] }, // Robin (lead)
-  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(20), createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  mutedByUserIds: [] }, // Morgan Hayes (lead)
+  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(2),  createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  mutedByUserIds: [] }, // Morgan Hayes (lead)
 
   // Internal — pinned (starred) channels per Q14 & Q6
   // createdByUserId is the thread creator — only they (or a Super Admin) can hard-delete.
@@ -463,6 +463,9 @@ const messages = [
   // c9 Morgan Hayes (lead, SMS)
   { id: seedId('m', 'c9-m1'), conversationId: conversations[8].id, direction: 'out', authorUserId: users[3].id, snippetId: null, text: 'Quote went out this morning — let me know if anything needs tweaking.', sentAt: daysAgo(1),   readAt: daysAgo(1) },
   { id: seedId('m', 'c9-m2'), conversationId: conversations[8].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Reviewing with ownership tomorrow. Will circle back.',                  sentAt: hoursAgo(20), readAt: null },
+
+  // c9 Morgan Hayes (lead, Email reply in same thread)
+  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Kyle,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readAt: null, emailSubject: 'Re: Rainier Facility Solutions - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'kyle@rainierfs.com', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
 
   // Time Off Requests (internal, pinned)
   { id: seedId('m', 'to-m1'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[5].id, snippetId: null, text: 'Requesting next Friday off — got a family thing. Can someone cover the Lakeside floor care?', sentAt: daysAgo(2),  readAt: daysAgo(2) },
@@ -533,7 +536,7 @@ const notifications = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 30,
+  version: 32,
   company,
   currentUserId,
   users,

@@ -548,9 +548,10 @@ export default function Messaging() {
   // yet. Each channel keeps its own thread per the existing schema; this
   // gives the GHL-style "I want to talk to this contact via X now" pivot
   // without merging channels into a single thread.
+  const [composeChannelOverride, setComposeChannelOverride] = useState(null);
+  useEffect(() => { setComposeChannelOverride(null); }, [activeConversation?.id]);
   const handleSwitchChannel = (targetChannel) => {
     if (!activeConversation || !activeContact) return;
-    if (activeConversation.channel === targetChannel) return;
     if (targetChannel === 'sms' && !activeContact.phone) {
       toast.error('Contact has no phone number on file.');
       return;
@@ -559,31 +560,7 @@ export default function Messaging() {
       toast.error('Contact has no email address on file.');
       return;
     }
-    // Find an existing conversation for this contact in the target channel.
-    const peers = selectConversationsForContact(state, activeContact.id);
-    const existing = peers.find((c) => c.channel === targetChannel);
-    if (existing) {
-      navigate(`/messaging/${existing.id}`);
-      return;
-    }
-    // None — create one and navigate to it.
-    const newConvId = `cv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    dispatch({
-      type: ACTIONS.ADD_CONVERSATION,
-      conversation: {
-        id: newConvId,
-        channel: targetChannel,
-        contactId: activeContact.id,
-        clientId: activeContact.companyId || null,
-        title: null,
-        createdByUserId: currentUser?.id || null,
-        status: 'open',
-        snoozedUntil: null,
-        starred: false,
-        mutedByUserIds: [],
-      },
-    });
-    navigate(`/messaging/${newConvId}`);
+    setComposeChannelOverride(targetChannel);
   };
 
   // --- Bulk selection ----------------------------------------------------
@@ -643,10 +620,7 @@ export default function Messaging() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Messaging</h1>
-      </div>
-      <div className="messaging-wrap card">
+      <div className="messaging-wrap messaging-fullpage">
         <MessagingHeader
           selectedInbox={selectedInbox}
           onInboxChange={setSelectedInbox}
@@ -708,6 +682,7 @@ export default function Messaging() {
             defaultInboxId={myDefaultInbox?.id || null}
             emailBlockers={emailBlockers}
             onSwitchChannel={handleSwitchChannel}
+            composeChannelOverride={composeChannelOverride}
           />
           <div
             className={`msg-pane-handle msg-pane-handle-right ${panes.dragging === 'right' ? 'is-dragging' : ''}`}

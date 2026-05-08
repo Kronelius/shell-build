@@ -29,6 +29,163 @@ function InternalBubble({ message }) {
   );
 }
 
+function emailMeta(message, contact, author) {
+  const isOut = message.direction === 'out';
+  const fromLabel = isOut
+    ? (author?.name || 'You')
+    : (contact ? `${contact.firstName} ${contact.lastName}` : message.fromEmail || 'Unknown');
+  const fromAddr = isOut
+    ? (message.toInboxEmail || author?.email || '')
+    : (message.fromEmail || contact?.email || '');
+  const toAddr = isOut
+    ? (contact?.email || message.fromEmail || '')
+    : (message.toInboxEmail || '');
+  return { fromLabel, fromAddr, toAddr };
+}
+
+function EmailModal({ message, contact, onClose, onReply }) {
+  const state = useStore();
+  const author = message.authorUserId ? selectUserById(state, message.authorUserId) : null;
+  const { fromLabel, fromAddr, toAddr } = emailMeta(message, contact, author);
+  const [replyText, setReplyText] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const fileRef = useRef(null);
+
+  const handleAttach = (e) => {
+    const files = [...(e.target.files || [])];
+    setReplyAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (idx) => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    const sub = message.emailSubject
+      ? (message.emailSubject.match(/^Re:/i) ? message.emailSubject : `Re: ${message.emailSubject}`)
+      : '';
+    onReply(replyText.trim(), { channel: 'email', subject: sub, attachments: replyAttachments });
+    setReplyText('');
+    setReplyAttachments([]);
+    onClose();
+  };
+
+  const fmtSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
+
+  return (
+    <div className="email-modal-overlay" onClick={onClose}>
+      <div className="email-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="email-modal-top">
+          <Icon name="mail" size={18} />
+          <span className="email-modal-title">{message.emailSubject || 'Email'}</span>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" size={18} /></button>
+        </div>
+
+        <div className="email-modal-header">
+          <div className="email-bubble-row"><span className="email-bubble-label">From:</span><span className="email-bubble-value">{fromLabel} {fromAddr && <span className="email-bubble-addr">&lt;{fromAddr}&gt;</span>}</span></div>
+          {toAddr && <div className="email-bubble-row"><span className="email-bubble-label">To:</span><span className="email-bubble-value">{toAddr}</span></div>}
+          {message.emailSubject && <div className="email-bubble-row"><span className="email-bubble-label">Subject:</span><span className="email-bubble-value email-bubble-subject">{message.emailSubject}</span></div>}
+          <div className="email-bubble-row"><span className="email-bubble-label">Date:</span><span className="email-bubble-value">{fmtTime(message.sentAt)} · {fmtRelative(message.sentAt)}</span></div>
+        </div>
+
+        {(message.attachments || []).length > 0 && (
+          <div className="email-modal-attachments">
+            {message.attachments.map((a, i) => (
+              <div key={i} className="email-attachment-chip">
+                <Icon name="paperclip" size={12} />
+                <span>{a.name}</span>
+                {a.size && <span className="text-muted text-xs">({fmtSize(a.size)})</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="email-modal-body">{message.text}</div>
+
+        <form className="email-modal-reply" onSubmit={handleSend}>
+          <div className="email-modal-reply-label">
+            <Icon name="mail" size={14} /> Reply
+          </div>
+          <textarea
+            className="email-modal-reply-input"
+            placeholder="Type your reply…"
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
+          />
+          {replyAttachments.length > 0 && (
+            <div className="email-modal-reply-files">
+              {replyAttachments.map((a, i) => (
+                <div key={i} className="email-attachment-chip">
+                  <Icon name="paperclip" size={12} />
+                  <span>{a.name}</span>
+                  <span className="text-muted text-xs">({fmtSize(a.size)})</span>
+                  <button type="button" className="email-attachment-remove" onClick={() => removeAttachment(i)} aria-label="Remove">&times;</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="email-modal-reply-actions">
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => fileRef.current?.click()}>
+              <Icon name="paperclip" size={14} /> Attach
+            </button>
+            <input ref={fileRef} type="file" multiple hidden onChange={handleAttach} />
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!replyText.trim()}>Send</button>
+          </div>
+          <div className="compose-hint">Enter to send · Shift+Enter for new line</div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EmailBubble({ message, contact, onReply }) {
+  const state = useStore();
+  const author = message.authorUserId ? selectUserById(state, message.authorUserId) : null;
+  const isOut = message.direction === 'out';
+  const { fromLabel } = emailMeta(message, contact, author);
+  const [showModal, setShowModal] = useState(false);
+
+  const preview = (message.text || '').split('\n').slice(0, 2).join(' ');
+  const truncated = preview.length > 120 ? preview.slice(0, 120) + '…' : preview;
+  const hasAttachments = (message.attachments || []).length > 0;
+
+  return (
+    <>
+      <div className={`chat-bubble email-preview-bubble ${isOut ? 'outgoing' : 'incoming'}`}>
+        {isOut && author && <div className="chat-bubble-author">{author.name}</div>}
+        {!isOut && <div className="email-preview-from"><Icon name="mail" size={12} /> {fromLabel}</div>}
+        {message.emailSubject && <div className="email-preview-subject">{message.emailSubject}</div>}
+        <div className="email-preview-text">{truncated}</div>
+        {hasAttachments && (
+          <div className="email-preview-attach">
+            <Icon name="paperclip" size={11} /> {message.attachments.length} attachment{message.attachments.length > 1 ? 's' : ''}
+          </div>
+        )}
+        <div className="email-preview-footer">
+          <span className="chat-time">{fmtTime(message.sentAt)}</span>
+          <button type="button" className="email-expand-btn" onClick={() => setShowModal(true)}>
+            <Icon name="chevronLeft" size={12} /> Expand / Reply
+          </button>
+        </div>
+      </div>
+      {showModal && (
+        <EmailModal
+          message={message}
+          contact={contact}
+          onClose={() => setShowModal(false)}
+          onReply={onReply}
+        />
+      )}
+    </>
+  );
+}
+
 function ChatBubble({ message }) {
   const state = useStore();
   const author = message.authorUserId ? selectUserById(state, message.authorUserId) : null;
@@ -74,18 +231,21 @@ export default function ConversationMessagePanel({
   connectedInboxes = [],
   defaultInboxId = null,
   emailBlockers = [],            // [{ key, label }] when sending email is blocked
-  onSwitchChannel,               // (targetChannel) => void — finds/creates contact's other-channel thread
+  onSwitchChannel,               // (targetChannel) => void — toggles compose channel
+  composeChannelOverride = null,
 }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
   const nav = useFromHere();
   const state = useStore();
 
-  const composeChannel = conversation?.channel || 'sms';
+  const composeChannel = composeChannelOverride || conversation?.channel || 'sms';
   const [draft, setDraft] = useState('');
   const [snippetId, setSnippetId] = useState(null);
   const [subject, setSubject] = useState('');
   const [selectedInboxId, setSelectedInboxId] = useState(defaultInboxId || null);
+  const [composeAttachments, setComposeAttachments] = useState([]);
+  const composeFileRef = useRef(null);
 
   // Whether SMS↔Email toggle should appear at all on this thread. Only on
   // external (sms/email) channels with a linked contact who has both modes.
@@ -161,6 +321,7 @@ export default function ConversationMessagePanel({
   useEffect(() => {
     setDraft('');
     setSnippetId(null);
+    setComposeAttachments([]);
   }, [conversation?.id]);
 
   // Whether the Send button should be disabled. Email channel is gated on
@@ -223,9 +384,11 @@ export default function ConversationMessagePanel({
       snippetId,
       subject: composeChannel === 'email' ? subject.trim() : undefined,
       inboxId: composeChannel === 'email' ? selectedInboxId : undefined,
+      attachments: composeChannel === 'email' ? composeAttachments : undefined,
     });
     setDraft('');
     setSnippetId(null);
+    setComposeAttachments([]);
     // Keep Subject populated as "Re: …" for the next reply, but clear it on
     // the FIRST send (since the next send is now a reply, not a new thread).
     if (composeChannel === 'email' && subject.trim()) {
@@ -320,6 +483,9 @@ export default function ConversationMessagePanel({
           if (isInternalThread) {
             return <InternalBubble key={m.id} message={m} />;
           }
+          if (m.emailSubject || m.fromEmail) {
+            return <EmailBubble key={m.id} message={m} contact={contact} onReply={onSend} />;
+          }
           return <ChatBubble key={m.id} message={m} />;
         })}
       </div>
@@ -409,10 +575,10 @@ export default function ConversationMessagePanel({
               className="compose-input"
               placeholder={
                 isDmThread
-                  ? `Message ${dmOther ? dmOther.name.split(' ')[0] : 'teammate'}…  (Enter to send, Shift+Enter for newline)`
+                  ? `Message ${dmOther ? dmOther.name.split(' ')[0] : 'teammate'}…`
                   : composeChannel === 'internal'
                   ? 'Internal note — only your team can see this.'
-                  : `Type a ${composeChannel === 'email' ? 'message' : 'text'}…  (Enter to send, Shift+Enter for newline)`
+                  : `Type a ${composeChannel === 'email' ? 'message' : 'text'}…`
               }
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -429,6 +595,18 @@ export default function ConversationMessagePanel({
             </button>
           </div>
           <div className="compose-row-actions">
+            {composeChannel === 'email' && (
+              <>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => composeFileRef.current?.click()}>
+                  <Icon name="paperclip" size={14} /> Attach
+                </button>
+                <input ref={composeFileRef} type="file" multiple hidden onChange={(e) => {
+                  const files = [...(e.target.files || [])];
+                  setComposeAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
+                  e.target.value = '';
+                }} />
+              </>
+            )}
             {!isDmThread && (
               <SnippetPicker channel={composeChannel} onInsert={handleInsertSnippet} />
             )}
@@ -436,7 +614,20 @@ export default function ConversationMessagePanel({
               Send
             </button>
           </div>
+          {composeChannel === 'email' && composeAttachments.length > 0 && (
+            <div className="compose-attachments">
+              {composeAttachments.map((a, i) => (
+                <div key={i} className="email-attachment-chip">
+                  <Icon name="paperclip" size={12} />
+                  <span>{a.name}</span>
+                  <span className="text-muted text-xs">({a.size < 1048576 ? `${(a.size / 1024).toFixed(1)} KB` : `${(a.size / 1048576).toFixed(1)} MB`})</span>
+                  <button type="button" className="email-attachment-remove" onClick={() => setComposeAttachments((prev) => prev.filter((_, j) => j !== i))} aria-label="Remove">&times;</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+        <div className="compose-hint">Enter to send · Shift+Enter for new line</div>
       </form>
     </section>
   );

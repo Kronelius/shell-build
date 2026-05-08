@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react';
 import Avatar from './Avatar';
 import EmptyState from './EmptyState';
 import Icon from './Icon';
@@ -53,6 +54,17 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
   const unread = selectUnreadForConversation(state, conversation.id);
   const effectiveStatus = selectEffectiveStatus(conversation);
   const isMuted = !!(currentUser && (conversation.mutedByUserIds || []).includes(currentUser.id));
+  const rowRef = useRef(null);
+
+  const handleClick = useCallback(() => {
+    const el = rowRef.current;
+    if (el) {
+      el.classList.remove('thread-row-tap');
+      void el.offsetWidth;
+      el.classList.add('thread-row-tap');
+    }
+    onSelect(conversation.id);
+  }, [onSelect, conversation.id]);
 
   const isInternal = conversation.channel === 'internal';
   const isDm = conversation.channel === 'dm';
@@ -77,8 +89,9 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
 
   return (
     <div
+      ref={rowRef}
       className={`thread-row ${active ? 'active' : ''} ${selected ? 'selected' : ''} ${effectiveStatus !== 'open' ? 'status-' + effectiveStatus : ''} ${isOwnedByMe ? 'is-owner' : ''} ${isMuted ? 'is-muted' : ''}`}
-      onClick={() => onSelect(conversation.id)}
+      onClick={handleClick}
       role="button"
       tabIndex={0}
     >
@@ -118,19 +131,21 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
         <div className="thread-row-preview">{previewText(last) || 'No messages yet'}</div>
       </div>
       <div className="thread-row-right">
-        <button
-          type="button"
-          className={`thread-star-btn ${conversation.starred ? 'starred' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onToggleStar(conversation.id); }}
-          aria-label={conversation.starred ? 'Unpin' : 'Pin'}
-          title={conversation.starred ? 'Unpin' : 'Pin'}
-        >
-          <Icon name="star" size={14} />
-        </button>
+        <div className="thread-row-top">
+          {unread > 0 && <span className="thread-unread" aria-label={`${unread} unread`}>{unread}</span>}
+          <button
+            type="button"
+            className={`thread-star-btn ${conversation.starred ? 'starred' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onToggleStar(conversation.id); }}
+            aria-label={conversation.starred ? 'Unpin' : 'Pin'}
+            title={conversation.starred ? 'Unpin' : 'Pin'}
+          >
+            <Icon name="star" size={14} />
+          </button>
+        </div>
         <span className="thread-row-time">{last ? fmtRelative(last.sentAt) : fmtRelative(conversation.createdAt)}</span>
         <div className="thread-row-meta">
           <StatusChip status={effectiveStatus} snoozedUntil={conversation.snoozedUntil} />
-          {unread > 0 && <span className="thread-unread" aria-label={`${unread} unread`}>{unread}</span>}
         </div>
       </div>
     </div>

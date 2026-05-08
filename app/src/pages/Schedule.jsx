@@ -243,7 +243,10 @@ export default function Schedule() {
                     </div>
                     <div className="tl-card clickable" onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
                       <strong>{client?.name || '—'}</strong> — {service?.name || '—'}{' '}
-                      <Badge variant={statusBadgeVariant(STATUS_LABEL[job.status])}>{STATUS_LABEL[job.status]}</Badge>
+                      {job.status === 'done' && <Badge variant="green">Done</Badge>}
+                      {job.status === 'in_progress' && <Badge variant="amber">In Progress</Badge>}
+                      {(job.status === 'missed' || (job.status !== 'done' && job.status !== 'in_progress' && job.status !== 'cancelled' && new Date(job.startAt) < new Date())) && <Badge variant="red">Missed</Badge>}
+                      {job.status === 'cancelled' && <Badge variant="slate">Cancelled</Badge>}
                       <br />
                       <span className="text-xs text-muted">
                         {crew.map((u) => u.name.split(' ')[0]).join(', ') || 'Unassigned'}

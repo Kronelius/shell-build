@@ -206,9 +206,9 @@ export default function Dashboard() {
                   return (
                     <div key={job.id} className="sched-block clickable" onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
                       <strong>{fmtTime(job.startAt)}</strong> — {client?.name || '—'}
-                      <Badge variant={statusBadgeVariant(job.status === 'in_progress' ? 'In Progress' : job.status === 'done' ? 'Confirmed' : 'Pending')} style={{ marginLeft: 6 }}>
-                        {job.status === 'in_progress' ? 'In Progress' : job.status === 'done' ? 'Done' : 'Upcoming'}
-                      </Badge>
+                      {job.status === 'done' && <Badge variant="green">Done</Badge>}
+                      {job.status === 'in_progress' && <Badge variant="amber">In Progress</Badge>}
+                      {(job.status === 'missed' || (job.status !== 'done' && job.status !== 'in_progress' && new Date(job.startAt) < new Date())) && <Badge variant="red">Missed</Badge>}
                       <div className="text-xs text-muted">{service?.name || '—'}{site ? ` · ${site.name}` : ''}</div>
                     </div>
                   );
@@ -268,12 +268,6 @@ export default function Dashboard() {
                               {item.kind === 'thread' && contactForThread
                                 ? `${contactForThread.firstName} ${contactForThread.lastName}`
                                 : item.title}
-                              <Badge
-                                variant={item.kind === 'lead' ? 'amber' : 'blue'}
-                                style={{ marginLeft: 6 }}
-                              >
-                                {item.kind === 'lead' ? item.subtitle : item.subtitle}
-                              </Badge>
                             </span>
                             <span className="followup-secondary text-xs text-muted">
                               {item.kind === 'thread' && item.preview

@@ -36,7 +36,6 @@ const LIFECYCLE_VARIANTS = {
 // "activities" = related records (invoices, jobs) (was "Related" before).
 const TABS = [
   { key: 'contact',    label: 'Contact' },
-  { key: 'history',    label: 'History' },
   { key: 'activities', label: 'Activities' },
   { key: 'notes',      label: 'Notes' },
 ];
@@ -466,18 +465,6 @@ export default function ConversationContextPanel({ conversation, contact, onLink
                   >
                     <Icon name="user" size={14} />
                     <span>Change contact</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="context-head-menu-item text-danger"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onLinkContact?.(null);
-                    }}
-                  >
-                    <Icon name="x" size={14} />
-                    <span>Unlink conversation</span>
                   </button>
                 </div>
               )}
