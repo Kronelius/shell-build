@@ -10,6 +10,9 @@ import PipelineCard from './PipelineCard';
 import FormField from './FormField';
 import Icon from './Icon';
 import AddContactsToStageModal from './AddContactsToStageModal';
+import ConfirmDialog from './ConfirmDialog';
+import OpportunityDetailModal from './OpportunityDetailModal';
+import { useToast } from './Toast';
 
 const EDGE_ZONE = 80;
 const MAX_SPEED = 18;
@@ -22,6 +25,7 @@ export default function PipelineBoard() {
   const nav = useFromHere();
   const canEdit = usePermission('pipeline.edit');
   const canDelete = usePermission('contacts.delete');
+  const toast = useToast();
   const contacts = selectPipelineContacts(state);
   const stages = selectPipelineStages(state);
   const pipelines = selectPipelines(state);
@@ -31,6 +35,8 @@ export default function PipelineBoard() {
   const [draggingId, setDraggingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [addContactsStage, setAddContactsStage] = useState(null);
+  const [confirmDeletePipelineOpen, setConfirmDeletePipelineOpen] = useState(false);
+  const [opportunityContact, setOpportunityContact] = useState(null);
 
   // Auto-scroll refs
   const boardRef = useRef(null);
@@ -45,6 +51,16 @@ export default function PipelineBoard() {
     });
     return map;
   }, [contacts, stages]);
+
+  // Open opportunity total: every dealValue in the active pipeline EXCEPT
+  // contacts already settled in 'won' or 'lost'. This is the live "deals in
+  // motion" number, which is what GHL surfaces as the headline pipeline value.
+  const openOpportunityValue = useMemo(
+    () => contacts
+      .filter((c) => c.stage !== 'won' && c.stage !== 'lost')
+      .reduce((acc, c) => acc + (c.dealValue || 0), 0),
+    [contacts]
+  );
 
   const visibleIds = useMemo(() => {
     const out = new Set();
@@ -97,6 +113,23 @@ export default function PipelineBoard() {
 
   const slotActive = (stageKey, i) =>
     dropTarget && dropTarget.stage === stageKey && dropTarget.index === i;
+
+  const requestDeletePipeline = () => {
+    if (!activePipeline) return;
+    const inUseCount = (state.contacts || []).filter((c) => c.pipelineId === activePipeline.id).length;
+    if (inUseCount > 0) {
+      toast.error(`"${activePipeline.label}" has ${inUseCount} contact${inUseCount === 1 ? '' : 's'} — move them to another pipeline first.`);
+      return;
+    }
+    setConfirmDeletePipelineOpen(true);
+  };
+
+  const confirmDeletePipeline = () => {
+    if (!activePipeline) return;
+    const label = activePipeline.label;
+    dispatch({ type: ACTIONS.DELETE_PIPELINE, id: activePipeline.id });
+    toast.success(`Pipeline "${label}" deleted`);
+  };
 
   // --- Auto-scroll ---
   const updateAutoScroll = (clientX) => {
@@ -201,6 +234,25 @@ export default function PipelineBoard() {
           onChange={(e) => dispatch({ type: ACTIONS.SET_ACTIVE_PIPELINE, id: e.target.value })}
           options={pipelines.map((p) => ({ value: p.id, label: p.label }))}
         />
+        {canEdit && activePipeline && (
+          <button
+            type="button"
+            className="btn btn-danger btn-sm"
+            onClick={requestDeletePipeline}
+            title={`Delete "${activePipeline.label}"`}
+            style={{ marginBottom: 7 }}
+          >
+            <Icon name="trash" size={14} /> Delete pipeline
+          </button>
+        )}
+        <div className="pipeline-total" style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2, alignSelf: 'flex-start' }}>
+          <span className="text-xs text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Total opportunity value
+          </span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            {money(openOpportunityValue)}
+          </span>
+        </div>
       </div>
 
       <div className={`bulk-bar ${selectionCount === 0 ? 'is-empty' : ''}`}>
@@ -303,7 +355,7 @@ export default function PipelineBoard() {
                       dragging={draggingId === c.id}
                       selected={effectiveSelected.has(c.id)}
                       onToggleSelect={toggleSelect}
-                      onClick={(contact) => navigate(`/clients/contact/${contact.id}`, { state: nav })}
+                      onClick={(contact) => setOpportunityContact(contact)}
                       onDragStart={(contact) => setDraggingId(contact.id)}
                       onDragEnd={clearDrag}
                       onDragOver={(e) => onCardDragOver(e, stage.key, i)}
@@ -318,6 +370,22 @@ export default function PipelineBoard() {
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeletePipelineOpen}
+        title="Delete pipeline?"
+        message={`This will permanently remove the "${activePipeline?.label || ''}" pipeline and all its stages. This cannot be undone.`}
+        confirmLabel="Delete pipeline"
+        variant="danger"
+        onConfirm={confirmDeletePipeline}
+        onClose={() => setConfirmDeletePipelineOpen(false)}
+      />
+
+      <OpportunityDetailModal
+        open={!!opportunityContact}
+        onClose={() => setOpportunityContact(null)}
+        contact={opportunityContact}
+      />
     </div>
   );
 }

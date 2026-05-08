@@ -1054,7 +1054,28 @@ export function reducer(state, action) {
       const label = (action.label || '').trim();
       if (!label) return state;
       const id = newId('pl');
-      const pipeline = { id, label, createdAt: nowIso(), stages: [] };
+      const usedKeys = new Set(['won', 'lost']);
+      const customStages = (action.stageLabels || [])
+        .map((s) => (typeof s === 'string' ? s.trim() : ''))
+        .filter(Boolean)
+        .map((stageLabel) => {
+          const baseKey = stageLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'stage';
+          let key = baseKey;
+          let n = 2;
+          while (usedKeys.has(key)) { key = `${baseKey}-${n++}`; }
+          usedKeys.add(key);
+          return { id: newId('ps'), key, label: stageLabel };
+        });
+      const pipeline = {
+        id,
+        label,
+        createdAt: nowIso(),
+        stages: [
+          ...customStages,
+          { id: newId('ps'), key: 'won', label: 'Won' },
+          { id: newId('ps'), key: 'lost', label: 'Lost' },
+        ],
+      };
       return { ...state, pipelines: [...(state.pipelines || []), pipeline], activePipelineId: id };
     }
     case ACTIONS.UPDATE_PIPELINE: {
