@@ -99,6 +99,7 @@ export const ACTIONS = {
   ADD_CONVERSATION: 'ADD_CONVERSATION',
   ADD_DM_CONVERSATION: 'ADD_DM_CONVERSATION',
   ADD_INTERNAL_CONVERSATION: 'ADD_INTERNAL_CONVERSATION',
+  ADD_THREAD_PARTICIPANT: 'ADD_THREAD_PARTICIPANT',
   UPDATE_CONVERSATION: 'UPDATE_CONVERSATION',
   ADD_MESSAGE: 'ADD_MESSAGE',
   MARK_CONVERSATION_READ: 'MARK_CONVERSATION_READ',
@@ -823,6 +824,54 @@ export function reducer(state, action) {
     }
     case ACTIONS.UPDATE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, action.patch) };
+    case ACTIONS.ADD_THREAD_PARTICIPANT: {
+      // Adds a user to an internal thread's participantUserIds AND fans out a
+      // notification to the added user — coupled in the reducer so callers
+      // can't accidentally add someone without pinging them. Mirrors the
+      // ADD_MESSAGE fan-out pattern: notification is stamped at action time
+      // with the recipient's userId so it surfaces correctly when they switch
+      // in. Only valid for internal threads — DMs are 2-person fixed and
+      // external threads don't carry participantUserIds.
+      const conv = state.conversations.find((c) => c.id === action.conversationId);
+      if (!conv || conv.channel !== 'internal') return state;
+      const current = conv.participantUserIds || [];
+      if (current.includes(action.userId)) return state;
+      const user = (state.users || []).find((u) => u.id === action.userId);
+      if (!user) return state;
+      const conversations = replaceById(state.conversations, action.conversationId, {
+        participantUserIds: [...current, action.userId],
+      });
+      // Notification gated on the added user's prefs + visibility for the
+      // 'newInternalMessage' event key — being added is a stronger signal
+      // than a passive new message, so no separate toggle yet; if the user
+      // wants internal-thread notifications, they want this too.
+      let notifications = state.notifications || [];
+      const eventKey = 'newInternalMessage';
+      const prefs = user.notificationPrefs || {};
+      if (
+        prefs[eventKey] === true
+        && isNotificationVisibleForUser(eventKey, user, state.permissions, state.userPermissionOverrides)
+      ) {
+        const adderId = action.addedByUserId || state.currentUserId;
+        const adder = (state.users || []).find((u) => u.id === adderId);
+        const adderName = adder?.name || 'Someone';
+        const NOTIFICATION_LIMIT_PER_USER = 200;
+        const row = {
+          id: newId('nt'),
+          createdAt: nowIso(),
+          readAt: null,
+          userId: action.userId,
+          eventKey,
+          title: `${adderName} added you to ${conv.title || 'a team thread'}`,
+          body: '',
+          url: `/messaging/${action.conversationId}`,
+        };
+        const sameUser = notifications.filter((n) => n.userId === action.userId);
+        const others = notifications.filter((n) => n.userId !== action.userId);
+        notifications = [...[row, ...sameUser].slice(0, NOTIFICATION_LIMIT_PER_USER), ...others];
+      }
+      return { ...state, conversations, notifications };
+    }
     case ACTIONS.ADD_MESSAGE: {
       const incoming = action.message || {};
       // Auto-mark the message read for whoever wrote it — they don't need to

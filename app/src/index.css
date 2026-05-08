@@ -3340,6 +3340,59 @@ tr.clickable:hover { background: var(--inset-bg); }
 .context-participants { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; }
 .context-participant { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 
+/* Add-participant affordance — sits beneath the participants list inside the
+   InternalContextPanel card. Trigger is a full-width outline button so it
+   visually anchors to the card edges; the inline picker that replaces it
+   reuses participant-row visuals so the list it injects feels like a natural
+   extension of the participants list above. */
+.participant-add-trigger {
+  width: 100%;
+  margin-top: 10px;
+  justify-content: center;
+}
+.participant-add-empty { margin-top: 10px; }
+.participant-add-picker {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.participant-add-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.participant-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.12s, border-color 0.12s;
+}
+.participant-add-row:hover {
+  background: var(--primary-bg);
+  border-color: rgba(var(--color-brand-primary-rgb), 0.2);
+}
+.participant-add-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.participant-add-row-role { flex-shrink: 0; }
+.participant-add-cancel { align-self: flex-end; }
+
 /* ── Snippet Picker ── */
 .snippet-picker { position: relative; display: inline-block; }
 .snippet-trigger { display: inline-flex; align-items: center; gap: 4px; }

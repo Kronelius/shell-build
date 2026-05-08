@@ -306,12 +306,28 @@ function DmContextPanel({ conversation }) {
 
 function InternalContextPanel({ conversation }) {
   const state = useStore();
-  const participantIds = Array.from(new Set(
-    (state.messages || [])
-      .filter((m) => m.conversationId === conversation.id && m.authorUserId)
-      .map((m) => m.authorUserId)
-  ));
-  const participants = participantIds.map((id) => selectUserById(state, id)).filter(Boolean);
+  const dispatch = useDispatch();
+  const [adding, setAdding] = useState(false);
+
+  // Source of truth is conversation.participantUserIds — deriving from message
+  // authors would miss members who haven't posted yet (incl. anyone just added).
+  const participantIds = Array.isArray(conversation.participantUserIds)
+    ? conversation.participantUserIds
+    : [];
+  const participants = participantIds
+    .map((id) => selectUserById(state, id))
+    .filter(Boolean);
+  const eligible = (state.users || [])
+    .filter((u) => u.status === 'active' && !participantIds.includes(u.id));
+
+  const onAdd = (userId) => {
+    dispatch({
+      type: ACTIONS.ADD_THREAD_PARTICIPANT,
+      conversationId: conversation.id,
+      userId,
+    });
+    setAdding(false);
+  };
 
   return (
     <aside className="context-pane">
@@ -333,6 +349,51 @@ function InternalContextPanel({ conversation }) {
                 </li>
               ))}
             </ul>
+          )}
+
+          {adding ? (
+            <div className="participant-add-picker">
+              {eligible.length === 0 ? (
+                <div className="text-xs text-muted">Everyone is already in this thread.</div>
+              ) : (
+                <ul className="participant-add-list">
+                  {eligible.map((u) => (
+                    <li key={u.id}>
+                      <button
+                        type="button"
+                        className="participant-add-row"
+                        onClick={() => onAdd(u.id)}
+                      >
+                        <Avatar initials={u.initials} variant={u.avatar} size="sm" />
+                        <span className="participant-add-row-name">{u.name}</span>
+                        <span className="participant-add-row-role text-xs text-muted">
+                          {ROLE_LABELS[u.role]}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button
+                type="button"
+                className="btn-link participant-add-cancel"
+                onClick={() => setAdding(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : eligible.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm participant-add-trigger"
+              onClick={() => setAdding(true)}
+            >
+              Add participant
+            </button>
+          ) : (
+            <div className="text-xs text-muted participant-add-empty">
+              Everyone is already in this thread.
+            </div>
           )}
         </div>
       </div>
