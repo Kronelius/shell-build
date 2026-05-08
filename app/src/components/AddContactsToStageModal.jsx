@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import Avatar from './Avatar';
+import AddContactModal from './AddContactModal';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { selectContacts, selectPipelines } from '../store/selectors';
@@ -15,6 +16,7 @@ export default function AddContactsToStageModal({ open, onClose, pipelineId, sta
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(() => new Set());
+  const [addContactOpen, setAddContactOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -115,10 +117,15 @@ export default function AddContactsToStageModal({ open, onClose, pipelineId, sta
 
       <div className="modal-actions">
         <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-outline" onClick={() => setAddContactOpen(true)}>
+          New contact
+        </button>
         <button type="button" className="btn btn-primary" disabled={selected.size === 0} onClick={handleAdd}>
           Add {selected.size > 0 ? `${selected.size} ` : ''}to {stageLabel}
         </button>
       </div>
+
+      <AddContactModal open={addContactOpen} onClose={() => setAddContactOpen(false)} />
     </Modal>
   );
 }

@@ -228,7 +228,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
               <div><dt>Phone</dt><dd>{contact.phone || '—'}</dd></div>
               <div><dt>Title</dt><dd>{contact.title || '—'}</dd></div>
               <div><dt>Company</dt><dd>{company ? <Link to={`/clients/${company.id}`} state={nav}>{company.name}</Link> : companyLabel}</dd></div>
-              <div><dt>Lifecycle</dt><dd>{contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}</dd></div>
+              <div><dt>Status</dt><dd>{contact.lifecycle.charAt(0).toUpperCase() + contact.lifecycle.slice(1)}</dd></div>
               {contact.stage && (
                 <>
                   <div><dt>Pipeline stage</dt><dd>{stageLabel(contact.stage)}</dd></div>

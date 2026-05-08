@@ -116,7 +116,7 @@ export const CONTACT_FIELDS = [
   { key: 'phone',     label: 'Phone',      aliases: ['phone', 'phone number', 'mobile', 'cell', 'tel', 'telephone'] },
   { key: 'title',     label: 'Title',      aliases: ['title', 'job title', 'position', 'role'] },
   { key: 'company',   label: 'Company',    aliases: ['company', 'company name', 'account', 'organization', 'org'] },
-  { key: 'lifecycle', label: 'Lifecycle',  aliases: ['lifecycle', 'stage', 'status', 'type'] },
+  { key: 'lifecycle', label: 'Status',  aliases: ['lifecycle', 'stage', 'status', 'type'] },
   { key: 'notes',     label: 'Notes',      aliases: ['notes', 'note', 'description', 'comment', 'comments'] },
 ];
 

@@ -201,7 +201,7 @@ export default function Clients() {
         <>
           <div className="filter-bar">
             <FormField label="Search" value={cSearch} onChange={(e) => setParam('q', e.target.value)} placeholder="Name, email, title…" />
-            <FormField label="Lifecycle" as="select" value={cLifecycle} onChange={(e) => setParam('lifecycle', e.target.value, 'all')}
+            <FormField label="Status" as="select" value={cLifecycle} onChange={(e) => setParam('lifecycle', e.target.value, 'all')}
               options={LIFECYCLES.map((v) => ({ value: v, label: v === 'all' ? 'All lifecycles' : v.charAt(0).toUpperCase() + v.slice(1) }))} />
             <FormField label="Tag" as="select" value={cTag} onChange={(e) => setParam('tag', e.target.value, 'all')}
               options={[{ value: 'all', label: 'All tags' }, ...allTags.map((t) => ({ value: t.id, label: t.label }))]} />
@@ -252,7 +252,7 @@ export default function Clients() {
                       </th>
                       <th>Name</th>
                       <th>Company</th>
-                      <th>Lifecycle</th>
+                      <th>Status</th>
                       <th>Tags</th>
                       <th>Updated</th>
                       <th></th>
