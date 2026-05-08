@@ -152,7 +152,8 @@ function passesFilters(conv, filters, state) {
     active.push(filters.statuses.includes(eff));
   }
   if (filters.starredOnly) {
-    active.push(Boolean(conv.starred));
+    const uid = state.currentUserId;
+    active.push(Boolean(uid) && (conv.starredByUserIds || []).includes(uid));
   }
   if (active.length === 0) return true;
   return filters.logic === 'or' ? active.some(Boolean) : active.every(Boolean);

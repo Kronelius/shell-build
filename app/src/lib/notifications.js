@@ -102,3 +102,51 @@ export function isNotificationVisibleForUser(eventKey, user, permissions, overri
   }
   return false;
 }
+
+// Decide which notification key (if any) a new message maps to for a given
+// recipient. Returns null if the recipient shouldn't be pinged. Lives here
+// (not in NotificationListener) so the reducer can use the same logic to
+// fan out per-recipient notification rows at message-send time.
+export function resolveMessageEvent(message, conv, recipientUserId) {
+  if (!conv) return null;
+  if (Array.isArray(conv.mutedByUserIds) && conv.mutedByUserIds.includes(recipientUserId)) return null;
+
+  if (conv.channel === 'dm') {
+    if (!(conv.participantUserIds || []).includes(recipientUserId)) return null;
+    if (!message.authorUserId || message.authorUserId === recipientUserId) return null;
+    return 'newDM';
+  }
+
+  if (conv.channel === 'internal') {
+    if (!(conv.participantUserIds || []).includes(recipientUserId)) return null;
+    if (message.authorUserId === recipientUserId) return null;
+    return 'newInternalMessage';
+  }
+
+  // External (sms / email) — only inbound from the customer counts.
+  if (message.direction !== 'in') return null;
+  return 'newCustomerMessage';
+}
+
+// Trim a body string into the short snippet shown beneath a notification title.
+export function previewMessageBody(text) {
+  const flat = (text || '').replace(/\s+/g, ' ').trim();
+  return flat.length > 90 ? flat.slice(0, 87) + '…' : flat;
+}
+
+// Build the title used in both the bell-inbox row and the toast for a
+// message-event notification. Centralized so the reducer fan-out and the
+// listener's toast firing produce identical copy.
+export function buildMessageNotificationTitle(eventKey, message, conv, users) {
+  if (eventKey === 'newCustomerMessage') {
+    return `New ${conv?.channel === 'email' ? 'email' : 'message'} from ${conv?.title || 'a customer'}`;
+  }
+  if (eventKey === 'newDM') {
+    const author = (users || []).find((u) => u.id === message.authorUserId);
+    return `DM from ${author?.name || 'a teammate'}`;
+  }
+  if (eventKey === 'newInternalMessage') {
+    return `New message in ${conv?.title || 'an internal thread'}`;
+  }
+  return 'New message';
+}

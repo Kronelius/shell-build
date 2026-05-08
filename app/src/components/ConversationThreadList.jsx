@@ -54,6 +54,7 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
   const unread = selectUnreadForConversation(state, conversation.id);
   const effectiveStatus = selectEffectiveStatus(conversation);
   const isMuted = !!(currentUser && (conversation.mutedByUserIds || []).includes(currentUser.id));
+  const isStarred = !!(currentUser && (conversation.starredByUserIds || []).includes(currentUser.id));
   const rowRef = useRef(null);
 
   const handleClick = useCallback(() => {
@@ -135,10 +136,10 @@ function ThreadRow({ conversation, active, selected, onSelect, onToggleSelect, o
           {unread > 0 && <span className="thread-unread" aria-label={`${unread} unread`}>{unread}</span>}
           <button
             type="button"
-            className={`thread-star-btn ${conversation.starred ? 'starred' : ''}`}
+            className={`thread-star-btn ${isStarred ? 'starred' : ''}`}
             onClick={(e) => { e.stopPropagation(); onToggleStar(conversation.id); }}
-            aria-label={conversation.starred ? 'Unpin' : 'Pin'}
-            title={conversation.starred ? 'Unpin' : 'Pin'}
+            aria-label={isStarred ? 'Unpin' : 'Pin'}
+            title={isStarred ? 'Unpin' : 'Pin'}
           >
             <Icon name="star" size={14} />
           </button>
@@ -256,12 +257,13 @@ export default function ConversationThreadList({
 
           // Threads inbox: split into "Your threads" (created by current user) on top + the rest below.
           if (isInternalInbox && currentUser) {
+            const isPinnedByMe = (c) => (c.starredByUserIds || []).includes(currentUser.id);
             const owned = conversations.filter((c) => isOwned(c));
             const others = conversations.filter((c) => !isOwned(c));
             // Within each group, surface pinned first.
             const split = (list) => ({
-              pinned: list.filter((c) => c.starred),
-              rest: list.filter((c) => !c.starred),
+              pinned: list.filter(isPinnedByMe),
+              rest: list.filter((c) => !isPinnedByMe(c)),
             });
             const ownedSplit = split(owned);
             const othersSplit = split(others);
@@ -292,9 +294,10 @@ export default function ConversationThreadList({
             );
           }
 
-          // Inbox / DMs: pinned on top (existing behavior).
-          const pinned = conversations.filter((c) => c.starred);
-          const others = conversations.filter((c) => !c.starred);
+          // Inbox / DMs: pinned on top (existing behavior). Pinned is per-user.
+          const isPinnedByMe = (c) => Boolean(currentUser) && (c.starredByUserIds || []).includes(currentUser.id);
+          const pinned = conversations.filter(isPinnedByMe);
+          const others = conversations.filter((c) => !isPinnedByMe(c));
           if (pinned.length === 0) return conversations.map(renderRow);
           return (
             <>

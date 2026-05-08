@@ -394,104 +394,117 @@ const snippets = [
 // allActiveStaffIds is the default member set for seeded internal threads — visible to
 // every active staff user in the seed data, so the inbox isn't empty for newcomers.
 const allActiveStaffIds = users.filter((u) => u.status === 'active').map((u) => u.id);
+// Default-current-user pin set — assigning previously-starred threads to Kyle
+// (the seeded current user) so his pinned section keeps its content. Switching
+// to another user starts them with an empty pinned section, which is correct
+// per-user behavior for the demo.
+const defaultPinSet = [users[0].id];
 const conversations = [
   // External
-  { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),  createdByUserId: users[3].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
-  { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18), createdByUserId: users[3].id, status: 'snoozed', snoozedUntil: inHours(20), starred: false, mutedByUserIds: [] },
-  { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
-  { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  mutedByUserIds: [] },
-  { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
-  { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] },
-  { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   createdByUserId: users[3].id, status: 'closed',  snoozedUntil: null,        starred: false, mutedByUserIds: [] }, // Jamie (lead)
-  { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: false, mutedByUserIds: [] }, // Robin (lead)
-  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(2),  createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starred: true,  mutedByUserIds: [] }, // Morgan Hayes (lead)
+  { id: seedId('cv', 'c1'), clientId: clients[0].id, contactId: contacts[0].id, channel: 'sms',   title: null, createdAt: daysAgo(7),  lastMessageAt: hoursAgo(3),  createdByUserId: users[3].id, status: 'open',    snoozedUntil: null,        starredByUserIds: [],             mutedByUserIds: [] },
+  { id: seedId('cv', 'c2'), clientId: clients[1].id, contactId: contacts[1].id, channel: 'email', title: null, createdAt: daysAgo(10), lastMessageAt: hoursAgo(18), createdByUserId: users[3].id, status: 'snoozed', snoozedUntil: inHours(20), starredByUserIds: [],             mutedByUserIds: [] },
+  { id: seedId('cv', 'c3'), clientId: clients[3].id, contactId: contacts[3].id, channel: 'sms',   title: null, createdAt: daysAgo(20), lastMessageAt: daysAgo(2),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starredByUserIds: [],             mutedByUserIds: [] },
+  { id: seedId('cv', 'c4'), clientId: clients[4].id, contactId: contacts[4].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starredByUserIds: defaultPinSet,  mutedByUserIds: [] },
+  { id: seedId('cv', 'c5'), clientId: clients[2].id, contactId: contacts[2].id, channel: 'sms',   title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(4),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starredByUserIds: [],             mutedByUserIds: [] },
+  { id: seedId('cv', 'c6'), clientId: clients[5].id, contactId: contacts[5].id, channel: 'email', title: null, createdAt: daysAgo(6),  lastMessageAt: daysAgo(5),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starredByUserIds: [],             mutedByUserIds: [] },
+  { id: seedId('cv', 'c7'), clientId: null,          contactId: contacts[7].id, channel: 'sms',   title: null, createdAt: daysAgo(2),  lastMessageAt: daysAgo(2),   createdByUserId: users[3].id, status: 'closed',  snoozedUntil: null,        starredByUserIds: [],             mutedByUserIds: [] }, // Jamie (lead)
+  { id: seedId('cv', 'c8'), clientId: null,          contactId: contacts[8].id, channel: 'email', title: null, createdAt: daysAgo(5),  lastMessageAt: daysAgo(3),   createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starredByUserIds: [],             mutedByUserIds: [] }, // Robin (lead)
+  { id: seedId('cv', 'c9'), clientId: null,          contactId: contacts[11].id, channel: 'sms',  title: null, createdAt: daysAgo(1),  lastMessageAt: hoursAgo(2),  createdByUserId: users[2].id, status: 'open',    snoozedUntil: null,        starredByUserIds: defaultPinSet,  mutedByUserIds: [] }, // Morgan Hayes (lead)
 
   // Internal — pinned (starred) channels per Q14 & Q6
   // createdByUserId is the thread creator — only they (or a Super Admin) can hard-delete.
   // participantUserIds gates visibility — only listed members see the thread in their Threads inbox.
-  { id: seedId('cv', 'time-off'),     clientId: null, contactId: null, channel: 'internal', title: 'Time Off Requests',  createdAt: daysAgo(60), lastMessageAt: hoursAgo(8),  createdByUserId: users[2].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: true, mutedByUserIds: [] },
-  { id: seedId('cv', 'accounting'),   clientId: null, contactId: null, channel: 'internal', title: 'Accounting Handoffs', createdAt: daysAgo(60), lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: true, mutedByUserIds: [] },
+  { id: seedId('cv', 'time-off'),     clientId: null, contactId: null, channel: 'internal', title: 'Time Off Requests',  createdAt: daysAgo(60), lastMessageAt: hoursAgo(8),  createdByUserId: users[2].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starredByUserIds: defaultPinSet, mutedByUserIds: [] },
+  { id: seedId('cv', 'accounting'),   clientId: null, contactId: null, channel: 'internal', title: 'Accounting Handoffs', createdAt: daysAgo(60), lastMessageAt: daysAgo(1),   createdByUserId: users[2].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starredByUserIds: defaultPinSet, mutedByUserIds: [] },
   // Internal — incident channels (transactional)
-  { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: false, mutedByUserIds: [] },
-  { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starred: false, mutedByUserIds: [] },
+  { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starredByUserIds: [], mutedByUserIds: [] },
+  { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starredByUserIds: [], mutedByUserIds: [] },
 
   // DM — 1:1 between Heather (admin) and Lauren (admin). Privacy is gated to participants;
   // owners/other admins/crew not in participantUserIds will not see this thread.
-  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), createdByUserId: users[2].id, status: 'open', snoozedUntil: null, starred: false, mutedByUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
+  { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), createdByUserId: users[2].id, status: 'open', snoozedUntil: null, starredByUserIds: [], mutedByUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
 ];
 
+// Per-user read state. `allActiveStaffIds` on a message means the whole org
+// has caught up on it (used for older / clearly-handled messages). `[]` means
+// nobody has read it yet — the author is still excluded from unread counts via
+// the `authorUserId !== uid` guard in selectUnreadForConversation, so we don't
+// need to include the author here. For DMs, we narrow the read list to the
+// participant pair so a non-participant can't end up "having read" a private
+// thread (defensive: participants gate visibility too).
+const dmHLParticipants = [users[2].id, users[3].id];
 const messages = [
   // c1 Evergreen Medical (SMS)
-  { id: seedId('m', 'c1-m1'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Hey, confirming the 8am cleaning tomorrow.',                                     sentAt: daysAgo(1),   readAt: daysAgo(1) },
-  { id: seedId('m', 'c1-m2'), conversationId: conversations[0].id, direction: 'out',      authorUserId: users[3].id, snippetId: null, text: 'Confirmed! Heather has Marcus arriving by 7:55 AM.',                              sentAt: daysAgo(1),   readAt: daysAgo(1) },
-  { id: seedId('m', 'c1-m3'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Perfect, thanks.',                                                               sentAt: daysAgo(1),   readAt: null },
+  { id: seedId('m', 'c1-m1'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Hey, confirming the 8am cleaning tomorrow.',                                     sentAt: daysAgo(1),   readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c1-m2'), conversationId: conversations[0].id, direction: 'out',      authorUserId: users[3].id, snippetId: null, text: 'Confirmed! Heather has Marcus arriving by 7:55 AM.',                              sentAt: daysAgo(1),   readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c1-m3'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Perfect, thanks.',                                                               sentAt: daysAgo(1),   readByUserIds: [] },
 
   // c2 Lakeside (Email)
-  { id: seedId('m', 'c2-m1'), conversationId: conversations[1].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Can we reschedule Thursday to Friday?',                                          sentAt: daysAgo(2),   readAt: daysAgo(2) },
-  { id: seedId('m', 'c2-m2'), conversationId: conversations[1].id, direction: 'out', authorUserId: users[2].id, snippetId: seedId('sn', 'reschedule'),       text: 'Happy to reschedule — could you share a couple of windows that work this week?', sentAt: daysAgo(2),   readAt: daysAgo(2) },
-  { id: seedId('m', 'c2-m3'), conversationId: conversations[1].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Friday 10 AM works great, thanks!',                                              sentAt: hoursAgo(18), readAt: null },
+  { id: seedId('m', 'c2-m1'), conversationId: conversations[1].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Can we reschedule Thursday to Friday?',                                          sentAt: daysAgo(2),   readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c2-m2'), conversationId: conversations[1].id, direction: 'out', authorUserId: users[2].id, snippetId: seedId('sn', 'reschedule'),       text: 'Happy to reschedule — could you share a couple of windows that work this week?', sentAt: daysAgo(2),   readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c2-m3'), conversationId: conversations[1].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Friday 10 AM works great, thanks!',                                              sentAt: hoursAgo(18), readByUserIds: [] },
 
   // c3 Mt. Baker HOA (SMS)
-  { id: seedId('m', 'c3-m1'), conversationId: conversations[2].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Invoice received, paying this week.',                                            sentAt: daysAgo(3),   readAt: null },
-  { id: seedId('m', 'c3-m2'), conversationId: conversations[2].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: 'Great, appreciate it! Let us know if you need another copy.',                    sentAt: daysAgo(2),   readAt: daysAgo(2) },
+  { id: seedId('m', 'c3-m1'), conversationId: conversations[2].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Invoice received, paying this week.',                                            sentAt: daysAgo(3),   readByUserIds: [] },
+  { id: seedId('m', 'c3-m2'), conversationId: conversations[2].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: 'Great, appreciate it! Let us know if you need another copy.',                    sentAt: daysAgo(2),   readByUserIds: allActiveStaffIds },
 
   // c4 Pacific Ridge (SMS)
-  { id: seedId('m', 'c4-m1'), conversationId: conversations[3].id, direction: 'out', authorUserId: users[3].id, snippetId: null, text: 'Reminder: cleaning scheduled for tomorrow 1 PM.', sentAt: daysAgo(1), readAt: daysAgo(1) },
-  { id: seedId('m', 'c4-m2'), conversationId: conversations[3].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Got it, thanks!',                                  sentAt: daysAgo(1), readAt: daysAgo(1) },
+  { id: seedId('m', 'c4-m1'), conversationId: conversations[3].id, direction: 'out', authorUserId: users[3].id, snippetId: null, text: 'Reminder: cleaning scheduled for tomorrow 1 PM.', sentAt: daysAgo(1), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c4-m2'), conversationId: conversations[3].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Got it, thanks!',                                  sentAt: daysAgo(1), readByUserIds: allActiveStaffIds },
 
   // c5 Cascade Logistics (SMS)
-  { id: seedId('m', 'c5-m1'), conversationId: conversations[4].id, direction: 'out', authorUserId: users[3].id, snippetId: null,                            text: 'Scheduling the quarterly pressure wash for next Friday at 1 PM. Loading bay OK?', sentAt: daysAgo(4), readAt: daysAgo(4) },
-  { id: seedId('m', 'c5-m2'), conversationId: conversations[4].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Yes — use bay 3. Gate code is still #4421.',                                     sentAt: daysAgo(4), readAt: daysAgo(4) },
-  { id: seedId('m', 'c5-m3'), conversationId: conversations[4].id, direction: 'out', authorUserId: users[3].id, snippetId: seedId('sn', 'booking-conf'),     text: "All set — we've confirmed the visit. You'll get a reminder the day before.",     sentAt: daysAgo(4), readAt: daysAgo(4) },
+  { id: seedId('m', 'c5-m1'), conversationId: conversations[4].id, direction: 'out', authorUserId: users[3].id, snippetId: null,                            text: 'Scheduling the quarterly pressure wash for next Friday at 1 PM. Loading bay OK?', sentAt: daysAgo(4), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c5-m2'), conversationId: conversations[4].id, direction: 'in',  authorUserId: null,        snippetId: null,                            text: 'Yes — use bay 3. Gate code is still #4421.',                                     sentAt: daysAgo(4), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c5-m3'), conversationId: conversations[4].id, direction: 'out', authorUserId: users[3].id, snippetId: seedId('sn', 'booking-conf'),     text: "All set — we've confirmed the visit. You'll get a reminder the day before.",     sentAt: daysAgo(4), readByUserIds: allActiveStaffIds },
 
   // c6 Olympic Senior Living (Email)
-  { id: seedId('m', 'c6-m1'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Net-30 on RFS-1004 — can we push the due date to May 15?', sentAt: daysAgo(6), readAt: daysAgo(6) },
-  { id: seedId('m', 'c6-m2'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: 'Let me check with Heather and confirm.',                    sentAt: daysAgo(5), readAt: daysAgo(5) },
-  { id: seedId('m', 'c6-m3'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: "Approved — I've updated RFS-1004 with a May 15 due date.", sentAt: daysAgo(5), readAt: daysAgo(5) },
-  { id: seedId('m', 'c6-m4'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Thank you!',                                                sentAt: daysAgo(5), readAt: null },
+  { id: seedId('m', 'c6-m1'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Net-30 on RFS-1004 — can we push the due date to May 15?', sentAt: daysAgo(6), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c6-m2'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: 'Let me check with Heather and confirm.',                    sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c6-m3'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: "Approved — I've updated RFS-1004 with a May 15 due date.", sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c6-m4'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Thank you!',                                                sentAt: daysAgo(5), readByUserIds: [] },
 
   // c7 Jamie Park (lead, SMS)
-  { id: seedId('m', 'c7-m1'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: seedId('sn', 'welcome'), text: 'Hi Jamie — thanks for reaching out to Rainier Facility Solutions! Someone from our team will follow up shortly.', sentAt: daysAgo(2), readAt: daysAgo(2) },
-  { id: seedId('m', 'c7-m2'), conversationId: conversations[6].id, direction: 'in',       authorUserId: null,        snippetId: null,                    text: 'Thursday afternoon works for a walkthrough.',                                                                       sentAt: daysAgo(2), readAt: daysAgo(2) },
-  { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Kyle will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readAt: daysAgo(2) },
+  { id: seedId('m', 'c7-m1'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: seedId('sn', 'welcome'), text: 'Hi Jamie — thanks for reaching out to Rainier Facility Solutions! Someone from our team will follow up shortly.', sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c7-m2'), conversationId: conversations[6].id, direction: 'in',       authorUserId: null,        snippetId: null,                    text: 'Thursday afternoon works for a walkthrough.',                                                                       sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Kyle will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
 
   // c8 Robin Vega (lead, Email)
-  { id: seedId('m', 'c8-m1'), conversationId: conversations[7].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Need common-area cleaning for an 84-unit complex. Can you send a proposal?',                                                  sentAt: daysAgo(5), readAt: daysAgo(5) },
-  { id: seedId('m', 'c8-m2'), conversationId: conversations[7].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: "Absolutely — sending a walkthrough form now. Reply with photos and we'll follow up with a scoped proposal.",                  sentAt: daysAgo(5), readAt: daysAgo(5) },
-  { id: seedId('m', 'c8-m3'), conversationId: conversations[7].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Walkthrough notes attached. Looking for weekly lobby + quarterly deep clean.',                                                sentAt: daysAgo(3), readAt: null },
+  { id: seedId('m', 'c8-m1'), conversationId: conversations[7].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Need common-area cleaning for an 84-unit complex. Can you send a proposal?',                                                  sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c8-m2'), conversationId: conversations[7].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: "Absolutely — sending a walkthrough form now. Reply with photos and we'll follow up with a scoped proposal.",                  sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c8-m3'), conversationId: conversations[7].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Walkthrough notes attached. Looking for weekly lobby + quarterly deep clean.',                                                sentAt: daysAgo(3), readByUserIds: [] },
 
   // c9 Morgan Hayes (lead, SMS)
-  { id: seedId('m', 'c9-m1'), conversationId: conversations[8].id, direction: 'out', authorUserId: users[3].id, snippetId: null, text: 'Quote went out this morning — let me know if anything needs tweaking.', sentAt: daysAgo(1),   readAt: daysAgo(1) },
-  { id: seedId('m', 'c9-m2'), conversationId: conversations[8].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Reviewing with ownership tomorrow. Will circle back.',                  sentAt: hoursAgo(20), readAt: null },
+  { id: seedId('m', 'c9-m1'), conversationId: conversations[8].id, direction: 'out', authorUserId: users[3].id, snippetId: null, text: 'Quote went out this morning — let me know if anything needs tweaking.', sentAt: daysAgo(1),   readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c9-m2'), conversationId: conversations[8].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Reviewing with ownership tomorrow. Will circle back.',                  sentAt: hoursAgo(20), readByUserIds: [] },
 
   // c9 Morgan Hayes (lead, Email reply in same thread)
-  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Kyle,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readAt: null, emailSubject: 'Re: Rainier Facility Solutions - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'kyle@rainierfs.com', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
+  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Kyle,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readByUserIds: [], emailSubject: 'Re: Rainier Facility Solutions - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'kyle@rainierfs.com', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
 
   // Time Off Requests (internal, pinned)
-  { id: seedId('m', 'to-m1'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[5].id, snippetId: null, text: 'Requesting next Friday off — got a family thing. Can someone cover the Lakeside floor care?', sentAt: daysAgo(2),  readAt: daysAgo(2) },
-  { id: seedId('m', 'to-m2'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Approved. Heather will swap in.',                                                       sentAt: daysAgo(2),  readAt: daysAgo(2) },
-  { id: seedId('m', 'to-m3'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: 'Out the 24th for a doctor appointment — back the 25th.',                                  sentAt: hoursAgo(8), readAt: null },
+  { id: seedId('m', 'to-m1'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[5].id, snippetId: null, text: 'Requesting next Friday off — got a family thing. Can someone cover the Lakeside floor care?', sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'to-m2'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Approved. Heather will swap in.',                                                       sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'to-m3'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: 'Out the 24th for a doctor appointment — back the 25th.',                                  sentAt: hoursAgo(8), readByUserIds: [] },
 
   // Accounting Handoffs (internal, pinned)
-  { id: seedId('m', 'ah-m1'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'New client just signed: Northside Auto Group, 3 locations. Setting up billing — Heather, FYI.', sentAt: daysAgo(1),  readAt: daysAgo(1) },
-  { id: seedId('m', 'ah-m2'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Got it. Will send onboarding paperwork today.',                                                  sentAt: daysAgo(1),  readAt: daysAgo(1) },
+  { id: seedId('m', 'ah-m1'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'New client just signed: Northside Auto Group, 3 locations. Setting up billing — Heather, FYI.', sentAt: daysAgo(1),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'ah-m2'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Got it. Will send onboarding paperwork today.',                                                  sentAt: daysAgo(1),  readByUserIds: allActiveStaffIds },
 
   // Evergreen access coordination (internal, transactional)
-  { id: seedId('m', 'ec-m1'), conversationId: conversations[11].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: "Heads up — Evergreen's loading dock B is closed for repair next week. Route through the main entrance.", sentAt: daysAgo(2),  readAt: daysAgo(2) },
-  { id: seedId('m', 'ec-m2'), conversationId: conversations[11].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Thanks. I'll brief the Friday crew at the morning huddle.",                                          sentAt: daysAgo(2),  readAt: daysAgo(2) },
-  { id: seedId('m', 'ec-m3'), conversationId: conversations[11].id, direction: 'internal', authorUserId: users[4].id, snippetId: null, text: 'Updated job notes on all three Evergreen jobs this week.',                                            sentAt: hoursAgo(22), readAt: hoursAgo(22) },
+  { id: seedId('m', 'ec-m1'), conversationId: conversations[11].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: "Heads up — Evergreen's loading dock B is closed for repair next week. Route through the main entrance.", sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'ec-m2'), conversationId: conversations[11].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Thanks. I'll brief the Friday crew at the morning huddle.",                                          sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'ec-m3'), conversationId: conversations[11].id, direction: 'internal', authorUserId: users[4].id, snippetId: null, text: 'Updated job notes on all three Evergreen jobs this week.',                                            sentAt: hoursAgo(22), readByUserIds: allActiveStaffIds },
 
   // Pacific badge handoff (internal, transactional)
-  { id: seedId('m', 'pb-m1'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Kim needs a badge for the new crew member. Who can pick it up from the front desk?', sentAt: daysAgo(3), readAt: daysAgo(3) },
-  { id: seedId('m', 'pb-m2'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: "I'm at Tower A tomorrow — can grab it.",                                              sentAt: daysAgo(3), readAt: daysAgo(3) },
-  { id: seedId('m', 'pb-m3'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Perfect, thanks Casey.',                                                              sentAt: daysAgo(3), readAt: daysAgo(3) },
+  { id: seedId('m', 'pb-m1'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Kim needs a badge for the new crew member. Who can pick it up from the front desk?', sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'pb-m2'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: "I'm at Tower A tomorrow — can grab it.",                                              sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'pb-m3'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Perfect, thanks Casey.',                                                              sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
 
   // DM Heather ↔ Lauren — 1:1 staff direct message. direction='internal' (DMs aren't external);
-  // authorUserId distinguishes the sender. The last Lauren message is unread so Heather has a
-  // demo unread badge when the user switches to her account.
-  { id: seedId('m', 'dm-hl-m1'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Hey — quick Q on the Lakeside swap. Was the substitute supposed to be Marcus or Riley?', sentAt: daysAgo(2),  readAt: daysAgo(2) },
-  { id: seedId('m', 'dm-hl-m2'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Riley — Marcus is on the Cascade route Friday.',                                            sentAt: daysAgo(2),  readAt: daysAgo(2) },
-  { id: seedId('m', 'dm-hl-m3'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Also, can you confirm the new badge for Casey is here? I'll grab it on my way in.",       sentAt: hoursAgo(6), readAt: null      },
+  // authorUserId distinguishes the sender. The last Lauren message has empty readByUserIds so
+  // Heather sees a demo unread badge when the user switches to her account.
+  { id: seedId('m', 'dm-hl-m1'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Hey — quick Q on the Lakeside swap. Was the substitute supposed to be Marcus or Riley?', sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
+  { id: seedId('m', 'dm-hl-m2'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Riley — Marcus is on the Cascade route Friday.',                                            sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
+  { id: seedId('m', 'dm-hl-m3'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Also, can you confirm the new badge for Casey is here? I'll grab it on my way in.",       sentAt: hoursAgo(6), readByUserIds: [] },
 ];
 
 // ---------- Reminder templates ----------
@@ -536,7 +549,7 @@ const notifications = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 32,
+  version: 33,
   company,
   currentUserId,
   users,

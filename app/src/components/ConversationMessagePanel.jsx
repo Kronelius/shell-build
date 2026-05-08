@@ -493,6 +493,7 @@ export default function ConversationMessagePanel({
   };
 
   const isMuted = currentUser && (conversation.mutedByUserIds || []).includes(currentUser.id);
+  const isStarredByMe = Boolean(currentUser && (conversation.starredByUserIds || []).includes(currentUser.id));
   const canHardDelete = Boolean(isSuperAdmin || (currentUser && conversation.createdByUserId === currentUser.id));
 
   return (
@@ -520,10 +521,10 @@ export default function ConversationMessagePanel({
         <div className="message-pane-actions">
           <button
             type="button"
-            className={`icon-btn ${conversation.starred ? 'starred' : ''}`}
+            className={`icon-btn ${isStarredByMe ? 'starred' : ''}`}
             onClick={onToggleStar}
-            title={conversation.starred ? 'Unstar' : 'Star'}
-            aria-label={conversation.starred ? 'Unstar' : 'Star'}
+            title={isStarredByMe ? 'Unstar' : 'Star'}
+            aria-label={isStarredByMe ? 'Unstar' : 'Star'}
           >
             <Icon name="star" size={14} />
           </button>

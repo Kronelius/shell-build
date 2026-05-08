@@ -1,3 +1,16 @@
+// v33: Per-user read state and per-user pin/star. Two coordinated changes that
+// make user-switching reflect each user's perspective for the demo:
+//   1. message.readAt (single global timestamp) → message.readByUserIds[]
+//      (set of user ids who've marked the message read). Selectors gain an
+//      `authorUserId !== uid` guard so authors don't show their own sends as
+//      unread without needing to populate readByUserIds with themselves.
+//   2. conversation.starred (single boolean) → conversation.starredByUserIds[]
+//      so each user maintains their own pinned list. Mute already followed
+//      this pattern (mutedByUserIds) — we're catching star up.
+// Migration backfills both shapes from the old fields (read messages get all
+// active users; previously-starred threads get the saved currentUserId so the
+// user who pinned them keeps their pin).
+//
 // v29: Persistent in-app notifications. Adds top-level `state.notifications`
 // (per-user, sorted newest-first) for the bell-icon notifications panel.
 // Purely additive — empty array on existing states.
@@ -55,7 +68,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v32';
+const STORAGE_KEY = 'pp.store.v33';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.
@@ -339,6 +352,32 @@ function migrateV28toV29(state) {
   return { ...state, version: 29, notifications: Array.isArray(state.notifications) ? state.notifications : [] };
 }
 
+// v33: Per-user read state + per-user pin. Backfills:
+//   - message.readByUserIds: if the old readAt was set, treat the message as
+//     read by every active staff user (the original semantic was "the team has
+//     marked this read"). Otherwise empty list. The old readAt field is
+//     dropped from the row.
+//   - conversation.starredByUserIds: previously-starred threads are pinned for
+//     the saved currentUserId (the user who would have toggled it). Other
+//     users get an empty pin list. The old starred boolean is dropped.
+function migrateV29toV33(state) {
+  const allActiveIds = (state.users || [])
+    .filter((u) => u.status === 'active')
+    .map((u) => u.id);
+  const pinnerId = state.currentUserId || (state.users || [])[0]?.id || null;
+  const messages = (state.messages || []).map((m) => {
+    const { readAt, ...rest } = m;
+    if (Array.isArray(rest.readByUserIds)) return rest;
+    return { ...rest, readByUserIds: readAt ? [...allActiveIds] : [] };
+  });
+  const conversations = (state.conversations || []).map((c) => {
+    const { starred, ...rest } = c;
+    if (Array.isArray(rest.starredByUserIds)) return rest;
+    return { ...rest, starredByUserIds: starred && pinnerId ? [pinnerId] : [] };
+  });
+  return { ...state, version: 33, messages, conversations };
+}
+
 // v28: Per-user notification preferences. Backfills DEFAULT_NOTIFICATION_PREFS
 // onto every existing user, merging with any pre-existing prefs (so a manually-
 // seeded fixture isn't clobbered). The reminders settings page was deleted at
@@ -396,87 +435,101 @@ function migrateV24toV25(state) {
   return { ...state, version: 25, conversations };
 }
 
+// Compose the v29 → v33 step on top of any earlier migration chain. v29 is
+// the last numbered shape change before v33 (intermediate v30/v31/v32 storage
+// keys existed but never bumped state.version), so this single hop covers all
+// stored states from v17 through v32.
+const toLatest = (s) => migrateV29toV33(migrateV28toV29(s));
+
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 30) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 33) return parsed;
     }
-    // Attempt v28 → v29 migration
+    // Stale-key direct accepts: prior storage keys (v28-v32) parked here as
+    // version=29-shaped data. Run only the v29→v33 hop.
+    for (const key of ['pp.store.v32', 'pp.store.v31', 'pp.store.v30', 'pp.store.v29']) {
+      const r = window.localStorage.getItem(key);
+      if (!r) continue;
+      const parsed = JSON.parse(r);
+      if (parsed && typeof parsed === 'object') return migrateV29toV33(parsed);
+    }
+    // Attempt v28 → v29 → v33 migration
     const v28Raw = window.localStorage.getItem('pp.store.v28');
     if (v28Raw) {
       const v28 = JSON.parse(v28Raw);
-      if (v28 && typeof v28 === 'object' && v28.version === 28) return migrateV28toV29(v28);
+      if (v28 && typeof v28 === 'object' && v28.version === 28) return toLatest(v28);
     }
-    // Attempt v27 → v28 → v29 migration chain
+    // Attempt v27 → v28 → ... → v33 migration chain
     const v27Raw = window.localStorage.getItem('pp.store.v27');
     if (v27Raw) {
       const v27 = JSON.parse(v27Raw);
-      if (v27 && typeof v27 === 'object' && v27.version === 27) return migrateV28toV29(migrateV27toV28(v27));
+      if (v27 && typeof v27 === 'object' && v27.version === 27) return toLatest(migrateV27toV28(v27));
     }
-    // Attempt v26 → v27 → v28 → v29 migration chain
+    // Attempt v26 → v27 → ... → v33 migration chain
     const v26Raw = window.localStorage.getItem('pp.store.v26');
     if (v26Raw) {
       const v26 = JSON.parse(v26Raw);
-      if (v26 && typeof v26 === 'object' && v26.version === 26) return migrateV28toV29(migrateV27toV28(migrateV26toV27(v26)));
+      if (v26 && typeof v26 === 'object' && v26.version === 26) return toLatest(migrateV27toV28(migrateV26toV27(v26)));
     }
-    // Attempt v25 → v26 → v27 → v28 → v29 migration chain
+    // Attempt v25 → v26 → ... → v33 migration chain
     const v25Raw = window.localStorage.getItem('pp.store.v25');
     if (v25Raw) {
       const v25 = JSON.parse(v25Raw);
-      if (v25 && typeof v25 === 'object' && v25.version === 25) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(v25))));
+      if (v25 && typeof v25 === 'object' && v25.version === 25) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(v25))));
     }
-    // Attempt v24 → v25 → v26 → v27 → v28 → v29 migration chain
+    // Attempt v24 → v25 → ... → v33 migration chain
     const v24Raw = window.localStorage.getItem('pp.store.v24');
     if (v24Raw) {
       const v24 = JSON.parse(v24Raw);
-      if (v24 && typeof v24 === 'object' && v24.version === 24) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(v24)))));
+      if (v24 && typeof v24 === 'object' && v24.version === 24) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(v24)))));
     }
-    // Attempt v23 → v24 → v25 → v26 → v27 → v28 → v29 migration chain
+    // Attempt v23 → v24 → ... → v33 migration chain
     const v23Raw = window.localStorage.getItem('pp.store.v23');
     if (v23Raw) {
       const v23 = JSON.parse(v23Raw);
-      if (v23 && typeof v23 === 'object' && v23.version === 23) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(v23))))));
+      if (v23 && typeof v23 === 'object' && v23.version === 23) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(v23))))));
     }
-    // Attempt v22 → v23 → v24 → v25 → v26 → v27 → v28 → v29 migration chain
+    // Attempt v22 → v23 → ... → v33 migration chain
     const v22Raw = window.localStorage.getItem('pp.store.v22');
     if (v22Raw) {
       const v22 = JSON.parse(v22Raw);
-      if (v22 && typeof v22 === 'object' && v22.version === 22) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(v22)))))));
+      if (v22 && typeof v22 === 'object' && v22.version === 22) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(v22)))))));
     }
-    // Attempt v21 → ... → v29 migration chain
+    // Attempt v21 → ... → v33 migration chain
     const v21Raw = window.localStorage.getItem('pp.store.v21');
     if (v21Raw) {
       const v21 = JSON.parse(v21Raw);
-      if (v21 && typeof v21 === 'object' && v21.version === 21) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(v21))))))));
+      if (v21 && typeof v21 === 'object' && v21.version === 21) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(v21))))))));
     }
-    // Attempt v20 → ... → v29 migration chain
+    // Attempt v20 → ... → v33 migration chain
     const v20Raw = window.localStorage.getItem('pp.store.v20');
     if (v20Raw) {
       const v20 = JSON.parse(v20Raw);
-      if (v20 && typeof v20 === 'object' && v20.version === 20) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(v20)))))))));
+      if (v20 && typeof v20 === 'object' && v20.version === 20) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(v20)))))))));
     }
-    // Attempt v19 → ... → v29 migration chain
+    // Attempt v19 → ... → v33 migration chain
     const v19Raw = window.localStorage.getItem('pp.store.v19');
     if (v19Raw) {
       const v19 = JSON.parse(v19Raw);
-      if (v19 && typeof v19 === 'object' && v19.version === 19) return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19))))))))));
+      if (v19 && typeof v19 === 'object' && v19.version === 19) return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(v19))))))))));
     }
-    // Attempt v18 → ... → v29 migration chain
+    // Attempt v18 → ... → v33 migration chain
     const v18Raw = window.localStorage.getItem('pp.store.v18');
     if (v18Raw) {
       const v18 = JSON.parse(v18Raw);
       if (v18 && typeof v18 === 'object' && v18.version === 18) {
-        return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)))))))))));
+        return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(v18)))))))))));
       }
     }
-    // Attempt v17 → ... → v29 migration chain
+    // Attempt v17 → ... → v33 migration chain
     const v17Raw = window.localStorage.getItem('pp.store.v17');
     if (v17Raw) {
       const v17 = JSON.parse(v17Raw);
       if (v17 && typeof v17 === 'object' && v17.version === 17) {
-        return migrateV28toV29(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))))))))))));
+        return toLatest(migrateV27toV28(migrateV26toV27(migrateV25toV26(migrateV24toV25(migrateV23toV24(migrateV22toV23(migrateV21toV22(migrateV20toV21(migrateV19toV20(migrateV18toV19(migrateV17toV18(v17))))))))))));
       }
     }
     return null;

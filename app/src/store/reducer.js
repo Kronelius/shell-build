@@ -5,6 +5,12 @@ import { newId } from '../lib/ids';
 import { nowIso } from '../lib/dates';
 import { expandRecurrence } from '../lib/recurrence';
 import { INITIAL_STATE } from '../data/seed';
+import {
+  resolveMessageEvent,
+  previewMessageBody,
+  buildMessageNotificationTitle,
+  isNotificationVisibleForUser,
+} from '../lib/notifications';
 
 export const ACTIONS = {
   RESET: 'RESET',
@@ -726,7 +732,7 @@ export function reducer(state, action) {
         createdByUserId: action.conversation?.createdByUserId ?? state.currentUserId ?? null,
         status: 'open',
         snoozedUntil: null,
-        starred: false,
+        starredByUserIds: [],
         mutedByUserIds: [],
       };
       return { ...state, conversations: [...state.conversations, { ...base, ...action.conversation }] };
@@ -756,7 +762,7 @@ export function reducer(state, action) {
         createdByUserId: state.currentUserId || null,
         status: 'open',
         snoozedUntil: null,
-        starred: false,
+        starredByUserIds: [],
         mutedByUserIds: [],
       };
       return { ...state, conversations: [...state.conversations, conversation] };
@@ -789,10 +795,11 @@ export function reducer(state, action) {
         createdByUserId: creatorId,
         status: 'open',
         snoozedUntil: null,
-        starred: false,
+        starredByUserIds: [],
         mutedByUserIds: [],
       };
       const firstBody = (action.firstMessage || '').trim();
+      const seedAuthorId = action.authorUserId || state.currentUserId || null;
       const messages = firstBody
         ? [
             ...state.messages,
@@ -801,10 +808,10 @@ export function reducer(state, action) {
               conversationId: id,
               direction: 'internal',
               text: firstBody,
-              authorUserId: action.authorUserId || state.currentUserId || null,
+              authorUserId: seedAuthorId,
               snippetId: null,
               sentAt: now,
-              readAt: null,
+              readByUserIds: seedAuthorId ? [seedAuthorId] : [],
             },
           ]
         : state.messages;
@@ -817,43 +824,109 @@ export function reducer(state, action) {
     case ACTIONS.UPDATE_CONVERSATION:
       return { ...state, conversations: replaceById(state.conversations, action.id, action.patch) };
     case ACTIONS.ADD_MESSAGE: {
+      const incoming = action.message || {};
+      // Auto-mark the message read for whoever wrote it — they don't need to
+      // see their own send as unread. External inbound messages (no author)
+      // start with an empty list so every user sees them as unread.
+      const seedReadBy = Array.isArray(incoming.readByUserIds)
+        ? incoming.readByUserIds
+        : (incoming.authorUserId ? [incoming.authorUserId] : []);
       const base = {
         id: newId('m'), direction: 'out', sentAt: nowIso(),
-        readAt: null, authorUserId: null, snippetId: null,
+        authorUserId: null, snippetId: null,
       };
-      const msg = { ...base, ...action.message };
+      const msg = { ...base, ...incoming, readByUserIds: seedReadBy };
+
+      // Fan out a per-recipient notification row for everyone who should be
+      // pinged. Stamping at send time (not at the viewer's listener) means
+      // switching users surfaces their own inbox correctly. Toast + tab title
+      // remain the listener's responsibility — for the current viewer only.
+      const conv = state.conversations.find((c) => c.id === msg.conversationId);
+      const recipientIds = (() => {
+        if (!conv) return [];
+        if (conv.channel === 'dm' || conv.channel === 'internal') {
+          return (conv.participantUserIds || []).filter((uid) => uid !== msg.authorUserId);
+        }
+        // External (sms/email): every active user with messaging permission is a
+        // potential recipient. The visibility/prefs gate inside the loop strips
+        // the rest. authorUserId guard skips the sender on outbound replies.
+        return (state.users || [])
+          .filter((u) => u.status === 'active' && u.id !== msg.authorUserId)
+          .map((u) => u.id);
+      })();
+
+      const NOTIFICATION_LIMIT_PER_USER = 200;
+      let notifications = state.notifications || [];
+      const stamp = nowIso();
+      for (const recipientId of recipientIds) {
+        const user = (state.users || []).find((u) => u.id === recipientId);
+        if (!user) continue;
+        const eventKey = resolveMessageEvent(msg, conv, recipientId);
+        if (!eventKey) continue;
+        if ((user.notificationPrefs || {})[eventKey] !== true) continue;
+        if (!isNotificationVisibleForUser(eventKey, user, state.permissions, state.userPermissionOverrides)) continue;
+        const title = buildMessageNotificationTitle(eventKey, msg, conv, state.users);
+        const row = {
+          id: newId('nt'),
+          createdAt: stamp,
+          readAt: null,
+          userId: recipientId,
+          eventKey,
+          title,
+          body: previewMessageBody(msg.text || msg.body),
+          url: `/messaging/${msg.conversationId}`,
+        };
+        const sameUser = notifications.filter((n) => n.userId === recipientId);
+        const others = notifications.filter((n) => n.userId !== recipientId);
+        notifications = [...[row, ...sameUser].slice(0, NOTIFICATION_LIMIT_PER_USER), ...others];
+      }
+
       return {
         ...state,
         messages: [...state.messages, msg],
         // Keep conversation.lastMessageAt in sync so thread list sorts correctly.
         conversations: replaceById(state.conversations, msg.conversationId, { lastMessageAt: msg.sentAt }),
+        notifications,
       };
     }
     case ACTIONS.MARK_CONVERSATION_READ: {
-      const t = nowIso();
       const conv = state.conversations.find((c) => c.id === action.id);
       const uid = action.currentUserId || state.currentUserId;
+      if (!uid) return state;
       const isDm = conv?.channel === 'dm';
       return {
         ...state,
         messages: state.messages.map((m) => {
-          if (m.conversationId !== action.id || m.readAt) return m;
+          if (m.conversationId !== action.id) return m;
+          // Skip messages the viewer authored — own sends are always read.
+          if (m.authorUserId === uid) return m;
+          // For DMs, only flip messages authored by the other participant. For
+          // external/internal, only flip inbound (direction='in') for external
+          // and any non-author message for internal.
           if (isDm) {
-            return m.authorUserId && m.authorUserId !== uid ? { ...m, readAt: t } : m;
+            if (!m.authorUserId || m.authorUserId === uid) return m;
+          } else if (conv?.channel !== 'internal' && m.direction !== 'in') {
+            return m;
           }
-          return m.direction === 'in' ? { ...m, readAt: t } : m;
+          const list = m.readByUserIds || [];
+          if (list.includes(uid)) return m;
+          return { ...m, readByUserIds: [...list, uid] };
         }),
       };
     }
     case ACTIONS.MARK_CONVERSATION_UNREAD: {
-      // Unset readAt on the most recent inbound (or DM-from-other) message so the thread surfaces again.
+      // Drop the viewer from readByUserIds on the most recent message they'd
+      // count as unread, so the thread surfaces again with one unread badge.
       const conv = state.conversations.find((c) => c.id === action.id);
       const uid = action.currentUserId || state.currentUserId;
+      if (!uid) return state;
       const isDm = conv?.channel === 'dm';
       const candidates = state.messages
         .filter((m) => {
           if (m.conversationId !== action.id) return false;
-          if (isDm) return m.authorUserId && m.authorUserId !== uid;
+          if (m.authorUserId === uid) return false;
+          if (isDm) return Boolean(m.authorUserId) && m.authorUserId !== uid;
+          if (conv?.channel === 'internal') return m.authorUserId !== uid;
           return m.direction === 'in';
         })
         .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
@@ -861,7 +934,11 @@ export function reducer(state, action) {
       if (!target) return state;
       return {
         ...state,
-        messages: state.messages.map((m) => (m.id === target.id ? { ...m, readAt: null } : m)),
+        messages: state.messages.map((m) =>
+          m.id === target.id
+            ? { ...m, readByUserIds: (m.readByUserIds || []).filter((u) => u !== uid) }
+            : m
+        ),
       };
     }
     case ACTIONS.DELETE_CONVERSATION: {
@@ -908,9 +985,17 @@ export function reducer(state, action) {
       return { ...state, conversations: replaceById(state.conversations, action.id, { status: 'open', snoozedUntil: null }) };
 
     case ACTIONS.TOGGLE_CONVERSATION_STAR: {
+      // Per-user pin: toggle membership of the current viewer in
+      // starredByUserIds so each user maintains their own pinned list.
       const existing = state.conversations.find((c) => c.id === action.id);
       if (!existing) return state;
-      return { ...state, conversations: replaceById(state.conversations, action.id, { starred: !existing.starred }) };
+      const uid = action.userId || state.currentUserId;
+      if (!uid) return state;
+      const current = existing.starredByUserIds || [];
+      const next = current.includes(uid)
+        ? current.filter((u) => u !== uid)
+        : [...current, uid];
+      return { ...state, conversations: replaceById(state.conversations, action.id, { starredByUserIds: next }) };
     }
     case ACTIONS.TOGGLE_CONVERSATION_MUTE: {
       const existing = state.conversations.find((c) => c.id === action.id);
@@ -925,19 +1010,25 @@ export function reducer(state, action) {
     case ACTIONS.BULK_MARK_CONVERSATIONS_READ: {
       const set = new Set(action.ids || []);
       if (set.size === 0) return state;
-      const t = nowIso();
       const uid = action.currentUserId || state.currentUserId;
-      const dmIds = new Set(
-        state.conversations.filter((c) => set.has(c.id) && c.channel === 'dm').map((c) => c.id)
+      if (!uid) return state;
+      const channelByConv = new Map(
+        state.conversations.filter((c) => set.has(c.id)).map((c) => [c.id, c.channel])
       );
       return {
         ...state,
         messages: state.messages.map((m) => {
-          if (!set.has(m.conversationId) || m.readAt) return m;
-          if (dmIds.has(m.conversationId)) {
-            return m.authorUserId && m.authorUserId !== uid ? { ...m, readAt: t } : m;
+          if (!set.has(m.conversationId)) return m;
+          if (m.authorUserId === uid) return m;
+          const channel = channelByConv.get(m.conversationId);
+          if (channel === 'dm') {
+            if (!m.authorUserId || m.authorUserId === uid) return m;
+          } else if (channel !== 'internal' && m.direction !== 'in') {
+            return m;
           }
-          return m.direction === 'in' ? { ...m, readAt: t } : m;
+          const list = m.readByUserIds || [];
+          if (list.includes(uid)) return m;
+          return { ...m, readByUserIds: [...list, uid] };
         }),
       };
     }
@@ -945,17 +1036,20 @@ export function reducer(state, action) {
       const set = new Set(action.ids || []);
       if (set.size === 0) return state;
       const uid = action.currentUserId || state.currentUserId;
-      const dmIds = new Set(
-        state.conversations.filter((c) => set.has(c.id) && c.channel === 'dm').map((c) => c.id)
+      if (!uid) return state;
+      const channelByConv = new Map(
+        state.conversations.filter((c) => set.has(c.id)).map((c) => [c.id, c.channel])
       );
-      // Clear readAt on each conversation's most recent inbound (or DM-from-other) message.
+      // Drop the viewer from readByUserIds on each conv's most recent unread-eligible message.
       const targets = new Set();
       set.forEach((convId) => {
-        const isDm = dmIds.has(convId);
+        const channel = channelByConv.get(convId);
         const candidates = state.messages
           .filter((m) => {
             if (m.conversationId !== convId) return false;
-            if (isDm) return m.authorUserId && m.authorUserId !== uid;
+            if (m.authorUserId === uid) return false;
+            if (channel === 'dm') return Boolean(m.authorUserId) && m.authorUserId !== uid;
+            if (channel === 'internal') return m.authorUserId !== uid;
             return m.direction === 'in';
           })
           .sort((a, b) => (a.sentAt < b.sentAt ? 1 : -1));
@@ -963,7 +1057,11 @@ export function reducer(state, action) {
       });
       return {
         ...state,
-        messages: state.messages.map((m) => (targets.has(m.id) ? { ...m, readAt: null } : m)),
+        messages: state.messages.map((m) =>
+          targets.has(m.id)
+            ? { ...m, readByUserIds: (m.readByUserIds || []).filter((u) => u !== uid) }
+            : m
+        ),
       };
     }
     case ACTIONS.BULK_DELETE_CONVERSATIONS: {
@@ -1565,7 +1663,7 @@ export function reducer(state, action) {
           createdByUserId: null,
           status: 'open',
           snoozedUntil: null,
-          starred: false,
+          starredByUserIds: [],
           mutedByUserIds: [],
         };
         conversations = [...state.conversations, newConv];
@@ -1577,7 +1675,7 @@ export function reducer(state, action) {
         direction: 'in',
         text: action.body || '',
         sentAt: now,
-        readAt: null,
+        readByUserIds: [],
         authorUserId: null,
         snippetId: null,
         deliveryStatus: 'received',
@@ -1668,7 +1766,7 @@ export function reducer(state, action) {
             createdByUserId: null,                  // inbound — no human creator
             status: 'open',
             snoozedUntil: null,
-            starred: false,
+            starredByUserIds: [],
             mutedByUserIds: [],
           };
           conversations = [...state.conversations, newConv];
@@ -1681,7 +1779,7 @@ export function reducer(state, action) {
         direction: 'in',
         text: body,
         sentAt: now,
-        readAt: null,
+        readByUserIds: [],
         authorUserId: null,
         snippetId: null,
         deliveryStatus: 'received',

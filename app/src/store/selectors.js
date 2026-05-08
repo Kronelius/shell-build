@@ -556,7 +556,10 @@ export function selectDashboardStats(s) {
 
   const activeClients = s.clients.filter((c) => c.status === 'active').length;
 
-  const unreadMessages = s.messages.filter((m) => m.direction === 'in' && !m.readAt).length;
+  const uid = s.currentUserId;
+  const unreadMessages = s.messages.filter((m) =>
+    m.direction === 'in' && !(m.readByUserIds || []).includes(uid)
+  ).length;
 
   return {
     jobsToday: jobsToday.length,
@@ -668,12 +671,21 @@ export function selectUnreadForConversation(s, conversationId) {
   if (!conv) return 0;
   const uid = s.currentUserId;
   if (Array.isArray(conv.mutedByUserIds) && conv.mutedByUserIds.includes(uid)) return 0;
+  const isUnreadForViewer = (m) =>
+    m.authorUserId !== uid && !(m.readByUserIds || []).includes(uid);
   if (conv.channel === 'dm') {
     return s.messages.filter(
-      (m) => m.conversationId === conversationId && m.authorUserId && m.authorUserId !== uid && !m.readAt
+      (m) => m.conversationId === conversationId && Boolean(m.authorUserId) && isUnreadForViewer(m)
     ).length;
   }
-  return s.messages.filter((m) => m.conversationId === conversationId && m.direction === 'in' && !m.readAt).length;
+  if (conv.channel === 'internal') {
+    return s.messages.filter(
+      (m) => m.conversationId === conversationId && isUnreadForViewer(m)
+    ).length;
+  }
+  return s.messages.filter(
+    (m) => m.conversationId === conversationId && m.direction === 'in' && isUnreadForViewer(m)
+  ).length;
 }
 
 // ---------- Messaging inbox helpers (Phase 2a) ----------
