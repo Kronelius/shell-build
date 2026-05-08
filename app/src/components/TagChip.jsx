@@ -1,12 +1,13 @@
-// Small pill rendering a single tag. Uses existing Badge color tokens.
+// Small pill rendering a single tag. Color conventions removed — every tag
+// reads with the same neutral chrome (matches GHL). The `tag.color` field
+// is left untouched in storage for forward/backward data compatibility.
 // onRemove (optional) renders an × affordance.
 
 export default function TagChip({ tag, onRemove, size = 'sm' }) {
   if (!tag) return null;
-  const cls = `tag-chip tag-${tag.color || 'slate'} ${size === 'xs' ? 'tag-xs' : ''}`;
+  const cls = `tag-chip ${size === 'xs' ? 'tag-xs' : ''}`;
   return (
     <span className={cls}>
-      <span className="tag-dot" aria-hidden />
       <span className="tag-label">{tag.label}</span>
       {onRemove && (
         <button
