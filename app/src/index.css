@@ -247,12 +247,14 @@ table tbody tr:nth-child(even) { background: var(--table-row-even); }
 table .name { font-weight: 600; color: var(--text-primary); }
 table .money { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 table tr:hover { background: var(--table-row-hover); }
+table td:has(.input) { padding: 6px 8px; }
+table td .input, table td select.input { padding: 7px 10px; }
 
 /* ── FORMS ── */
 .input, .select, textarea.input {
   width: 100%; padding: 9px 12px;
   border: 2px solid transparent; border-radius: var(--input-radius);
-  font-family: var(--font); font-size: 13px; color: var(--text-primary);
+  font-family: var(--font); font-size: 14px; color: var(--text-primary);
   background:
     linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
     var(--input-border-grad) border-box;
