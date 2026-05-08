@@ -49,7 +49,7 @@ function delay(ms) {
  * @param {Object} [args.headers] — extra MIME headers (e.g. { 'In-Reply-To', 'References', 'Message-ID' })
  * @param {string[]} [args.tags] — provider-side analytics tags
  */
-export async function sendEmail({ to, from, subject, body, replyTo, headers, tags }) {
+export async function sendEmail({ to, from, subject, body, replyTo, cc, bcc, headers, tags }) {
   if (!to) throw new Error('Recipient email is required.');
   if (!from) throw new Error('From email is required.');
   if (!subject) throw new Error('Subject is required.');
@@ -58,6 +58,8 @@ export async function sendEmail({ to, from, subject, body, replyTo, headers, tag
 
   if (BACKEND) {
     const payload = { to, from, subject, body, replyTo };
+    if (cc) payload.cc = cc;
+    if (bcc) payload.bcc = bcc;
     if (headers && typeof headers === 'object') payload.headers = headers;
     if (Array.isArray(tags) && tags.length) payload.tags = tags;
     const res = await fetch(`${BACKEND}/email/send`, {

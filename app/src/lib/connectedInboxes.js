@@ -203,13 +203,15 @@ export async function testInboxSend(inboxId, { to, subject, body }) {
 // Used by lib/messagingEmail.js (Phase 4b). Routes to the user's connected
 // inbox so the email originates from their real address. The backend picks
 // the right transport (Gmail API / Graph / SMTP) based on the inbox row.
-export async function sendViaInbox(inboxId, { to, from, subject, body, replyTo, headers, tags }) {
+export async function sendViaInbox(inboxId, { to, from, subject, body, replyTo, cc, bcc, headers, tags }) {
   if (!inboxId) throw new Error('Connected inbox id is required.');
   if (!to) throw new Error('Recipient email is required.');
   if (!subject) throw new Error('Subject is required.');
   if (!body || !body.trim()) throw new Error('Body is empty.');
   if (BACKEND) {
     const payload = { to, from, subject, body, replyTo };
+    if (cc) payload.cc = cc;
+    if (bcc) payload.bcc = bcc;
     if (headers && typeof headers === 'object') payload.headers = headers;
     if (Array.isArray(tags) && tags.length) payload.tags = tags;
     const res = await fetch(`${BACKEND}/inbox/${encodeURIComponent(inboxId)}/send`, {

@@ -49,6 +49,10 @@ function EmailModal({ message, contact, onClose, onReply }) {
   const { fromLabel, fromAddr, toAddr } = emailMeta(message, contact, author);
   const [replyText, setReplyText] = useState('');
   const [replyAttachments, setReplyAttachments] = useState([]);
+  const [replyCc, setReplyCc] = useState('');
+  const [replyBcc, setReplyBcc] = useState('');
+  const [showReplyCc, setShowReplyCc] = useState(false);
+  const [showReplyBcc, setShowReplyBcc] = useState(false);
   const fileRef = useRef(null);
 
   const handleAttach = (e) => {
@@ -65,9 +69,19 @@ function EmailModal({ message, contact, onClose, onReply }) {
     const sub = message.emailSubject
       ? (message.emailSubject.match(/^Re:/i) ? message.emailSubject : `Re: ${message.emailSubject}`)
       : '';
-    onReply(replyText.trim(), { channel: 'email', subject: sub, attachments: replyAttachments });
+    onReply(replyText.trim(), {
+      channel: 'email',
+      subject: sub,
+      attachments: replyAttachments,
+      cc: replyCc.trim() || undefined,
+      bcc: replyBcc.trim() || undefined,
+    });
     setReplyText('');
     setReplyAttachments([]);
+    setReplyCc('');
+    setReplyBcc('');
+    setShowReplyCc(false);
+    setShowReplyBcc(false);
     onClose();
   };
 
@@ -108,9 +122,61 @@ function EmailModal({ message, contact, onClose, onReply }) {
         <div className="email-modal-body">{message.text}</div>
 
         <form className="email-modal-reply" onSubmit={handleSend}>
-          <div className="email-modal-reply-label">
+          <div className="email-modal-reply-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="mail" size={14} /> Reply
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, fontSize: 12 }}>
+              {!showReplyCc && (
+                <button type="button" className="btn-link" onClick={() => setShowReplyCc(true)}>Cc</button>
+              )}
+              {!showReplyBcc && (
+                <button type="button" className="btn-link" onClick={() => setShowReplyBcc(true)}>Bcc</button>
+              )}
+            </div>
           </div>
+          {showReplyCc && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="text-xs text-muted" style={{ minWidth: 40 }}>Cc:</span>
+              <input
+                type="text"
+                className="form-input"
+                style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+                placeholder="email1@example.com, email2@example.com"
+                value={replyCc}
+                onChange={(e) => setReplyCc(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => { setShowReplyCc(false); setReplyCc(''); }}
+                title="Hide Cc"
+                aria-label="Hide Cc"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          {showReplyBcc && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="text-xs text-muted" style={{ minWidth: 40 }}>Bcc:</span>
+              <input
+                type="text"
+                className="form-input"
+                style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+                placeholder="email1@example.com, email2@example.com"
+                value={replyBcc}
+                onChange={(e) => setReplyBcc(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => { setShowReplyBcc(false); setReplyBcc(''); }}
+                title="Hide Bcc"
+                aria-label="Hide Bcc"
+              >
+                ×
+              </button>
+            </div>
+          )}
           <textarea
             className="email-modal-reply-input"
             placeholder="Type your reply…"
@@ -246,6 +312,13 @@ export default function ConversationMessagePanel({
   const [selectedInboxId, setSelectedInboxId] = useState(defaultInboxId || null);
   const [composeAttachments, setComposeAttachments] = useState([]);
   const composeFileRef = useRef(null);
+  // Cc/Bcc — hidden by default per Gmail/Outlook convention; user toggles
+  // them in via small links next to Subject. Reset on conversation change
+  // and on send so the next compose starts clean.
+  const [composeCc, setComposeCc] = useState('');
+  const [composeBcc, setComposeBcc] = useState('');
+  const [showComposeCc, setShowComposeCc] = useState(false);
+  const [showComposeBcc, setShowComposeBcc] = useState(false);
 
   // Whether SMS↔Email toggle should appear at all on this thread. Only on
   // external (sms/email) channels with a linked contact who has both modes.
@@ -322,6 +395,10 @@ export default function ConversationMessagePanel({
     setDraft('');
     setSnippetId(null);
     setComposeAttachments([]);
+    setComposeCc('');
+    setComposeBcc('');
+    setShowComposeCc(false);
+    setShowComposeBcc(false);
   }, [conversation?.id]);
 
   // Whether the Send button should be disabled. Email channel is gated on
@@ -385,10 +462,16 @@ export default function ConversationMessagePanel({
       subject: composeChannel === 'email' ? subject.trim() : undefined,
       inboxId: composeChannel === 'email' ? selectedInboxId : undefined,
       attachments: composeChannel === 'email' ? composeAttachments : undefined,
+      cc: composeChannel === 'email' && composeCc.trim() ? composeCc.trim() : undefined,
+      bcc: composeChannel === 'email' && composeBcc.trim() ? composeBcc.trim() : undefined,
     });
     setDraft('');
     setSnippetId(null);
     setComposeAttachments([]);
+    setComposeCc('');
+    setComposeBcc('');
+    setShowComposeCc(false);
+    setShowComposeBcc(false);
     // Keep Subject populated as "Re: …" for the next reply, but clear it on
     // the FIRST send (since the next send is now a reply, not a new thread).
     if (composeChannel === 'email' && subject.trim()) {
@@ -557,7 +640,59 @@ export default function ConversationMessagePanel({
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
               />
+              <div style={{ display: 'flex', gap: 6, fontSize: 12 }}>
+                {!showComposeCc && (
+                  <button type="button" className="btn-link" onClick={() => setShowComposeCc(true)}>Cc</button>
+                )}
+                {!showComposeBcc && (
+                  <button type="button" className="btn-link" onClick={() => setShowComposeBcc(true)}>Bcc</button>
+                )}
+              </div>
             </div>
+            {showComposeCc && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="text-xs text-muted" style={{ minWidth: 80 }}>Cc:</span>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+                  placeholder="email1@example.com, email2@example.com"
+                  value={composeCc}
+                  onChange={(e) => setComposeCc(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => { setShowComposeCc(false); setComposeCc(''); }}
+                  title="Hide Cc"
+                  aria-label="Hide Cc"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {showComposeBcc && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="text-xs text-muted" style={{ minWidth: 80 }}>Bcc:</span>
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ flex: 1, padding: '4px 8px', fontSize: 13 }}
+                  placeholder="email1@example.com, email2@example.com"
+                  value={composeBcc}
+                  onChange={(e) => setComposeBcc(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => { setShowComposeBcc(false); setComposeBcc(''); }}
+                  title="Hide Bcc"
+                  aria-label="Hide Bcc"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {emailBlockers.length > 0 && (
               <div className="form-error" style={{ fontSize: 12, marginTop: 2 }}>
                 {emailBlockers.map((b) => b.label).join(' · ')}
