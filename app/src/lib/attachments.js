@@ -10,7 +10,7 @@ const DB_NAME = 'rfs-attachments';
 const DB_VERSION = 1;
 const STORE = 'invoiceAttachments';
 
-export const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 export const ATTACHMENT_ALLOWED_MIME = [
   'application/pdf',
   'image/png',

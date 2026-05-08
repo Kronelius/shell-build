@@ -6,9 +6,32 @@ import ChannelBadge from './ChannelBadge';
 import EmptyState from './EmptyState';
 import Icon from './Icon';
 import SnippetPicker from './SnippetPicker';
+import { useToast } from './Toast';
 import { useStore } from '../store';
 import { selectUserById, selectOtherParticipant } from '../store/selectors';
 import { fmtTime, fmtRelative } from '../lib/dates';
+import { ATTACHMENT_MAX_BYTES, formatBytes } from '../lib/attachments';
+
+// Filter selected files by size cap. Returns the kept files and reports the
+// rejected ones via a toast so the user knows what got dropped. Shared by
+// the EmailModal reply attach handler and the inline compose attach handler.
+function filterBySizeCap(files, toast) {
+  const kept = [];
+  const rejected = [];
+  for (const f of files) {
+    if (f.size > ATTACHMENT_MAX_BYTES) rejected.push(f);
+    else kept.push(f);
+  }
+  if (rejected.length > 0) {
+    const max = formatBytes(ATTACHMENT_MAX_BYTES);
+    if (rejected.length === 1) {
+      toast.error(`"${rejected[0].name}" is ${formatBytes(rejected[0].size)} — over the ${max} limit.`);
+    } else {
+      toast.error(`${rejected.length} files exceeded the ${max} per-file limit and were skipped.`);
+    }
+  }
+  return kept;
+}
 
 function initialsFor(contact) {
   if (!contact) return 'T';
@@ -45,6 +68,7 @@ function emailMeta(message, contact, author) {
 
 function EmailModal({ message, contact, onClose, onReply }) {
   const state = useStore();
+  const toast = useToast();
   const author = message.authorUserId ? selectUserById(state, message.authorUserId) : null;
   const { fromLabel, fromAddr, toAddr } = emailMeta(message, contact, author);
   const [replyText, setReplyText] = useState('');
@@ -56,8 +80,10 @@ function EmailModal({ message, contact, onClose, onReply }) {
   const fileRef = useRef(null);
 
   const handleAttach = (e) => {
-    const files = [...(e.target.files || [])];
-    setReplyAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
+    const files = filterBySizeCap([...(e.target.files || [])], toast);
+    if (files.length > 0) {
+      setReplyAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
+    }
     e.target.value = '';
   };
 
@@ -303,6 +329,7 @@ export default function ConversationMessagePanel({
   const scrollRef = useRef(null);
   const navigate = useNavigate();
   const nav = useFromHere();
+  const toast = useToast();
   const state = useStore();
 
   const composeChannel = composeChannelOverride || conversation?.channel || 'sms';
@@ -737,8 +764,10 @@ export default function ConversationMessagePanel({
                   <Icon name="paperclip" size={14} /> Attach
                 </button>
                 <input ref={composeFileRef} type="file" multiple hidden onChange={(e) => {
-                  const files = [...(e.target.files || [])];
-                  setComposeAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
+                  const files = filterBySizeCap([...(e.target.files || [])], toast);
+                  if (files.length > 0) {
+                    setComposeAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
+                  }
                   e.target.value = '';
                 }} />
               </>

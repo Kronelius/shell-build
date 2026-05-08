@@ -7,6 +7,7 @@ import {
   buildSampleContactCsv,
 } from '../lib/csv';
 import { newId } from '../lib/ids';
+import { ATTACHMENT_MAX_BYTES, formatBytes } from '../lib/attachments';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { useToast } from './Toast';
@@ -39,8 +40,8 @@ export default function CsvImportModal({ open, onClose }) {
 
   const handleFile = (file) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setParseError('File too large (max 5 MB).');
+    if (file.size > ATTACHMENT_MAX_BYTES) {
+      setParseError(`File too large (max ${formatBytes(ATTACHMENT_MAX_BYTES)}).`);
       return;
     }
     const reader = new FileReader();

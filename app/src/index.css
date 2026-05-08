@@ -1817,14 +1817,122 @@ select.input.input-ghost:focus {
 }
 
 /* Site cards */
-.site-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+/* Auto-fill grid capped at 5 columns. The minmax inner uses max() so the
+   per-column floor is the larger of (a) 240px and (b) the column width when
+   exactly 5 fit — that second value grows with the container, preventing a
+   sixth column from ever materializing while still letting cards expand to
+   fill wide layouts. Falls back to fewer columns on narrow viewports. */
+.site-grid {
+  --site-grid-cols: 5;
+  --site-grid-gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(240px, calc((100% - (var(--site-grid-cols) - 1) * var(--site-grid-gap)) / var(--site-grid-cols))), 1fr)
+  );
+  gap: var(--site-grid-gap);
+}
 .site-card {
+  position: relative;
   border: 1px solid var(--card-border); border-radius: var(--card-radius);
   padding: 12px; background: var(--card-bg); display: flex; flex-direction: column; gap: 6px;
+  /* Zero out the 14px margin-bottom inherited from .card — the grid uses its
+     own row gap, and the inherited margin would make real site-cards visually
+     14px shorter than the .site-card-ghost beside them. */
+  margin-bottom: 0;
 }
-.site-card h4 { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.site-card h4 { font-size: 13px; font-weight: 600; color: var(--text-primary); padding-right: 36px; }
 .site-card p { font-size: 12px; color: var(--text-muted); }
 .site-card .site-actions { margin-top: auto; display: flex; gap: 6px; }
+/* Whole-card click opens the Edit Site modal — same affordance the pencil
+   button used to give. The .site-card-delete sits absolutely in the top-
+   right corner (red fill, white bin) and stops propagation so it doesn't
+   also fire the row-level navigate. */
+.site-card.clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.site-card.clickable:hover {
+  border-color: rgba(var(--color-brand-primary-rgb), 0.35);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-1px);
+}
+.site-card-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: var(--color-text-on-primary);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(var(--color-neutral-rgb), 0.15);
+  transition: filter 0.12s, transform 0.1s;
+}
+.site-card-delete:hover { filter: brightness(0.95); }
+.site-card-delete:active { transform: scale(0.95); }
+
+/* Site attachment chip strip inside the AddSiteModal (rendered when the
+   modal is in edit mode and the viewer has sites.attachments). */
+.site-attachment-list {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 6px;
+}
+/* Inline indicator at the bottom of a site card showing attachment count. */
+.site-card-attachments {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 6px;
+}
+/* Read-only field display inside the AddSiteModal (when crew with only
+   sites.attachments opens a site — every non-attachment field renders as
+   plain text instead of an editable input so they can see context but only
+   the attachments section accepts edits). */
+.readonly-field {
+  padding: 7px 10px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--inset-bg);
+  border-radius: var(--input-radius);
+  word-break: break-word;
+}
+
+/* Ghost "Add Site" card sits as the last grid item — replaces the old
+   "Add Site" button in the section head with an inline affordance that
+   shifts position naturally as new sites get added. Dashed border + muted
+   text reads as "drop a new card here," and the whole card is one big
+   click target that opens the AddSiteModal. */
+.site-card-ghost {
+  /* Same footprint as a real .site-card so grid rows stay aligned. */
+  border: 2px dashed var(--border-mid);
+  border-radius: var(--card-radius);
+  background: transparent;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 130px;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--text-muted);
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+.site-card-ghost:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+.site-card-ghost:active { transform: translateY(0); }
+.site-card-ghost-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 
 /* Section head (inside detail cards) */
 .section-head {
@@ -2707,6 +2815,13 @@ tr.clickable:hover { background: var(--inset-bg); }
   font-size: 14px; font-weight: 600; color: var(--text-primary);
   margin-top: 4px;
 }
+
+/* Compose-side attachment chip pending Save (Notes tab) and the saved
+   chip displayed alongside the note body. Uses the existing
+   .email-attachment-chip skin so attachments read consistently across
+   the app. */
+.note-attachment-pending { margin: 6px 0 8px; }
+.note-item-attachment { margin-top: 6px; }
 
 /* Notes — per-note items with edit/delete */
 .note-list { display: flex; flex-direction: column; gap: 10px; }

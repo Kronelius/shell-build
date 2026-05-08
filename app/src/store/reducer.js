@@ -359,6 +359,7 @@ export function reducer(state, action) {
         kind: 'note',
         authorUserId,
         body: action.text,
+        attachment: action.attachment || null,
         occurredAt: now,
         createdAt: now,
       };
@@ -366,7 +367,8 @@ export function reducer(state, action) {
         ...state,
         clients: state.clients.map((c) => {
           if (c.id !== action.id) return c;
-          const entry = `[${stamp}] ${action.author ? action.author + ': ' : ''}${action.text}`;
+          const bodyLine = action.text || (action.attachment ? `📎 ${action.attachment.name}` : '');
+          const entry = `[${stamp}] ${action.author ? action.author + ': ' : ''}${bodyLine}`;
           const next = c.notes ? `${entry}\n\n${c.notes}` : entry;
           return { ...c, notes: next };
         }),

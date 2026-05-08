@@ -34,6 +34,7 @@ export const PERMISSIONS = {
   'clients.edit':            { label: 'Create / edit accounts',   defaultRoles: ['owner', 'admin'] },
   'clients.delete':          { label: 'Delete accounts',          defaultRoles: ['owner', 'admin'] },
   'sites.edit':              { label: 'Manage account sites',     defaultRoles: ['owner', 'admin'] },
+  'sites.attachments':       { label: 'Upload site attachments',  defaultRoles: ['owner', 'admin', 'crew'] },
   // ---------- Contacts (CRM) ----------
   'contacts.view':           { label: 'View Contacts',                    defaultRoles: ['owner', 'admin', 'crew'] },
   'contacts.edit':           { label: 'Create / edit contacts',           defaultRoles: ['owner', 'admin'] },
@@ -94,8 +95,12 @@ export function can(user, permKey, permissions, overrides) {
   if (ov?.revokes?.includes(permKey)) return false;
   if (ov?.grants?.includes(permKey)) return true;
   const record = permissions?.find((p) => p.id === permKey);
-  if (!record) return false;
-  return record.roles.includes(user.role);
+  // Fall back to the schema's defaultRoles when a key isn't yet in the live
+  // permissions list. This lets newly-added permission keys take effect on
+  // existing localStorage state without forcing a version bump + migration —
+  // user customizations in state still take precedence when the record exists.
+  const roles = record ? record.roles : (PERMISSIONS[permKey]?.defaultRoles || []);
+  return roles.includes(user.role);
 }
 
 // Resolve the effective set of permission keys for a user.

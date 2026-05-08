@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useFromHere } from '../hooks/useFromHere';
 import { useDispatch, useStore } from '../store';
@@ -27,6 +27,7 @@ import Select from '../components/Select';
 import Avatar from '../components/Avatar';
 import Icon from '../components/Icon';
 import { fmtDate, fmtTimeRange, fmtRelative, money } from '../lib/dates';
+import { ATTACHMENT_MAX_BYTES, formatBytes } from '../lib/attachments';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -47,6 +48,11 @@ export default function ClientDetail() {
   const canView = usePermission('clients.view');
   const canDeleteClient = usePermission('clients.delete');
   const canEditSites = usePermission('sites.edit');
+  const canAttachToSites = usePermission('sites.attachments');
+  // Either permission opens the site detail modal — the modal itself decides
+  // which fields are editable. This lets crew with attach-only access tap a
+  // card to upload photos without giving them full site-edit power.
+  const canOpenSite = canEditSites || canAttachToSites;
   const canEditContacts = usePermission('contacts.edit');
   const { currentUser } = useAuth();
 
@@ -76,6 +82,8 @@ export default function ClientDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [noteAttachment, setNoteAttachment] = useState(null);
+  const noteFileRef = useRef(null);
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState('');
@@ -140,15 +148,18 @@ export default function ClientDetail() {
   };
 
   const appendNote = () => {
-    if (!noteText.trim()) return;
+    if (!noteText.trim() && !noteAttachment) return;
     dispatch({
       type: ACTIONS.APPEND_CLIENT_NOTE,
       id: client.id,
       text: noteText.trim(),
       author: currentUser?.name,
       authorUserId: currentUser?.id,
+      attachment: noteAttachment,
     });
     setNoteText('');
+    setNoteAttachment(null);
+    if (noteFileRef.current) noteFileRef.current.value = '';
     toast.success('Note added');
   };
 
@@ -419,38 +430,52 @@ export default function ClientDetail() {
           <div className="section-head">
             <div>
               <h3 className="section-title">Sites ({sites.length})</h3>
-              <p className="text-muted text-sm">Every location you service for this client.</p>
+              <p className="text-muted text-sm">
+                Every location you service for this client.
+                {sites.length === 0 && canEditSites && ' Click the dashed card below to add your first site.'}
+              </p>
             </div>
-            {canEditSites && <button className="btn btn-primary btn-sm" onClick={() => setAddSiteOpen(true)}>Add Site</button>}
           </div>
-          {sites.length === 0 ? (
+          {sites.length === 0 && !canEditSites ? (
             <EmptyState
               icon={<Icon name="building" size={28} />}
               title="No sites yet"
-              message="Add the locations you clean for this client."
-              action={canEditSites && <button className="btn btn-primary" onClick={() => setAddSiteOpen(true)}>Add a site</button>}
+              message="Sites for this client will appear here once they're added."
             />
           ) : (
             <div className="site-grid">
               {sites.map((s) => {
                 const siteContact = s.siteContactId ? selectContactById(state, s.siteContactId) : null;
+                const attachmentCount = (s.attachments || []).length;
                 return (
-                  <div key={s.id} className="card site-card">
-                    <div className="site-card-head">
-                      <h4>{s.name}</h4>
-                      {canEditSites && (
-                        <div className="site-card-actions">
-                          <button className="btn-icon" aria-label="Edit" onClick={() => setEditSite(s)}><Icon name="edit" size={16} /></button>
-                          <button className="btn-icon btn-icon-danger" aria-label="Delete" onClick={() => setConfirmDeleteSite(s)}><Icon name="trash" size={16} /></button>
-                        </div>
-                      )}
-                    </div>
+                  <div
+                    key={s.id}
+                    className={`card site-card ${canOpenSite ? 'clickable' : ''}`}
+                    onClick={canOpenSite ? () => setEditSite(s) : undefined}
+                  >
+                    {canEditSites && (
+                      <button
+                        type="button"
+                        className="site-card-delete"
+                        aria-label={`Delete ${s.name}`}
+                        title="Delete site"
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteSite(s); }}
+                      >
+                        <Icon name="trash" size={14} />
+                      </button>
+                    )}
+                    <h4>{s.name}</h4>
                     <p className="text-sm text-body">{s.address}</p>
                     <div className="text-sm" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Icon name="user" size={14} />
                       <span className="text-muted">Contact:</span>
                       {siteContact ? (
-                        <Link className="link" to={`/contacts/${siteContact.id}`} state={nav}>
+                        <Link
+                          className="link"
+                          to={`/contacts/${siteContact.id}`}
+                          state={nav}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {siteContact.firstName} {siteContact.lastName}
                         </Link>
                       ) : (
@@ -458,9 +483,25 @@ export default function ClientDetail() {
                       )}
                     </div>
                     {s.accessNotes && <p className="text-muted text-sm" style={{ marginTop: 6 }}>Access: {s.accessNotes}</p>}
+                    {attachmentCount > 0 && (
+                      <div className="site-card-attachments text-xs text-muted">
+                        <Icon name="paperclip" size={11} />
+                        <span>{attachmentCount} attachment{attachmentCount === 1 ? '' : 's'}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+              {canEditSites && (
+                <button
+                  type="button"
+                  className="site-card-ghost"
+                  onClick={() => setAddSiteOpen(true)}
+                  aria-label="Add site"
+                >
+                  <span className="site-card-ghost-label">Add site</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -579,8 +620,56 @@ export default function ClientDetail() {
           {canView && (
             <div className="card" style={{ marginBottom: 16 }}>
               <FormField label="Add note" as="textarea" value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Arrival instructions, preferences, follow-ups…" />
+              {noteAttachment && (
+                <div className="note-attachment-pending">
+                  <span className="email-attachment-chip">
+                    <Icon name="paperclip" size={12} />
+                    <span>{noteAttachment.name}</span>
+                    <button
+                      type="button"
+                      className="email-attachment-remove"
+                      aria-label="Remove attachment"
+                      onClick={() => {
+                        setNoteAttachment(null);
+                        if (noteFileRef.current) noteFileRef.current.value = '';
+                      }}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                </div>
+              )}
+              <input
+                ref={noteFileRef}
+                type="file"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  if (f.size > ATTACHMENT_MAX_BYTES) {
+                    toast.error(`File too large (${formatBytes(f.size)}). Max ${formatBytes(ATTACHMENT_MAX_BYTES)}.`);
+                    e.target.value = '';
+                    return;
+                  }
+                  setNoteAttachment({ name: f.name, size: f.size, type: f.type });
+                }}
+              />
               <div className="modal-actions">
-                <button className="btn btn-primary" onClick={appendNote} disabled={!noteText.trim()}>Append Note</button>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={() => noteFileRef.current?.click()}
+                >
+                  Add Attachment
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={appendNote}
+                  disabled={!noteText.trim() && !noteAttachment}
+                >
+                  Save
+                </button>
               </div>
             </div>
           )}
@@ -620,7 +709,17 @@ export default function ClientDetail() {
                         </div>
                       </div>
                     ) : (
-                      <div className="note-item-body">{n.body}</div>
+                      <>
+                        {n.body && <div className="note-item-body">{n.body}</div>}
+                        {n.attachment && (
+                          <div className="note-item-attachment">
+                            <span className="email-attachment-chip">
+                              <Icon name="paperclip" size={12} />
+                              <span>{n.attachment.name}</span>
+                            </span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
