@@ -188,11 +188,6 @@ export default function Schedule() {
     <>
       <div className="page-head">
         <h1>Schedule</h1>
-        {canCreate && (
-          <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setModalOpen(true)}>
-            New Job
-          </button>
-        )}
       </div>
 
       <div className="schedule-toolbar">
@@ -218,6 +213,15 @@ export default function Schedule() {
           options={[{ value: 'all', label: 'All services' }, ...services.map((s) => ({ value: s.id, label: s.name }))]} />
         <FormField label="Team" as="select" value={filterUser} onChange={(e) => setParam('user', e.target.value, 'all')}
           options={[{ value: 'all', label: 'Everyone' }, ...users.map((u) => ({ value: u.id, label: u.name }))]} />
+        {canCreate && (
+          <button
+            type="button"
+            className="btn btn-success filter-bar-action"
+            onClick={() => setModalOpen(true)}
+          >
+            New Job
+          </button>
+        )}
       </div>
 
       {view === 'Day' && (
@@ -242,21 +246,26 @@ export default function Schedule() {
                       {hasConflict && <Icon name="warning" size={10} className="conflict-dot" />}
                     </div>
                     <div className="tl-card clickable" onClick={() => navigate(`/schedule/${job.id}`, { state: nav })}>
-                      <strong>{client?.name || '—'}</strong> — {service?.name || '—'}{' '}
-                      {job.status === 'done' && <Badge variant="green">Done</Badge>}
-                      {job.status === 'in_progress' && <Badge variant="amber">In Progress</Badge>}
-                      {(job.status === 'missed' || (job.status !== 'done' && job.status !== 'in_progress' && job.status !== 'cancelled' && new Date(job.startAt) < new Date())) && <Badge variant="red">Missed</Badge>}
-                      {job.status === 'cancelled' && <Badge variant="slate">Cancelled</Badge>}
-                      <br />
+                      <div className="tl-card-head">
+                        <div className="tl-card-title">
+                          <strong>{client?.name || '—'}</strong> &mdash; {service?.name || '—'}
+                        </div>
+                        <div className="tl-card-meta">
+                          {job.status === 'done' && <Badge variant="green">Done</Badge>}
+                          {job.status === 'in_progress' && <Badge variant="amber">In Progress</Badge>}
+                          {(job.status === 'missed' || (job.status !== 'done' && job.status !== 'in_progress' && job.status !== 'cancelled' && new Date(job.startAt) < new Date())) && <Badge variant="red">Missed</Badge>}
+                          {job.status === 'cancelled' && <Badge variant="slate">Cancelled</Badge>}
+                          {canCreate && job.status === 'upcoming' && (
+                            <button className="btn btn-outline btn-xs" onClick={(e) => { e.stopPropagation(); setRescheduleJob(job); }}>
+                              Reschedule
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <span className="text-xs text-muted">
                         {crew.map((u) => u.name.split(' ')[0]).join(', ') || 'Unassigned'}
                         {site ? ` • ${site.name}` : ''}
                       </span>
-                      {canCreate && job.status === 'upcoming' && (
-                        <button className="btn btn-outline btn-xs reschedule-btn" onClick={(e) => { e.stopPropagation(); setRescheduleJob(job); }}>
-                          Reschedule
-                        </button>
-                      )}
                     </div>
                   </div>
                 );

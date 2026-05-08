@@ -506,7 +506,7 @@ export function invoiceBalance(invoice) {
 // Generate the next invoice id following `<prefix>-<n>`. Mirrors the
 // reducer's internal allocator so callers can pre-compute an id (needed when
 // the same dispatch chain creates an invoice and then references it — e.g.
-// the Log Payment flow auto-creates a stub invoice and immediately appends a
+// the Record Payment flow auto-creates a stub invoice and immediately appends a
 // payment to it).
 export function nextInvoiceId(state) {
   const prefix = state.company.invoicePrefix || 'INV';

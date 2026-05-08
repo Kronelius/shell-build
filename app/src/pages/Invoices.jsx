@@ -122,12 +122,12 @@ export default function Invoices() {
         <div className="page-head-actions" style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {canPay && (
             <button className="btn btn-success" onClick={() => setPaymentModalOpen(true)}>
-              Log Payment
+              Record Payment
             </button>
           )}
           {canCreate && (
             <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-              Log Invoice
+              Add Invoice
             </button>
           )}
         </div>
@@ -165,7 +165,7 @@ export default function Invoices() {
 
       {filtered.length === 0 ? (
         invoices.length === 0 ? (
-          <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" message="Log your first invoice to start tracking payments." action={canCreate && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Log Invoice</button>} />
+          <EmptyState icon={<Icon name="invoices" size={28} />} title="No invoices yet" message="Add your first invoice to start tracking payments." action={canCreate && <button className="btn btn-primary" onClick={() => setModalOpen(true)}>Add Invoice</button>} />
         ) : (
           <EmptyState title="No matches" message="Try adjusting filters or date range." />
         )

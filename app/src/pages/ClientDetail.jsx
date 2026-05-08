@@ -529,7 +529,7 @@ export default function ClientDetail() {
                 <div className="section-head" style={{ marginBottom: 12 }}>
                   <span className="text-muted text-sm">Manual payment tracking</span>
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => setLogPaymentOpen(true)}>
-                    Log Payment
+                    Record Payment
                   </button>
                 </div>
               )}
@@ -538,7 +538,7 @@ export default function ClientDetail() {
                   icon={<Icon name="invoices" size={28} />}
                   title="No payment history"
                   message="Invoices and payments logged for this account will appear here."
-                  action={canRecordPayment && <button className="btn btn-primary" onClick={() => setLogPaymentOpen(true)}>Log Payment</button>}
+                  action={canRecordPayment && <button className="btn btn-primary" onClick={() => setLogPaymentOpen(true)}>Record Payment</button>}
                 />
               ) : (
                 <div className="activity-card-grid">

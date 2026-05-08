@@ -9,12 +9,10 @@ import EmptyState from '../../components/EmptyState';
 import Icon from '../../components/Icon';
 import TagChip from '../../components/TagChip';
 
-const COLORS = ['slate', 'blue', 'green', 'amber', 'red', 'purple'];
-const SCOPES = [
-  { value: 'contact', label: 'Contacts' },
-  { value: 'client',  label: 'Accounts' },
-  { value: 'all',     label: 'Both' },
-];
+// Color and scope inputs are removed from the UI: TagChip stopped reading
+// tag.color (every tag renders with neutral chrome to match GHL), and tags are
+// contact-only (no Accounts use case). The fields are still passed at create
+// time as stable defaults so any older code paths that read them keep working.
 
 export default function SettingsTags() {
   const state = useStore();
@@ -22,7 +20,7 @@ export default function SettingsTags() {
   const toast = useToast();
   const tags = selectTags(state);
 
-  const [draft, setDraft] = useState({ label: '', color: 'slate', scope: 'contact' });
+  const [draft, setDraft] = useState({ label: '' });
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
@@ -38,8 +36,8 @@ export default function SettingsTags() {
       toast.error('A tag with that label already exists');
       return;
     }
-    dispatch({ type: ACTIONS.ADD_TAG, tag: { label, color: draft.color, scope: draft.scope } });
-    setDraft({ label: '', color: 'slate', scope: 'contact' });
+    dispatch({ type: ACTIONS.ADD_TAG, tag: { label, color: 'slate', scope: 'contact' } });
+    setDraft({ label: '' });
     toast.success('Tag added');
   };
 
@@ -51,7 +49,7 @@ export default function SettingsTags() {
       toast.error('Another tag already uses that label');
       return;
     }
-    dispatch({ type: ACTIONS.UPDATE_TAG, id: t.id, patch: { label, color: t.color, scope: t.scope } });
+    dispatch({ type: ACTIONS.UPDATE_TAG, id: t.id, patch: { label } });
     setEditing(null);
     toast.success('Tag updated');
   };
@@ -70,35 +68,21 @@ export default function SettingsTags() {
         </p>
       </div>
 
-      <div className="card detail-card" style={{ marginBottom: 20 }}>
+      <div className="card detail-card" style={{ marginBottom: 20, maxWidth: 360 }}>
         <h3 className="dash-card-title">Add tag</h3>
-        <form className="form-row" onSubmit={addTag} style={{ alignItems: 'flex-end' }}>
+        <form className="tag-add-form" onSubmit={addTag}>
           <FormField
             label="Label"
             value={draft.label}
             onChange={(e) => setDraft({ ...draft, label: e.target.value })}
             placeholder="e.g., VIP, Net-30, Hot Lead"
           />
-          <FormField
-            label="Color"
-            as="select"
-            value={draft.color}
-            onChange={(e) => setDraft({ ...draft, color: e.target.value })}
-            options={COLORS.map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))}
-          />
-          <FormField
-            label="Scope"
-            as="select"
-            value={draft.scope}
-            onChange={(e) => setDraft({ ...draft, scope: e.target.value })}
-            options={SCOPES}
-          />
-          <button type="submit" className="btn btn-primary">Add</button>
+          <button type="submit" className="btn btn-primary tag-add-submit">Add</button>
         </form>
       </div>
 
-      <div className="card detail-card">
-        <h3 className="dash-card-title">All tags ({tags.length})</h3>
+      <div>
+        <h3 className="perm-group-head">All tags ({tags.length})</h3>
         {tags.length === 0 ? (
           <EmptyState title="No tags yet" message="Add your first tag above to start categorizing contacts." />
         ) : (
@@ -121,7 +105,7 @@ export default function SettingsTags() {
                     )}
                   </div>
                   <div className="mc-sub" style={{ gridColumn: '1 / span 4' }}>
-                    {SCOPES.find((s) => s.value === t.scope)?.label || t.scope} · {t.color} · {used} in use
+                    {used} in use
                   </div>
                   <div className="mc-meta">
                     {isEditing ? (
@@ -147,8 +131,6 @@ export default function SettingsTags() {
               <thead>
                 <tr>
                   <th>Tag</th>
-                  <th>Color</th>
-                  <th>Scope</th>
                   <th>In use</th>
                   <th></th>
                 </tr>
@@ -168,34 +150,6 @@ export default function SettingsTags() {
                           />
                         ) : (
                           <TagChip tag={t} size="sm" />
-                        )}
-                      </td>
-                      <td>
-                        {isEditing ? (
-                          <FormField
-                            label=""
-                            as="select"
-                            value={editing.color}
-                            onChange={(e) => setEditing({ ...editing, color: e.target.value })}
-                            options={COLORS.map((c) => ({ value: c, label: c }))}
-                          />
-                        ) : (
-                          <span className="text-sm text-muted">{t.color}</span>
-                        )}
-                      </td>
-                      <td>
-                        {isEditing ? (
-                          <FormField
-                            label=""
-                            as="select"
-                            value={editing.scope}
-                            onChange={(e) => setEditing({ ...editing, scope: e.target.value })}
-                            options={SCOPES}
-                          />
-                        ) : (
-                          <span className="text-sm text-muted">
-                            {SCOPES.find((s) => s.value === t.scope)?.label || t.scope}
-                          </span>
                         )}
                       </td>
                       <td className="text-sm text-muted">{used}</td>

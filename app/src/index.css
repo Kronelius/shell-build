@@ -245,10 +245,11 @@ table tr:last-child td { border-bottom: none; }
 table tbody tr:nth-child(odd)  { background: var(--table-row-odd); }
 table tbody tr:nth-child(even) { background: var(--table-row-even); }
 table .name { font-weight: 600; color: var(--text-primary); }
-table .money { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-table tr:hover { background: var(--table-row-hover); }
-table td:has(.input) { padding: 6px 8px; }
-table td .input, table td select.input { padding: 7px 10px; }
+/* Name+avatar links in table rows (e.g. settings/Team): strip the default <a>
+   underline so the avatar isn't visually decorated and the name reads as a row
+   label. Hover underlines just the name to keep the click affordance. */
+.table-name-link { text-decoration: none; color: inherit; }
+.table-name-link:hover .name { text-decoration: underline; }
 
 /* Crew picker (NewJobModal) — multi-select dropdown for crew assignment.
    Trigger row stays a single line: chips lay out left-to-right, no wrap; if
@@ -405,6 +406,26 @@ table td .input, table td select.input { padding: 7px 10px; }
   text-align: center;
 }
 
+/* Settings/Tags add-tag form — single-input row + compact Add button. Input
+   takes the available width; the button sits to its right, sized to its own
+   "Add" content (no fixed width fighting the layout) and bottom-aligned with
+   the input box so it lines up under the empty space the label leaves above. */
+.tag-add-form {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+.tag-add-form > .form-group { flex: 1; min-width: 0; margin-bottom: 0; }
+.tag-add-submit {
+  align-self: flex-end;
+  flex: 0 0 auto;
+  min-width: 88px;
+}
+table .money { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+table tr:hover { background: var(--table-row-hover); }
+table td:has(.input) { padding: 6px 8px; }
+table td .input, table td select.input { padding: 7px 10px; }
+
 /* ── FORMS ── */
 .input, .select, textarea.input {
   width: 100%; padding: 9px 12px;
@@ -551,6 +572,28 @@ select.input {
   border: 1px solid var(--tl-card-border);
   background: var(--tl-card-bg);
   box-shadow: var(--tl-card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* Top row of a timeline card: title (client — service) on the left,
+   right-rail meta column on the right (status badge, action buttons).
+   Mirrors the dashboard pattern of pushing badges to the row's right edge. */
+.tl-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tl-card-title {
+  flex: 1; min-width: 0;
+  font-size: 13px;
+  color: var(--text-body);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tl-card-meta {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
 }
 .tl-item.active .tl-dot { background: var(--primary); box-shadow: var(--tl-active-glow); }
 
@@ -1087,8 +1130,27 @@ select.input {
   display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
   background: var(--card-bg); border: 1px solid var(--card-border);
   border-radius: var(--card-radius); padding: 12px 14px;
+  align-items: flex-end;
+}
+/* Trailing action button inside a filter-bar (e.g. Schedule's "New Job"):
+   pushes itself to the far right and lifts vertically so its center matches
+   the dropdown input's center, not the input's bottom. Inputs are ~43px
+   tall, the button is ~32px — half the difference (≈5px) is added as
+   margin-bottom so flex-end alignment ends up centering the button on the
+   input row. */
+.filter-bar-action {
+  margin-left: auto;
+  flex-shrink: 0;
+  margin-bottom: 5px;
 }
 .filter-bar > * { min-width: 160px; flex: 0 1 auto; }
+/* Zero the form-group's default 14px margin-bottom inside the filter-bar so
+   align-items:flex-end actually lines up the input bottoms with siblings
+   like the trailing action button (whose border box has no margin to add).
+   Descendant selector (not direct child) so nested form-groups — e.g. the
+   Account search wrapped in .filter-client-search on the Invoices page —
+   align too. */
+.filter-bar .form-group { margin-bottom: 0; }
 .filter-bar > .filter-client-search { flex: 1 1 100%; min-width: 0; max-width: 480px; }
 .filter-bar > .filter-client-search > .form-group { width: 100%; }
 
@@ -1540,7 +1602,7 @@ select.input.input-ghost:focus {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 12px;
   border: 2px solid transparent; border-radius: var(--input-radius);
-  font-family: var(--font); font-size: 13px; color: var(--text-primary);
+  font-family: var(--font); font-size: 14px; color: var(--text-primary);
   background:
     linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
     var(--input-border-grad) border-box;
@@ -1622,7 +1684,7 @@ select.input.input-ghost:focus {
   padding: 8px 10px;
   background: transparent; border: none;
   border-radius: 6px; cursor: pointer; text-align: left;
-  font-family: var(--font); font-size: 13px; color: var(--text-primary);
+  font-family: var(--font); font-size: 14px; color: var(--text-primary);
 }
 .select-option:hover { background: var(--primary-bg); }
 .select-option.on {
@@ -2001,13 +2063,15 @@ tr.clickable:hover { background: var(--inset-bg); }
 .bell-btn {
   position: relative; display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 36px; border-radius: 50%;
-  background: var(--card-bg, var(--color-white)); border: 1px solid var(--card-border);
-  color: var(--text-primary); cursor: pointer;
-  box-shadow: 0 1px 2px rgba(var(--color-neutral-rgb, 0,0,0), 0.08);
-  transition: background 0.15s, border-color 0.15s;
+  background: var(--btn-primary-grad, var(--primary));
+  border: none;
+  color: var(--color-text-on-primary);
+  cursor: pointer;
+  box-shadow: var(--btn-primary-glow);
+  transition: filter 0.15s, box-shadow 0.15s;
 }
-.bell-btn:hover { background: var(--primary-bg, var(--color-neutral-50)); border-color: var(--primary, var(--color-neutral-300)); }
-.bell-btn.open { border-color: var(--primary); background: var(--primary-bg, var(--color-neutral-50)); }
+.bell-btn:hover { filter: brightness(1.05); box-shadow: var(--btn-primary-glow-hover); }
+.bell-btn.open { filter: brightness(0.95); box-shadow: var(--btn-primary-glow-hover); }
 .mobile-header .bell-btn {
   background: rgba(var(--color-white-rgb, 255,255,255), 0.12);
   border-color: rgba(var(--color-white-rgb, 255,255,255), 0.25);
@@ -4215,7 +4279,7 @@ tr.clickable:hover { background: var(--inset-bg); }
   background: var(--card-bg);
 }
 
-/* Attachment dropzone (Log Invoice modal) */
+/* Attachment dropzone (Add Invoice modal) */
 .attachment-dropzone {
   border: 1px dashed var(--card-border);
   border-radius: 8px;
@@ -4276,7 +4340,7 @@ tr.clickable:hover { background: var(--inset-bg); }
 }
 .btn.btn-suite-locked:hover { border-color: var(--card-border); color: var(--text-muted); }
 
-/* Disclosure toggle in Log Invoice modal */
+/* Disclosure toggle in Add Invoice modal */
 .disclosure-toggle {
   display: inline-flex; align-items: center; gap: 6px;
   margin: 8px 0 4px;

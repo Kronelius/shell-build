@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useFromHere } from '../../hooks/useFromHere';
 import { useStore, useDispatch } from '../../store';
 import {
@@ -38,6 +38,7 @@ export default function SettingsTeam() {
   const dispatch = useDispatch();
   const toast = useToast();
   const nav = useFromHere();
+  const navigate = useNavigate();
   const canEdit = usePermission('settings.team.edit');
   const canEditRoles = usePermission('settings.roles.edit');
   const users = selectUsers(state);
@@ -118,9 +119,15 @@ export default function SettingsTeam() {
                     ? (invitation.lastResentAt ? `resent ${relativeTime(invitation.lastResentAt)}` : `sent ${relativeTime(invitation.sentAt)}`)
                     : '';
                   return (
-                    <tr key={u.id}>
+                    <tr
+                      key={u.id}
+                      className="clickable"
+                      onClick={() => navigate(`/settings/team/${u.id}`, { state: nav })}
+                    >
                       <td>
-                        <Link to={`/settings/team/${u.id}`} state={nav} className="flex-row" style={{ gap: 8, alignItems: 'center' }}>
+                        {/* Keep the inner Link for keyboard nav + right-click "Open in new tab".
+                            The row-level onClick handles the broader hit area. */}
+                        <Link to={`/settings/team/${u.id}`} state={nav} className="flex-row table-name-link" style={{ gap: 8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                           <Avatar initials={u.initials} variant={u.avatar} size="sm" />
                           <span className="name">{u.name}</span>
                         </Link>
@@ -144,7 +151,10 @@ export default function SettingsTeam() {
                       </td>
                       <td className="text-right">
                         {invitation && canEdit ? (
-                          <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                          <div
+                            style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"

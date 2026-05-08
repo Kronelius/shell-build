@@ -129,7 +129,7 @@ export default function LogPaymentModal({ open, onClose, presetClientId = null }
   ];
 
   return (
-    <Modal open={open} onClose={onClose} title="Log Payment">
+    <Modal open={open} onClose={onClose} title="Record Payment">
       <form onSubmit={submit}>
         <div className="form-row">
           <FormField
@@ -190,7 +190,7 @@ export default function LogPaymentModal({ open, onClose, presetClientId = null }
 
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-success" disabled={submitDisabled}>Log Payment</button>
+          <button type="submit" className="btn btn-success" disabled={submitDisabled}>Record Payment</button>
         </div>
       </form>
     </Modal>

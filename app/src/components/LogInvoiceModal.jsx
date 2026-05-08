@@ -166,7 +166,7 @@ export default function LogInvoiceModal({ open, onClose, presetClientId = null, 
   const submitDisabled = !form.clientId || effectiveTotal <= 0;
 
   return (
-    <Modal open={open} onClose={onClose} title="Log Invoice">
+    <Modal open={open} onClose={onClose} title="Add Invoice">
       <form onSubmit={submit}>
         <div className="form-row">
           <FormField
@@ -311,7 +311,7 @@ export default function LogInvoiceModal({ open, onClose, presetClientId = null, 
 
         <div className="modal-actions">
           <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={submitDisabled}>Log Invoice</button>
+          <button type="submit" className="btn btn-primary" disabled={submitDisabled}>Add Invoice</button>
         </div>
       </form>
     </Modal>
