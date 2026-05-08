@@ -6,7 +6,8 @@ function deriveFromLabel(pathname, search) {
 
   if (pathname === '/' || pathname === '/dashboard') return 'Dashboard';
   if (pathname === '/contacts' || pathname === '/clients') {
-    return tab === 'accounts' ? 'Accounts' : 'Contacts';
+    // Accept legacy ?tab=accounts deep-links as 'Clients' for the breadcrumb.
+    return (tab === 'clients' || tab === 'accounts') ? 'Clients' : 'Contacts';
   }
   if (pathname === '/schedule') return 'Schedule';
   if (pathname === '/pipeline') return 'Pipeline';

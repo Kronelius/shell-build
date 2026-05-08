@@ -35,7 +35,7 @@ const TABS = [
 const LIFECYCLE_VARIANTS = {
   lead: 'amber',
   prospect: 'blue',
-  customer: 'green',
+  client: 'green',
   vendor: 'slate',
 };
 
@@ -54,7 +54,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
   const canStartConversation = usePermission('messaging.startConversation');
 
   const rawContact = selectContactById(state, contactId);
-  // Crew can only see contacts attached to accounts they have a job on. Standalone
+  // Crew can only see contacts attached to clients they have a job on. Standalone
   // contacts (no companyId) are not surfaced to crew. Admin/owner see all.
   const visibleClientIds = useMemo(
     () => selectVisibleClientIdsFor(state, currentUser),
@@ -307,7 +307,7 @@ export default function ContactDetail({ contactId: propContactId, embedded = fal
 
           {activitySubTab === 'service' && (
             serviceHistory.length === 0 ? (
-              <EmptyState icon={<Icon name="schedule" size={28} />} title="No service history" message={contact.companyId ? 'Jobs linked to this account will appear here.' : 'This contact is not attached to an account yet.'} />
+              <EmptyState icon={<Icon name="schedule" size={28} />} title="No service history" message={contact.companyId ? 'Jobs linked to this client will appear here.' : 'This contact is not attached to a client yet.'} />
             ) : (
               <div className="activity-card-grid">
                 {serviceHistory.map((j) => {

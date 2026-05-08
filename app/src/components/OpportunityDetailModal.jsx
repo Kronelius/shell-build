@@ -14,7 +14,7 @@ import { money } from '../lib/dates';
 const LIFECYCLES = [
   { value: 'lead',     label: 'Lead' },
   { value: 'prospect', label: 'Prospect' },
-  { value: 'customer', label: 'Customer' },
+  { value: 'client',   label: 'Client' },
   { value: 'vendor',   label: 'Vendor' },
 ];
 
@@ -215,7 +215,7 @@ export default function OpportunityDetailModal({ open, onClose, contact }) {
             value={draft.lifecycle}
             onChange={(e) => set('lifecycle', e.target.value)}
             options={LIFECYCLES}
-            help="Auto-promotes to Customer on Won. Edit here to override."
+            help="Auto-promotes to Client on Won. Edit here to override."
           />
         </div>
 

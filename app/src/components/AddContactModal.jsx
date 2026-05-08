@@ -11,7 +11,7 @@ import { newId } from '../lib/ids';
 const LIFECYCLES = [
   { value: 'lead',     label: 'Lead' },
   { value: 'prospect', label: 'Prospect' },
-  { value: 'customer', label: 'Customer' },
+  { value: 'client',   label: 'Client' },
   { value: 'vendor',   label: 'Vendor' },
 ];
 

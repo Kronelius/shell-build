@@ -170,9 +170,9 @@ export default function LogInvoiceModal({ open, onClose, presetClientId = null, 
       <form onSubmit={submit}>
         <div className="form-row">
           <FormField
-            label="Account" as="select" required value={form.clientId}
+            label="Client" as="select" required value={form.clientId}
             onChange={(e) => onClientChange(e.target.value)}
-            options={[{ value: '', label: 'Select an account' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+            options={[{ value: '', label: 'Select a client' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
           />
           {clientSites.length > 0 && (
             <FormField
@@ -192,7 +192,7 @@ export default function LogInvoiceModal({ open, onClose, presetClientId = null, 
             placeholder="Select a billing contact…"
           />
           <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-            Optional — defaults to the account's primary contact.
+            Optional — defaults to the client's primary contact.
           </div>
         </div>
 

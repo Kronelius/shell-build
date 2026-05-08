@@ -27,7 +27,7 @@ export default function AddContactsToStageModal({ open, onClose, pipelineId, sta
 
   const eligible = useMemo(() => {
     return allContacts.filter((c) => {
-      if (c.lifecycle === 'vendor' || c.lifecycle === 'customer') return false;
+      if (c.lifecycle === 'vendor' || c.lifecycle === 'client') return false;
       if (c.pipelineId === pipelineId && c.stage === stageKey) return false;
       return true;
     });
@@ -73,7 +73,7 @@ export default function AddContactsToStageModal({ open, onClose, pipelineId, sta
   return (
     <Modal open={open} onClose={onClose} title={`Add Contacts to ${stageLabel}`}>
       <p className="text-sm text-muted" style={{ marginTop: 0, marginBottom: 12 }}>
-        Pick leads or prospects to add. Customers and vendors are excluded. Contacts already in another pipeline will be moved.
+        Pick leads or prospects to add. Clients and vendors are excluded. Contacts already in another pipeline will be moved.
       </p>
 
       <input

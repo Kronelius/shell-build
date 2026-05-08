@@ -1148,7 +1148,7 @@ select.input {
    align-items:flex-end actually lines up the input bottoms with siblings
    like the trailing action button (whose border box has no margin to add).
    Descendant selector (not direct child) so nested form-groups — e.g. the
-   Account search wrapped in .filter-client-search on the Invoices page —
+   Client search wrapped in .filter-client-search on the Invoices page —
    align too. */
 .filter-bar .form-group { margin-bottom: 0; }
 .filter-bar > .filter-client-search { flex: 1 1 100%; min-width: 0; max-width: 480px; }

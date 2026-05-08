@@ -102,7 +102,7 @@ export default function Invoices() {
   };
 
   const exportCsv = () => {
-    const rows = [['Invoice', 'Account', 'Issued', 'Due', 'Total', 'Balance', 'Status']];
+    const rows = [['Invoice', 'Client', 'Issued', 'Due', 'Total', 'Balance', 'Status']];
     filtered.forEach((inv) => {
       const c = selectClientById(state, inv.clientId);
       rows.push([inv.id, c?.name || '', inv.issueDate, inv.dueDate, invoiceTotal(inv), invoiceBalance(inv), inv.derivedStatus]);
@@ -145,7 +145,7 @@ export default function Invoices() {
         <FormField label="Date range" as="select" value={dateRange} onChange={(e) => setParam('range', e.target.value, '30')}
           options={[{ value: 'all', label: 'All time' }, { value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} />
         <div className="filter-client-search">
-          <FormField label="Account" type="text" placeholder="Search by account name…" value={clientFilter}
+          <FormField label="Client" type="text" placeholder="Search by client name…" value={clientFilter}
             onChange={(e) => setParam('client', e.target.value, '')} />
         </div>
       </div>
@@ -178,7 +178,7 @@ export default function Invoices() {
                   <input type="checkbox" checked={selection.size === filtered.length && filtered.length > 0} onChange={toggleAll} />
                 </th>
                 <th>Invoice</th>
-                <th>Account</th>
+                <th>Client</th>
                 <th>Issued</th>
                 <th>Due</th>
                 <th>Total</th>

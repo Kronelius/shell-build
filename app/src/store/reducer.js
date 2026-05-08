@@ -325,7 +325,7 @@ export function reducer(state, action) {
     case ACTIONS.UPDATE_CLIENT:
       return { ...state, clients: replaceById(state.clients, action.id, action.patch) };
     case ACTIONS.DELETE_CLIENT: {
-      // Cascade-delete: an account takes its contacts, sites, jobs, invoices, and activities with it.
+      // Cascade-delete: a client takes its contacts, sites, jobs, invoices, and activities with it.
       // Conversations attached to deleted contacts have their contactId/clientId nulled (the message
       // history is preserved as "Unlinked" — only the entity rows are gone).
       const id = action.id;
@@ -473,7 +473,7 @@ export function reducer(state, action) {
         pipelineId: action.stage ? pipelineId : null,
         stageChangedAt: stageChanged ? now : prev.stageChangedAt,
         updatedAt: now,
-        lifecycle: action.stage === 'won' ? 'customer' : prev.lifecycle,
+        lifecycle: action.stage === 'won' ? 'client' : prev.lifecycle,
       };
       // Optional reorder: `insertBeforeId` places the moved contact immediately before that contact in the
       // global contacts array. If null/absent, append after the last contact currently in the target stage.

@@ -26,7 +26,7 @@ import { fmtDate, fmtRelative, money } from '../lib/dates';
 const LIFECYCLE_VARIANTS = {
   lead: 'amber',
   prospect: 'blue',
-  customer: 'green',
+  client: 'green',
   vendor: 'slate',
 };
 
@@ -333,7 +333,7 @@ function InternalContextPanel({ conversation }) {
     <aside className="context-pane">
       <div className="context-head">
         <h3 className="context-title">{conversation.title || 'Team discussion'}</h3>
-        <div className="text-xs text-muted">Internal-only thread — not visible to customers.</div>
+        <div className="text-xs text-muted">Internal-only thread — not visible to clients.</div>
       </div>
       <div className="context-body">
         <div className="context-card">
@@ -628,7 +628,7 @@ export default function ConversationContextPanel({ conversation, contact, onLink
             <div className="context-card">
               <div className="context-card-title">Jobs ({jobs.length})</div>
               {jobs.length === 0 ? (
-                <div className="text-xs text-muted">{contact ? "No jobs linked via this contact's account." : 'Link a contact to see related jobs.'}</div>
+                <div className="text-xs text-muted">{contact ? "No jobs linked via this contact's client." : 'Link a contact to see related jobs.'}</div>
               ) : (
                 <ul className="context-related">
                   {jobs.slice(0, 5).map((j) => (

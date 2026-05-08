@@ -43,7 +43,7 @@ export default function LogPaymentModal({ open, onClose, presetClientId = null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, presetClientId]);
 
-  // Outstanding invoices for the selected account — anything that's not paid or void.
+  // Outstanding invoices for the selected client — anything that's not paid or void.
   const outstandingInvoices = useMemo(() => {
     if (!form.clientId) return [];
     return selectInvoicesForClient(state, form.clientId).filter((inv) => {
@@ -133,16 +133,16 @@ export default function LogPaymentModal({ open, onClose, presetClientId = null }
       <form onSubmit={submit}>
         <div className="form-row">
           <FormField
-            label="Account" as="select" required value={form.clientId}
+            label="Client" as="select" required value={form.clientId}
             onChange={(e) => onClientChange(e.target.value)}
-            options={[{ value: '', label: 'Select an account' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+            options={[{ value: '', label: 'Select a client' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
           />
           <FormField
             label="Apply to invoice" as="select" value={form.invoiceId}
             onChange={(e) => setForm({ ...form, invoiceId: e.target.value })}
             options={invoiceOptions}
             disabled={!form.clientId}
-            help={form.clientId && outstandingInvoices.length === 0 ? 'No outstanding invoices for this account.' : undefined}
+            help={form.clientId && outstandingInvoices.length === 0 ? 'No outstanding invoices for this client.' : undefined}
           />
         </div>
 
@@ -184,7 +184,7 @@ export default function LogPaymentModal({ open, onClose, presetClientId = null }
 
         {!form.invoiceId && form.clientId && (
           <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-            We'll create a stub invoice for this account so the payment has a home in reporting.
+            We'll create a stub invoice for this client so the payment has a home in reporting.
           </div>
         )}
 

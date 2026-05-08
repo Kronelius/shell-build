@@ -126,12 +126,15 @@ export const CONTACT_IDENTIFIER_KEYS = ['email', 'phone', 'firstName', 'lastName
 
 // Normalize a value for a specific field. Coerces lifecycle into the canonical set,
 // strips obvious garbage. Returns the cleaned value or null if invalid.
-const VALID_LIFECYCLES = ['lead', 'prospect', 'customer', 'vendor'];
+// Legacy 'customer' inputs (e.g. GHL exports) are mapped to 'client' so older
+// CSVs keep importing cleanly after the nomenclature consolidation.
+const VALID_LIFECYCLES = ['lead', 'prospect', 'client', 'vendor'];
 export function normalizeContact(raw) {
   const out = { ...raw };
   if (out.email) out.email = out.email.toLowerCase().trim();
   if (out.lifecycle) {
-    const lc = out.lifecycle.toLowerCase().trim();
+    let lc = out.lifecycle.toLowerCase().trim();
+    if (lc === 'customer') lc = 'client';
     out.lifecycle = VALID_LIFECYCLES.includes(lc) ? lc : 'lead';
   }
   return out;
@@ -155,7 +158,7 @@ export function validateContactRow(mapped) {
 export function buildSampleContactCsv() {
   const headers = CONTACT_FIELDS.map((f) => f.key);
   const rows = [
-    ['Pat', 'Ramirez', 'pat@evergreenmgmt.com', '555-0142', 'Property Manager', 'Evergreen Management', 'customer', 'Long-time customer; prefers Tuesday visits'],
+    ['Pat', 'Ramirez', 'pat@evergreenmgmt.com', '555-0142', 'Property Manager', 'Evergreen Management', 'client', 'Long-time client; prefers Tuesday visits'],
     ['Morgan', 'Choi', 'morgan@lakesidehoa.org', '', 'Board President', 'Lakeside HOA', 'prospect', ''],
     ['Sasha', 'Lin', '', '555-0188', 'Operations Lead', 'Mt Baker Hospitality', 'lead', 'Phone-only — referred by Lee Thompson'],
   ];

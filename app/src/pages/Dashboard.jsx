@@ -132,7 +132,7 @@ export default function Dashboard() {
                   </div>
                   <div className="dash-hero-stat">
                     <div className="val">{stats.activeClients}</div>
-                    <div className="lbl">Active Accounts</div>
+                    <div className="lbl">Active Clients</div>
                   </div>
                 </>
               )}

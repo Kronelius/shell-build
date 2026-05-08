@@ -112,15 +112,15 @@ export default function CsvImportModal({ open, onClose }) {
 
   const doImport = () => {
     if (!previewRows) return;
-    // Pre-build a lowercase-keyed map of existing accounts; track accounts created
-    // during this batch so the same company name across many rows yields one new account.
+    // Pre-build a lowercase-keyed map of existing clients; track clients created
+    // during this batch so the same company name across many rows yields one new client.
     const clientByName = new Map(
       (state.clients || []).map((c) => [c.name.toLowerCase().trim(), c.id])
     );
     const newClientIds = new Map(); // nameLower -> id
 
     let imported = 0;
-    let newAccountsCreated = 0;
+    let newClientsCreated = 0;
 
     for (const row of previewRows) {
       if (row.status !== 'ok') continue;
@@ -134,12 +134,12 @@ export default function CsvImportModal({ open, onClose }) {
         } else if (newClientIds.has(key)) {
           companyId = newClientIds.get(key);
         } else {
-          // Spillover: contact references a company we don't have yet — create the account.
+          // Spillover: contact references a company we don't have yet — create the client.
           const id = newId('cl');
           dispatch({ type: ACTIONS.ADD_CLIENT, client: { id, name: companyRaw.trim() } });
           newClientIds.set(key, id);
           companyId = id;
-          newAccountsCreated++;
+          newClientsCreated++;
         }
       }
 
@@ -154,12 +154,12 @@ export default function CsvImportModal({ open, onClose }) {
       imported,
       skipped: previewRows.length - imported,
       total: previewRows.length,
-      newAccountsCreated,
+      newClientsCreated,
     });
     setStep(STEP.RESULT);
     if (imported > 0) {
-      const msg = newAccountsCreated > 0
-        ? `Imported ${imported} contact${imported === 1 ? '' : 's'} · ${newAccountsCreated} new account${newAccountsCreated === 1 ? '' : 's'}`
+      const msg = newClientsCreated > 0
+        ? `Imported ${imported} contact${imported === 1 ? '' : 's'} · ${newClientsCreated} new client${newClientsCreated === 1 ? '' : 's'}`
         : `Imported ${imported} contact${imported === 1 ? '' : 's'}`;
       toast.success(msg);
     }
@@ -328,16 +328,16 @@ export default function CsvImportModal({ open, onClose }) {
               <strong>{results.skipped}</strong>
               <span>Skipped</span>
             </div>
-            {results.newAccountsCreated > 0 && (
+            {results.newClientsCreated > 0 && (
               <div className="csv-stat ok">
-                <strong>{results.newAccountsCreated}</strong>
-                <span>New accounts</span>
+                <strong>{results.newClientsCreated}</strong>
+                <span>New clients</span>
               </div>
             )}
           </div>
           <p className="text-sm" style={{ marginTop: 14 }}>
             {results.imported > 0
-              ? `Successfully added ${results.imported} new contact${results.imported === 1 ? '' : 's'}${results.newAccountsCreated > 0 ? ` and created ${results.newAccountsCreated} new account${results.newAccountsCreated === 1 ? '' : 's'} from company columns` : ''}.`
+              ? `Successfully added ${results.imported} new contact${results.imported === 1 ? '' : 's'}${results.newClientsCreated > 0 ? ` and created ${results.newClientsCreated} new client${results.newClientsCreated === 1 ? '' : 's'} from company columns` : ''}.`
               : 'No new records were added.'}
           </p>
           <div className="modal-actions">

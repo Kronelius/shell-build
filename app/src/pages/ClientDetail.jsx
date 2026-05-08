@@ -57,7 +57,7 @@ export default function ClientDetail() {
   const { currentUser } = useAuth();
 
   const rawClient = selectClientById(state, clientId);
-  // Crew can only see accounts they have a job on; admin/owner see all.
+  // Crew can only see clients they have a job on; admin/owner see all.
   const visibleClientIds = useMemo(
     () => selectVisibleClientIdsFor(state, currentUser),
     [state, currentUser]
@@ -121,7 +121,7 @@ export default function ClientDetail() {
   if (!client) {
     return (
       <div style={{ padding: 32 }}>
-        <DetailHeader backTo="/clients?tab=accounts" backLabel="Accounts" title="Account not found" />
+        <DetailHeader backTo="/clients?tab=clients" backLabel="Clients" title="Client not found" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function ClientDetail() {
       serviceId: form.serviceId, frequencyId: form.frequencyId, status: form.status,
       primaryContactId: form.primaryContactId || null,
     }});
-    toast.success('Account updated');
+    toast.success('Client updated');
   };
 
   const cancel = () => setForm(client);
@@ -143,8 +143,8 @@ export default function ClientDetail() {
 
   const deleteClient = () => {
     dispatch({ type: ACTIONS.DELETE_CLIENT, id: client.id });
-    toast.success('Account deleted');
-    navigate('/clients?tab=accounts');
+    toast.success('Client deleted');
+    navigate('/clients?tab=clients');
   };
 
   const appendNote = () => {
@@ -205,8 +205,8 @@ export default function ClientDetail() {
   return (
     <div className="page-pad">
       <DetailHeader
-        backTo="/clients?tab=accounts"
-        backLabel="Accounts"
+        backTo="/clients?tab=clients"
+        backLabel="Clients"
         title={client.name}
         subtitle={client.primaryContact || ''}
         badge={<Badge variant={statusBadgeVariant(client.status === 'active' ? 'Active' : 'Inactive')}>
@@ -384,7 +384,7 @@ export default function ClientDetail() {
             <EmptyState
               icon={<Icon name="user" size={28} />}
               title="No contacts yet"
-              message="Add the people you work with at this account."
+              message="Add the people you work with at this client."
               action={canEditContacts && <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>Add a contact</button>}
             />
           ) : (
@@ -532,7 +532,7 @@ export default function ClientDetail() {
 
           {activitySubTab === 'service' && (
             jobs.length === 0 ? (
-              <EmptyState icon={<Icon name="schedule" size={28} />} title="No service history" message="Jobs scheduled for this account will appear here." />
+              <EmptyState icon={<Icon name="schedule" size={28} />} title="No service history" message="Jobs scheduled for this client will appear here." />
             ) : (
               <div className="activity-card-grid">
                 {jobs.map((j) => {
@@ -578,7 +578,7 @@ export default function ClientDetail() {
                 <EmptyState
                   icon={<Icon name="invoices" size={28} />}
                   title="No payment history"
-                  message="Invoices and payments logged for this account will appear here."
+                  message="Invoices and payments logged for this client will appear here."
                   action={canRecordPayment && <button className="btn btn-primary" onClick={() => setLogPaymentOpen(true)}>Record Payment</button>}
                 />
               ) : (
@@ -768,7 +768,7 @@ export default function ClientDetail() {
       <ConfirmDialog
         open={confirmDelete}
         title={`Delete ${client.name}?`}
-        message="This permanently removes the account, its contacts, sites, jobs, and invoices. Conversations linked to those contacts will be unlinked but preserved. This cannot be undone."
+        message="This permanently removes the client, its contacts, sites, jobs, and invoices. Conversations linked to those contacts will be unlinked but preserved. This cannot be undone."
         confirmLabel="Delete"
         variant="danger"
         onConfirm={deleteClient}

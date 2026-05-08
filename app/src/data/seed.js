@@ -112,7 +112,7 @@ const company = {
 // where you're subscribed?" — separate from per-device subscription state,
 // which still requires an explicit browser permission grant on each device.
 export const DEFAULT_NOTIFICATION_PREFS = {
-  newCustomerMessage: true,
+  newClientMessage: true,
   newDM: true,
   newInternalMessage: true,
   jobCreatedOrRescheduled: true,
@@ -189,7 +189,7 @@ const tagId = (key) => seedId('tg', key);
 // ---------- Pipelines ----------
 // Generic starter pipelines mirroring Rainier's GoHighLevel set
 // (1.1 Leads / 1.2 Sales / 1.3 Clients). Reducer key 'won' on the Sales
-// pipeline carries lifecycle-promotion semantics (contact → customer).
+// pipeline carries lifecycle-promotion semantics (contact → client).
 const pipelines = [
   {
     id: seedId('pl', 'leads'),
@@ -253,8 +253,8 @@ const pipelines = [
   },
 ];
 
-// ---------- Clients (accounts) ----------
-// Demo accounts — PNW commercial + residential mix. Rainier's real book of
+// ---------- Clients ----------
+// Demo clients — PNW commercial + residential mix. Rainier's real book of
 // business lands via CSV import ($200 add-on); this populates the UI for
 // training/handoff and exercises every entity surface.
 // primaryContactId is wired below after contacts are defined.
@@ -269,16 +269,16 @@ const clients = [
 ];
 
 // ---------- Contacts ----------
-// 7 customer contacts (one per client) + 6 unattached (leads / prospect / vendor).
+// 7 client-stage contacts (one per client) + 6 unattached (leads / prospect / vendor).
 const contacts = [
-  // Customers
-  { id: seedId('ct', 'pat'),       email: 'pat@evergreenmed.com',  firstName: 'Pat',     lastName: 'Ramirez',  title: 'Director of Facilities', phone: '(206) 555-0201', companyId: clients[0].id, tagIds: [tagId('vip'), tagId('commercial'), tagId('referral')],     lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(420), notes: 'Primary decision maker. Responsive to texts.',          customFields: {}, createdAt: daysAgo(420), updatedAt: daysAgo(1) },
-  { id: seedId('ct', 'morganc'),   email: 'morgan@lakesideop.com',  firstName: 'Morgan',  lastName: 'Choi',     title: 'Office Manager',         phone: '(206) 555-0202', companyId: clients[1].id, tagIds: [tagId('net30'), tagId('commercial'), tagId('callin')],      lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(380), notes: 'Net-30 terms. Prefers email.',                          customFields: {}, createdAt: daysAgo(380), updatedAt: daysAgo(5) },
-  { id: seedId('ct', 'dana'),      email: 'dana@cascadelog.com',    firstName: 'Dana',    lastName: 'Park',     title: 'Operations Lead',        phone: '(206) 555-0203', companyId: clients[2].id, tagIds: [tagId('commercial'), tagId('webform')],                     lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(340), notes: '',                                                      customFields: {}, createdAt: daysAgo(340), updatedAt: daysAgo(18) },
-  { id: seedId('ct', 'sasha'),     email: 'sasha@mtbakerhoa.org',   firstName: 'Sasha',   lastName: 'Lin',      title: 'HOA Board President',    phone: '(206) 555-0204', companyId: clients[3].id, tagIds: [tagId('residential'), tagId('referral')],                   lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(210), notes: 'Referred by Pacific Ridge.',                            customFields: {}, createdAt: daysAgo(210), updatedAt: daysAgo(10) },
-  { id: seedId('ct', 'kim'),       email: 'kim@pacridge.com',       firstName: 'Kim',     lastName: 'Nelson',   title: 'Facility Coordinator',   phone: '(206) 555-0205', companyId: clients[4].id, tagIds: [tagId('commercial'), tagId('vip'), tagId('callin')],         lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(500), notes: 'Largest account. Quarterly business reviews.',          customFields: {}, createdAt: daysAgo(500), updatedAt: daysAgo(3) },
-  { id: seedId('ct', 'lee'),       email: 'lee@olympicsl.com',      firstName: 'Lee',     lastName: 'Thompson', title: 'Resident Services Dir.', phone: '(206) 555-0206', companyId: clients[5].id, tagIds: [tagId('residential')],                                       lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(150), notes: '',                                                      customFields: {}, createdAt: daysAgo(150), updatedAt: daysAgo(0) },
-  { id: seedId('ct', 'quinn'),     email: 'quinn@salishan.org',     firstName: 'Quinn',   lastName: 'Reyes',    title: 'HOA Manager',            phone: '(206) 555-0207', companyId: clients[6].id, tagIds: [tagId('residential'), tagId('needsquote')],                  lifecycle: 'customer', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(90),  notes: 'On hold through Q2.',                                   customFields: {}, createdAt: daysAgo(90),  updatedAt: daysAgo(28) },
+  // Clients
+  { id: seedId('ct', 'pat'),       email: 'pat@evergreenmed.com',  firstName: 'Pat',     lastName: 'Ramirez',  title: 'Director of Facilities', phone: '(206) 555-0201', companyId: clients[0].id, tagIds: [tagId('vip'), tagId('commercial'), tagId('referral')],     lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(420), notes: 'Primary decision maker. Responsive to texts.',          customFields: {}, createdAt: daysAgo(420), updatedAt: daysAgo(1) },
+  { id: seedId('ct', 'morganc'),   email: 'morgan@lakesideop.com',  firstName: 'Morgan',  lastName: 'Choi',     title: 'Office Manager',         phone: '(206) 555-0202', companyId: clients[1].id, tagIds: [tagId('net30'), tagId('commercial'), tagId('callin')],      lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(380), notes: 'Net-30 terms. Prefers email.',                          customFields: {}, createdAt: daysAgo(380), updatedAt: daysAgo(5) },
+  { id: seedId('ct', 'dana'),      email: 'dana@cascadelog.com',    firstName: 'Dana',    lastName: 'Park',     title: 'Operations Lead',        phone: '(206) 555-0203', companyId: clients[2].id, tagIds: [tagId('commercial'), tagId('webform')],                     lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(340), notes: '',                                                      customFields: {}, createdAt: daysAgo(340), updatedAt: daysAgo(18) },
+  { id: seedId('ct', 'sasha'),     email: 'sasha@mtbakerhoa.org',   firstName: 'Sasha',   lastName: 'Lin',      title: 'HOA Board President',    phone: '(206) 555-0204', companyId: clients[3].id, tagIds: [tagId('residential'), tagId('referral')],                   lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(210), notes: 'Referred by Pacific Ridge.',                            customFields: {}, createdAt: daysAgo(210), updatedAt: daysAgo(10) },
+  { id: seedId('ct', 'kim'),       email: 'kim@pacridge.com',       firstName: 'Kim',     lastName: 'Nelson',   title: 'Facility Coordinator',   phone: '(206) 555-0205', companyId: clients[4].id, tagIds: [tagId('commercial'), tagId('vip'), tagId('callin')],         lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(500), notes: 'Largest client. Quarterly business reviews.',          customFields: {}, createdAt: daysAgo(500), updatedAt: daysAgo(3) },
+  { id: seedId('ct', 'lee'),       email: 'lee@olympicsl.com',      firstName: 'Lee',     lastName: 'Thompson', title: 'Resident Services Dir.', phone: '(206) 555-0206', companyId: clients[5].id, tagIds: [tagId('residential')],                                       lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(150), notes: '',                                                      customFields: {}, createdAt: daysAgo(150), updatedAt: daysAgo(0) },
+  { id: seedId('ct', 'quinn'),     email: 'quinn@salishan.org',     firstName: 'Quinn',   lastName: 'Reyes',    title: 'HOA Manager',            phone: '(206) 555-0207', companyId: clients[6].id, tagIds: [tagId('residential'), tagId('needsquote')],                  lifecycle: 'client', stage: null, pipelineId: null, dealValue: null, expectedCloseDate: null, stageChangedAt: daysAgo(90),  notes: 'On hold through Q2.',                                   customFields: {}, createdAt: daysAgo(90),  updatedAt: daysAgo(28) },
 
   // Leads / prospects / vendor
   { id: seedId('ct', 'jamiep'),    email: 'jamie@greenwooddental.com', firstName: 'Jamie',   lastName: 'Park',   title: 'Practice Manager', phone: '(206) 555-0301', companyId: null, tagIds: [tagId('hotlead'), tagId('needsquote'), tagId('webform')],     lifecycle: 'lead',     stage: 'hot',         pipelineId: seedId('pl', 'default'), dealValue: 2400, expectedCloseDate: daysFromNow(30), stageChangedAt: daysAgo(2),  notes: 'Inbound via website form. Greenwood Dental Group — 4 operatories.', customFields: { company: 'Greenwood Dental Group' },     createdAt: daysAgo(2),  updatedAt: daysAgo(2) },
@@ -501,14 +501,14 @@ const messages = [
 
   // DM Heather ↔ Lauren — 1:1 staff direct message. direction='internal' (DMs aren't external);
   // authorUserId distinguishes the sender. The last Lauren message has empty readByUserIds so
-  // Heather sees a demo unread badge when the user switches to her account.
+  // Heather sees a demo unread badge when the user switches to her seat.
   { id: seedId('m', 'dm-hl-m1'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Hey — quick Q on the Lakeside swap. Was the substitute supposed to be Marcus or Riley?', sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
   { id: seedId('m', 'dm-hl-m2'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Riley — Marcus is on the Cascade route Friday.',                                            sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
   { id: seedId('m', 'dm-hl-m3'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Also, can you confirm the new badge for Casey is here? I'll grab it on my way in.",       sentAt: hoursAgo(6), readByUserIds: [] },
 ];
 
 // ---------- Reminder templates ----------
-// Per Q10: welcome email auto-sent on lifecycle change to customer; first-clean
+// Per Q10: welcome email auto-sent on lifecycle change to client; first-clean
 // recap auto-sent on first job completion. The auto-fire scheduler in
 // lib/reminderScheduler.js consumes these `key` values.
 const reminderTemplates = [
@@ -549,7 +549,7 @@ const notifications = [];
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 33,
+  version: 34,
   company,
   currentUserId,
   users,

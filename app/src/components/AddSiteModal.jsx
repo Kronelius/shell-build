@@ -37,7 +37,7 @@ export default function AddSiteModal({ open, onClose, clientId, mode = 'create',
         attachments: Array.isArray(initialData.attachments) ? initialData.attachments : [],
       });
     } else {
-      // On a fresh site, pre-fill with the account's primary contact as a sensible default.
+      // On a fresh site, pre-fill with the client's primary contact as a sensible default.
       const client = clientId ? selectClientById(state, clientId) : null;
       setForm({ ...EMPTY, siteContactId: client?.primaryContactId || null });
     }
@@ -137,7 +137,7 @@ export default function AddSiteModal({ open, onClose, clientId, mode = 'create',
                 placeholder="Select a site contact…"
               />
               <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-                Optional — who to call when crew arrives. Defaults to the account's primary contact.
+                Optional — who to call when crew arrives. Defaults to the client's primary contact.
               </div>
             </div>
             <FormField label="Access notes" as="textarea" placeholder="Gate code, best entrance, security contact…"

@@ -11,7 +11,7 @@ import TagChip from '../../components/TagChip';
 
 // Color and scope inputs are removed from the UI: TagChip stopped reading
 // tag.color (every tag renders with neutral chrome to match GHL), and tags are
-// contact-only (no Accounts use case). The fields are still passed at create
+// contact-only (no Clients use case). The fields are still passed at create
 // time as stable defaults so any older code paths that read them keep working.
 
 export default function SettingsTags() {
@@ -64,7 +64,7 @@ export default function SettingsTags() {
       <div className="page-head-text">
         <h1 className="page-head-title">Tags</h1>
         <p className="page-head-subtitle">
-          Tags appear on contacts and accounts. Deleting a tag removes it from every contact that has it.
+          Tags appear on contacts and clients. Deleting a tag removes it from every contact that has it.
         </p>
       </div>
 

@@ -284,7 +284,7 @@ export default function InvoiceDetail() {
         <div className="card detail-card">
           <h3 className="dash-card-title">Summary</h3>
           <dl className="detail-dl">
-            <div><dt>Account</dt><dd>{client ? <Link className="link" to={`/clients/${client.id}`} state={nav}>{client.name}</Link> : '—'}</dd></div>
+            <div><dt>Client</dt><dd>{client ? <Link className="link" to={`/clients/${client.id}`} state={nav}>{client.name}</Link> : '—'}</dd></div>
             <div><dt>Site</dt><dd>{site?.name || '—'}{site?.address ? <div className="text-muted text-sm">{site.address}</div> : null}</dd></div>
             <div>
               <dt>Billing contact</dt>

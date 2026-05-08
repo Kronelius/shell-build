@@ -184,7 +184,7 @@ export default function JobDetail() {
           <h3 className="dash-card-title">Details</h3>
           {!editing ? (
             <dl className="detail-dl">
-              <div><dt>Account</dt><dd>{client ? <Link className="link" to={`/clients/${client.id}`} state={nav}>{client.name}</Link> : '—'}</dd></div>
+              <div><dt>Client</dt><dd>{client ? <Link className="link" to={`/clients/${client.id}`} state={nav}>{client.name}</Link> : '—'}</dd></div>
               <div><dt>Site</dt><dd>{site?.name || '—'}{site?.address ? <div className="text-muted text-sm">{site.address}</div> : null}</dd></div>
               <div>
                 <dt>Site contact</dt>
@@ -227,7 +227,7 @@ export default function JobDetail() {
                 </div>
               )}
               <FormField
-                label="Account" as="select" name="clientId" required
+                label="Client" as="select" name="clientId" required
                 value={currentForm.clientId}
                 onChange={(e) => setForm({ ...currentForm, clientId: e.target.value, siteId: '' })}
                 options={state.clients.map((c) => ({ value: c.id, label: c.name }))}

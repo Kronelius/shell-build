@@ -1,3 +1,14 @@
+// v34: Nomenclature consolidation — "Customer" lifecycle stage renamed to
+// "Client" (matching the company entity already named Client in the data
+// layer) AND the notification pref key newCustomerMessage renamed to
+// newClientMessage. Migration:
+//   - Every contact with lifecycle === 'customer' is flipped to 'client'.
+//   - Every user.notificationPrefs gains newClientMessage with the prior
+//     newCustomerMessage value (default true) and drops the old key.
+//   - Permissions list reconciled against the live PERMISSIONS schema so
+//     refreshed labels (e.g. "View Clients" instead of "View Accounts")
+//     flow into stored state without losing role assignments.
+//
 // v33: Per-user read state and per-user pin/star. Two coordinated changes that
 // make user-switching reflect each user's perspective for the demo:
 //   1. message.readAt (single global timestamp) → message.readByUserIds[]
@@ -19,7 +30,7 @@
 // user with all event toggles defaulted on and `mobilePushEnabled` defaulted
 // off. Also drops the now-unused reminder UI surface (the `/settings/notifications`
 // page is gone) — but the underlying `reminderTemplates` / `reminderEvents`
-// state is left in place because the customer-facing scheduler still consumes
+// state is left in place because the client-facing scheduler still consumes
 // it. Purely additive; existing data is preserved.
 //
 // v27: Email System foundation. Two additive state surfaces in lockstep:
@@ -68,12 +79,12 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v33';
+const STORAGE_KEY = 'pp.store.v34';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.
 const DEFAULT_NOTIFICATION_PREFS = {
-  newCustomerMessage: true,
+  newClientMessage: true,
   newDM: true,
   newInternalMessage: true,
   jobCreatedOrRescheduled: true,
@@ -212,7 +223,7 @@ function migrateV20toV21(state) {
   // clients.archive was renamed to clients.delete — carry over its role list.
   const renamed = existingByKey.get('clients.archive');
   if (renamed && !existingByKey.has('clients.delete')) {
-    existingByKey.set('clients.delete', { ...renamed, id: 'clients.delete', label: 'Delete accounts' });
+    existingByKey.set('clients.delete', { ...renamed, id: 'clients.delete', label: 'Delete clients' });
   }
   existingByKey.delete('clients.archive');
   const permissions = Object.entries(PERMISSIONS).map(([key, def]) => {
@@ -382,7 +393,7 @@ function migrateV29toV33(state) {
 // onto every existing user, merging with any pre-existing prefs (so a manually-
 // seeded fixture isn't clobbered). The reminders settings page was deleted at
 // the same time, but its underlying state (reminderTemplates, reminderEvents)
-// is preserved because the customer-facing scheduler still uses it.
+// is preserved because the client-facing scheduler still uses it.
 function migrateV27toV28(state) {
   const users = (state.users || []).map((u) => ({
     ...u,
@@ -435,28 +446,67 @@ function migrateV24toV25(state) {
   return { ...state, version: 25, conversations };
 }
 
-// Compose the v29 → v33 step on top of any earlier migration chain. v29 is
+// v34: Nomenclature consolidation. Flip lifecycle 'customer' → 'client',
+// rename notification pref newCustomerMessage → newClientMessage, and
+// reconcile permissions against the live PERMISSIONS schema (refreshes
+// labels like "View Accounts" → "View Clients" without touching role
+// assignments).
+function migrateV33toV34(state) {
+  const contacts = (state.contacts || []).map((c) =>
+    c.lifecycle === 'customer' ? { ...c, lifecycle: 'client' } : c
+  );
+  const users = (state.users || []).map((u) => {
+    const prefs = u.notificationPrefs || {};
+    const { newCustomerMessage, ...rest } = prefs;
+    const next = {
+      ...rest,
+      newClientMessage:
+        typeof rest.newClientMessage === 'boolean'
+          ? rest.newClientMessage
+          : (typeof newCustomerMessage === 'boolean' ? newCustomerMessage : true),
+    };
+    return { ...u, notificationPrefs: next };
+  });
+  const existingByKey = new Map((state.permissions || []).map((p) => [p.id, p]));
+  const permissions = Object.entries(PERMISSIONS).map(([key, def]) => {
+    const prev = existingByKey.get(key);
+    return prev
+      ? { id: key, label: def.label, roles: prev.roles }
+      : { id: key, label: def.label, roles: [...def.defaultRoles] };
+  });
+  return { ...state, version: 34, contacts, users, permissions };
+}
+
+// Compose v29 → v33 → v34 hops on top of any earlier migration chain. v29 is
 // the last numbered shape change before v33 (intermediate v30/v31/v32 storage
-// keys existed but never bumped state.version), so this single hop covers all
-// stored states from v17 through v32.
-const toLatest = (s) => migrateV29toV33(migrateV28toV29(s));
+// keys existed but never bumped state.version); v34 is the nomenclature
+// consolidation. This single composition covers all stored states from v17
+// through v33.
+const toLatest = (s) => migrateV33toV34(migrateV29toV33(migrateV28toV29(s)));
 
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 33) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 34) return parsed;
+    }
+    // v33 direct accept: previous storage key, fully-shaped except for the
+    // nomenclature flip. Run the v33 → v34 hop.
+    const v33Raw = window.localStorage.getItem('pp.store.v33');
+    if (v33Raw) {
+      const parsed = JSON.parse(v33Raw);
+      if (parsed && typeof parsed === 'object') return migrateV33toV34(parsed);
     }
     // Stale-key direct accepts: prior storage keys (v28-v32) parked here as
-    // version=29-shaped data. Run only the v29→v33 hop.
+    // version=29-shaped data. Run v29→v33→v34.
     for (const key of ['pp.store.v32', 'pp.store.v31', 'pp.store.v30', 'pp.store.v29']) {
       const r = window.localStorage.getItem(key);
       if (!r) continue;
       const parsed = JSON.parse(r);
-      if (parsed && typeof parsed === 'object') return migrateV29toV33(parsed);
+      if (parsed && typeof parsed === 'object') return migrateV33toV34(migrateV29toV33(parsed));
     }
-    // Attempt v28 → v29 → v33 migration
+    // Attempt v28 → v29 → v33 → v34 migration
     const v28Raw = window.localStorage.getItem('pp.store.v28');
     if (v28Raw) {
       const v28 = JSON.parse(v28Raw);

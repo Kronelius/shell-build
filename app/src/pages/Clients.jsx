@@ -27,11 +27,11 @@ import { fmtDate, fmtRelative, money } from '../lib/dates';
 const LIFECYCLE_VARIANTS = {
   lead: 'amber',
   prospect: 'blue',
-  customer: 'green',
+  client: 'green',
   vendor: 'slate',
 };
 
-const LIFECYCLES = ['all', 'lead', 'prospect', 'customer', 'vendor'];
+const LIFECYCLES = ['all', 'lead', 'prospect', 'client', 'vendor'];
 
 export default function Clients() {
   const state = useStore();
@@ -67,8 +67,10 @@ export default function Clients() {
     setSearchParams(next, { replace: true });
   };
 
-  const defaultTab = canViewContacts ? 'contacts' : 'accounts';
-  const tab = searchParams.get('tab') || defaultTab;
+  const defaultTab = canViewContacts ? 'contacts' : 'clients';
+  // Accept legacy ?tab=accounts deep-links by normalizing to 'clients'.
+  const rawTab = searchParams.get('tab');
+  const tab = rawTab === 'accounts' ? 'clients' : (rawTab || defaultTab);
   const setTab = (v) => setParam('tab', v, defaultTab);
 
   // Contacts filters (URL-backed)
@@ -83,7 +85,7 @@ export default function Clients() {
   const [confirmContactDeleteOpen, setConfirmContactDeleteOpen] = useState(false);
   const [confirmClientDeleteOpen, setConfirmClientDeleteOpen] = useState(false);
 
-  // Accounts (Clients) filters (URL-backed, prefixed to avoid collision)
+  // Clients filters (URL-backed, prefixed to avoid collision)
   const aSearch = searchParams.get('aq') || '';
   const aStatus = searchParams.get('astatus') || 'active';
   const aService = searchParams.get('aservice') || 'all';
@@ -148,7 +150,7 @@ export default function Clients() {
     toast.success(`${selectedIds.size} contact${selectedIds.size === 1 ? '' : 's'} deleted`);
   };
 
-  // Account (Client) selection — mirrors the Contacts pattern.
+  // Client selection — mirrors the Contacts pattern.
   const toggleClientSelected = (id) => {
     setSelectedClientIds((prev) => {
       const next = new Set(prev);
@@ -165,18 +167,18 @@ export default function Clients() {
     selectedClientIds.forEach((id) => dispatch({ type: ACTIONS.DELETE_CLIENT, id }));
     setConfirmClientDeleteOpen(false);
     clearClientSelection();
-    toast.success(`${selectedClientIds.size} account${selectedClientIds.size === 1 ? '' : 's'} deleted`);
+    toast.success(`${selectedClientIds.size} client${selectedClientIds.size === 1 ? '' : 's'} deleted`);
   };
 
   return (
     <>
       <div className="page-head">
         <div className="page-head-text">
-          <h1 className="page-head-title">{tab === 'accounts' ? 'Accounts' : 'Contacts'}</h1>
+          <h1 className="page-head-title">{tab === 'clients' ? 'Clients' : 'Contacts'}</h1>
           <p className="page-head-subtitle">
-            {tab === 'accounts'
+            {tab === 'clients'
               ? 'Companies and the contacts attached to them. Switch tabs for the Contacts view.'
-              : 'People and the companies they belong to. Switch tabs for the Accounts view.'}
+              : 'People and the companies they belong to. Switch tabs for the Clients view.'}
           </p>
         </div>
         <div className="page-head-actions">
@@ -186,15 +188,15 @@ export default function Clients() {
               <button className="btn btn-primary" onClick={() => setAddContactOpen(true)}>Add Contact</button>
             </>
           )}
-          {tab === 'accounts' && canCreateClient && (
-            <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Account</button>
+          {tab === 'clients' && canCreateClient && (
+            <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Client</button>
           )}
         </div>
       </div>
 
       <div className="tab-container tab-container-line" style={{ marginBottom: 16 }}>
         {canViewContacts && <button className={`tab-btn ${tab === 'contacts' ? 'active' : ''}`} onClick={() => setTab('contacts')} type="button">Contacts</button>}
-        <button className={`tab-btn ${tab === 'accounts' ? 'active' : ''}`} onClick={() => setTab('accounts')} type="button">Accounts</button>
+        <button className={`tab-btn ${tab === 'clients' ? 'active' : ''}`} onClick={() => setTab('clients')} type="button">Clients</button>
       </div>
 
       {tab === 'contacts' && (
@@ -365,7 +367,7 @@ export default function Clients() {
         </>
       )}
 
-      {tab === 'accounts' && (
+      {tab === 'clients' && (
         <>
           <div className="filter-bar">
             <FormField label="Search" value={aSearch} onChange={(e) => setParam('aq', e.target.value)} placeholder="Name, contact, email…" />
@@ -379,7 +381,7 @@ export default function Clients() {
 
           <div className={`bulk-bar ${selectedClientIds.size === 0 ? 'is-empty' : ''}`}>
             <span className="text-sm font-semi">
-              {selectedClientIds.size > 0 ? `${selectedClientIds.size} selected` : 'Select accounts for bulk actions'}
+              {selectedClientIds.size > 0 ? `${selectedClientIds.size} selected` : 'Select clients for bulk actions'}
             </span>
             {selectedClientIds.size > 0 && (
               <>
@@ -393,9 +395,9 @@ export default function Clients() {
             clients.length === 0 ? (
               <EmptyState
                 icon={<Icon name="clients" size={28} />}
-                title="No accounts yet"
-                message="Add your first account (company) to get started."
-                action={canCreateClient && <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Account</button>}
+                title="No clients yet"
+                message="Add your first client to get started."
+                action={canCreateClient && <button className="btn btn-primary" onClick={() => setAddClientOpen(true)}>Add Client</button>}
               />
             ) : (
               <EmptyState title="No matches" message="Try clearing filters or changing search." />
@@ -409,12 +411,12 @@ export default function Clients() {
                       <th style={{ width: 36 }}>
                         <input
                           type="checkbox"
-                          aria-label="Select all accounts"
+                          aria-label="Select all clients"
                           checked={selectedClientIds.size > 0 && selectedClientIds.size === filteredClients.length}
                           onChange={toggleSelectAllClients}
                         />
                       </th>
-                      <th>Account</th>
+                      <th>Client</th>
                       <th>Primary contact</th>
                       <th>Service</th>
                       <th>Frequency</th>
@@ -514,8 +516,8 @@ export default function Clients() {
 
       <ConfirmDialog
         open={confirmClientDeleteOpen}
-        title={`Delete ${selectedClientIds.size} account${selectedClientIds.size === 1 ? '' : 's'}?`}
-        message="The selected accounts will be permanently removed along with their contacts, sites, jobs, and invoices. This cannot be undone."
+        title={`Delete ${selectedClientIds.size} client${selectedClientIds.size === 1 ? '' : 's'}?`}
+        message="The selected clients will be permanently removed along with their contacts, sites, jobs, and invoices. This cannot be undone."
         confirmLabel="Delete"
         variant="danger"
         onConfirm={bulkDeleteClients}

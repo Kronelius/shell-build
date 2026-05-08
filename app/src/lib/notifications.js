@@ -22,8 +22,8 @@ export const NOTIFICATION_GROUPS = [
     label: 'Messaging',
     items: [
       {
-        key: 'newCustomerMessage',
-        label: 'New customer SMS or email',
+        key: 'newClientMessage',
+        label: 'New client SMS or email',
         description: 'When a client texts or emails a thread you can see.',
         roleAllowlist: ['owner', 'admin'],
       },
@@ -123,9 +123,9 @@ export function resolveMessageEvent(message, conv, recipientUserId) {
     return 'newInternalMessage';
   }
 
-  // External (sms / email) — only inbound from the customer counts.
+  // External (sms / email) — only inbound from the client counts.
   if (message.direction !== 'in') return null;
-  return 'newCustomerMessage';
+  return 'newClientMessage';
 }
 
 // Trim a body string into the short snippet shown beneath a notification title.
@@ -138,8 +138,8 @@ export function previewMessageBody(text) {
 // message-event notification. Centralized so the reducer fan-out and the
 // listener's toast firing produce identical copy.
 export function buildMessageNotificationTitle(eventKey, message, conv, users) {
-  if (eventKey === 'newCustomerMessage') {
-    return `New ${conv?.channel === 'email' ? 'email' : 'message'} from ${conv?.title || 'a customer'}`;
+  if (eventKey === 'newClientMessage') {
+    return `New ${conv?.channel === 'email' ? 'email' : 'message'} from ${conv?.title || 'a client'}`;
   }
   if (eventKey === 'newDM') {
     const author = (users || []).find((u) => u.id === message.authorUserId);

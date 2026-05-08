@@ -444,11 +444,11 @@ export function selectSynthesizedActivityForContact(s, contactId) {
 }
 
 // Visibility model:
-//   - owner / admin: see ALL accounts and ALL contacts.
-//   - crew:          see ONLY the accounts they have jobs on (any job, any status), and
-//                    contacts attached to those accounts. Standalone contacts (no companyId)
-//                    are not surfaced to crew — they have no account anchor.
-// Returns the set of client (account) ids visible to a given user.
+//   - owner / admin: see ALL clients and ALL contacts.
+//   - crew:          see ONLY the clients they have jobs on (any job, any status), and
+//                    contacts attached to those clients. Standalone contacts (no companyId)
+//                    are not surfaced to crew — they have no client anchor.
+// Returns the set of client ids visible to a given user.
 export function selectVisibleClientIdsFor(s, user) {
   if (!user) return new Set();
   if (user.role !== 'crew') return new Set((s.clients || []).map((c) => c.id));
@@ -478,7 +478,7 @@ export function selectPipelineContacts(s) {
   const pl = selectActivePipeline(s);
   if (!pl) return [];
   return (s.contacts || []).filter(
-    (c) => c.pipelineId === pl.id && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'customer')
+    (c) => c.pipelineId === pl.id && c.stage && (c.lifecycle === 'lead' || c.lifecycle === 'prospect' || c.lifecycle === 'client')
   );
 }
 

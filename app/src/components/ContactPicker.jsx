@@ -4,7 +4,7 @@ import { selectContacts } from '../store/selectors';
 import Avatar from './Avatar';
 
 // Combobox for picking a contact. Filterable by name or email.
-// Optional `companyId` filter narrows to that account's contacts (plus "(all)" toggle).
+// Optional `companyId` filter narrows to that client's contacts (plus "(all)" toggle).
 
 export default function ContactPicker({ value, onChange, companyId = null, placeholder = 'Search contacts…', allowClear = true }) {
   const contacts = selectContacts(useStore());
@@ -60,7 +60,7 @@ export default function ContactPicker({ value, onChange, companyId = null, place
           {companyId && (
             <label className="contact-picker-toggle">
               <input type="checkbox" checked={companyOnly} onChange={(e) => setCompanyOnly(e.target.checked)} />
-              <span>Restrict to this account</span>
+              <span>Restrict to this client</span>
             </label>
           )}
           {allowClear && selected && (
