@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
 import FormField from './FormField';
-import Avatar from './Avatar';
 import Icon from './Icon';
+import ServicePicker from './ServicePicker';
+import CrewPicker from './CrewPicker';
 import { useDispatch, useStore } from '../store';
 import { ACTIONS } from '../store/reducer';
 import { selectClients, selectSitesForClient, selectServices, selectActiveUsers, selectServiceById, selectCrewConflicts, selectClientById } from '../store/selectors';
@@ -155,11 +156,6 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
     onClose();
   };
 
-  const toggleCrew = (userId) => {
-    const on = form.crewIds.includes(userId);
-    setForm({ ...form, crewIds: on ? form.crewIds.filter((x) => x !== userId) : [...form.crewIds, userId] });
-  };
-
   const toggleDow = (dow) => {
     const on = form.daysOfWeek.includes(dow);
     setForm({ ...form, daysOfWeek: on ? form.daysOfWeek.filter((d) => d !== dow) : [...form.daysOfWeek, dow].sort() });
@@ -222,11 +218,16 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
           />
         )}
         <FormField
-          label="Service" as="select" required value={form.serviceId}
-          onChange={(e) => setForm({ ...form, serviceId: e.target.value, endTime: applyServiceDuration(e.target.value) })}
-          options={[{ value: '', label: 'Select a service' }, ...services.map((s) => ({ value: s.id, label: s.name }))]}
-          help={service ? `Default duration: ${service.defaultDurationMins} min` : undefined}
-        />
+          label="Service"
+          required
+          help={service ? `Default duration: ${service.defaultDurationMins} min` : 'Type to search or create a new service on the fly.'}
+        >
+          <ServicePicker
+            value={form.serviceId}
+            onChange={(id) => setForm({ ...form, serviceId: id, endTime: applyServiceDuration(id) })}
+            placeholder="Select a service"
+          />
+        </FormField>
         <FormField label="Date" type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
         <div className="form-row">
           <FormField label="Start" type="time" required value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
@@ -294,18 +295,13 @@ export default function NewJobModal({ open, onClose, mode = 'create', initialDat
           </div>
         )}
 
-        <FormField label="Crew" help="Click a crew member to assign or unassign them from this job. Highlighted chips are assigned.">
-          <div className="chip-picker">
-            {crewPool.map((u) => {
-              const on = form.crewIds.includes(u.id);
-              return (
-                <button key={u.id} type="button" className={`chip ${on ? 'on' : ''}`} onClick={() => toggleCrew(u.id)}>
-                  <Avatar initials={u.initials} variant={u.avatar} size="sm" />
-                  <span>{u.name}</span>
-                </button>
-              );
-            })}
-          </div>
+        <FormField label="Crew" help="Type to search and pick crew members. Selected crew show at the top; click a name to add or remove.">
+          <CrewPicker
+            value={form.crewIds}
+            onChange={(ids) => setForm({ ...form, crewIds: ids })}
+            pool={crewPool}
+            placeholder="Add crew…"
+          />
         </FormField>
 
         {conflicts.length > 0 && (

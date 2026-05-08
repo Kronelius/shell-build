@@ -250,6 +250,161 @@ table tr:hover { background: var(--table-row-hover); }
 table td:has(.input) { padding: 6px 8px; }
 table td .input, table td select.input { padding: 7px 10px; }
 
+/* Crew picker (NewJobModal) — multi-select dropdown for crew assignment.
+   Trigger row stays a single line: chips lay out left-to-right, no wrap; if
+   they overflow the available width they get clipped and the right edge
+   fades to signal "more selected than visible." The dropdown is one fixed-
+   height list with checkmarks on selected rows — clicking a row toggles it
+   in place, so the dropdown geometry never shifts under the cursor. */
+.crew-picker { position: relative; }
+.crew-trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  border: 2px solid transparent;
+  border-radius: var(--input-radius);
+  background:
+    linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+    var(--input-border-grad) border-box;
+  cursor: text;
+  min-height: 42px;
+  transition: box-shadow 0.12s, background 0.12s;
+}
+.crew-trigger:focus-within {
+  background:
+    linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+    var(--input-border-grad-focus) border-box;
+  box-shadow: var(--input-focus-shadow);
+}
+/* Inner strip: single-line chip layout. overflow:hidden clips any chips
+   beyond the available width; the mask fades the right edge so users see
+   that there's more — same intent as the requested "..." but without
+   needing JS to count fits. */
+.crew-trigger-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+}
+.crew-trigger-input {
+  flex: 1 0 80px;
+  min-width: 80px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 4px 0;
+}
+.crew-trigger-input::placeholder { color: var(--text-muted); }
+.crew-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 4px;
+  background: var(--primary-bg);
+  border: 1px solid rgba(var(--color-brand-primary-rgb), 0.25);
+  border-radius: var(--badge-radius);
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  line-height: 1;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.crew-chip-name { white-space: nowrap; }
+.crew-picker-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-dropdown);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  /* Fixed height so the dropdown doesn't reflow as crew get checked or
+     unchecked — the user can keep clicking the same spot to add/remove
+     without the box jumping under their cursor. The list scrolls inside. */
+  height: 360px;
+  overflow: hidden;
+}
+.crew-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.crew-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: background 0.12s, border-color 0.12s;
+}
+.crew-picker-row:hover {
+  background: var(--primary-bg);
+  border-color: rgba(var(--color-brand-primary-rgb), 0.2);
+}
+.crew-picker-row.is-selected {
+  background: var(--primary-bg);
+  border-color: rgba(var(--color-brand-primary-rgb), 0.25);
+}
+.crew-picker-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crew-picker-row-check {
+  flex-shrink: 0;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ServicePicker open-state input — the trigger morphs into a search field
+   when opened; this strips chrome so it inherits the trigger's look. */
+.picker-search-input {
+  flex: 1; min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 0;
+}
+.picker-search-input::placeholder { color: var(--text-muted); }
+/* Footer hint inside the ServicePicker dropdown — surfaces the type-to-create
+   capability immediately so users don't need to type random text first to
+   discover the affordance. Hidden once the user starts typing (the contextual
+   "Create" / "already exists" rows take over from there). */
+.picker-create-hint {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-top: 1px dashed var(--border-light);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* ── FORMS ── */
 .input, .select, textarea.input {
   width: 100%; padding: 9px 12px;
