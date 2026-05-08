@@ -300,6 +300,7 @@
   /* ── Messaging ── */
   --msg-item-hover:      rgba(var(--color-brand-primary-rgb), 0.12);
   --msg-active-border:   var(--color-brand-primary-500);
+  --bubble-incoming-bg:  #f4eee2;
 
   /* ── Metric strip (three colored cells) ── */
   --metric-cell-1-bg:
