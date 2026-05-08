@@ -676,9 +676,11 @@ select.input {
   font-size: 13px; line-height: 1.4;
 }
 .chat-bubble.incoming {
-  align-self: flex-start; background: var(--bubble-incoming-bg, var(--card-bg));
+  align-self: flex-start;
+  background: linear-gradient(135deg, #ffffff 0%, var(--bubble-incoming-bg, var(--card-bg)) 100%);
   border: 1px solid var(--border-light); color: var(--text-body);
   border-bottom-left-radius: 4px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 .chat-bubble.outgoing {
   align-self: flex-end;
