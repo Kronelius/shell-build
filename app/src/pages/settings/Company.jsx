@@ -46,7 +46,7 @@ export default function SettingsCompany() {
         </div>
         <div className="form-row">
           <FormField label="Logo initials" value={form.logoInitials || ''} onChange={(e) => setForm({ ...form, logoInitials: e.target.value })} help="2–3 characters shown as a badge" />
-          <FormField label="Invoice prefix" value={form.invoicePrefix || ''} onChange={(e) => setForm({ ...form, invoicePrefix: e.target.value })} help="e.g., INV or RFS" />
+          <FormField label="Invoice prefix" value={form.invoicePrefix || ''} onChange={(e) => setForm({ ...form, invoicePrefix: e.target.value })} help="e.g., INV or ACME" />
           <FormField label="Default tax rate (%)" type="number" step="0.01" min="0" value={form.taxRate ?? 0} onChange={(e) => setForm({ ...form, taxRate: e.target.value })} />
         </div>
         <FormField label="Business address" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} />

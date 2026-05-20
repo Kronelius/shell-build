@@ -5,7 +5,7 @@ A reusable checklist for verifying this app (or any shell clone) is healthy and 
 **Time budget:** ~1 hr for the smoke pass + ~1 hr for the security pass. Skip nothing — every check below has caught a real issue at least once on a similar shell.
 
 **When to run:**
-- Before handing a clone to a client (Rainier-style delivery gate)
+- Before handing a clone to a client (delivery gate)
 - After a storage-shape bump (`INITIAL_STATE.version` + `STORAGE_KEY` change)
 - After upgrading React, Vite, or `react-router-dom`
 - After touching `lib/twilio.js`, `lib/email.js`, `lib/reminderScheduler.js`, or anything in `store/`
@@ -110,7 +110,7 @@ Confirm storage-version bumps trigger a clean reseed (not a stale-state crash).
 1. Note the current `STORAGE_KEY` in `app/src/store/persist.js` (e.g. `pp.store.v14`).
 2. In DevTools: `localStorage.removeItem('pp.store.v14')` then reload.
 3. App should rehydrate from `INITIAL_STATE` with no errors. Counts should match `data/seed.js`.
-4. Default user should be the seed's first owner (Kyle for Rainier).
+4. Default user should be the seed's first owner (Alex Morgan in the shell baseline).
 
 ### 1.5 Reminder scheduler
 

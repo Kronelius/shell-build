@@ -1,3 +1,11 @@
+// v37: Shell baseline rebrand to PolishPoint. Company entity + team-user
+// roster genericized (Kyle/Steve/Heather/Lauren/Marcus/Riley/Jamie/Casey →
+// Alex/Jordan/Sam/Taylor/Devon/Charlie/Avery/Rowan), brand strings swapped,
+// theme switched to PolishPoint Blue. No state-shape change — the storage-key
+// bump (pp.store.v36 → pp.store.v37) is intentional and orphans any pre-rebrand
+// localStorage so the next load reseeds cleanly from INITIAL_STATE. No
+// migration function needed; the key bump IS the migration.
+//
 // v36: Brand domain consolidation + id-based Heather rename. Two coordinated
 // changes:
 //   1. Every team-user email on @rainierfs.com is rewritten to
@@ -93,7 +101,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v36';
+const STORAGE_KEY = 'pp.store.v37';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.

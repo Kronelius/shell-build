@@ -337,6 +337,47 @@ Values currently missing from the Swatchboard's 8 categories. Handle inline unti
 
 ---
 
+## Non-CSS brand surfaces
+
+CSS variables can't reach a handful of surfaces that the browser/runtime reads outside the CSS pipeline. To keep re-skinning the shell to one-edit per client, these surfaces consume a shared JS config instead:
+
+**`app/src/brand.config.js`** is the single source of truth for non-CSS brand constants:
+
+```js
+export const BRAND = {
+  name: 'PolishPoint',
+  shortName: 'PolishPoint',
+  description: '...',
+  titleSuffix: 'PolishPoint CRM',
+  logoFile: 'polishpoint-logo.png',
+  primaryHex: '#1E8FE8',
+  primaryRgb: { r: 0x1E, g: 0x8F, b: 0xE8, alpha: 1 },
+};
+```
+
+**Consumers:**
+
+| Surface | Mechanism | Where the brand value lands |
+|---|---|---|
+| `app/index.html` | `vite-plugin-brand.js` (transformIndexHtml) | `<title>`, `<meta name="theme-color">`, `<meta name="application-name">`, `<meta name="apple-mobile-web-app-title">` via `%BRAND_*%` placeholders |
+| `app/public/manifest.json` | `scripts/build-manifest.mjs` (prebuild step in package.json) | Generated from `app/manifest.template.json` on every dev / build. Output is gitignored. |
+| PWA icons (`favicon.png`, `apple-touch-icon.png`, `icon-{192,512,maskable-512}.png`) | `scripts/gen-pwa-icons.mjs` | Composite of the logo file onto a square in `BRAND.primaryRgb`. Re-run after editing `brand.config.js` or swapping the logo. |
+| `app/src/lib/documentTitle.js` | Direct ESM import of `BRAND` | Document title fallback |
+| `app/src/lib/push.js` | Direct ESM import of `BRAND` | Web Push test-notification title |
+
+### Adding a new theme (per-client re-skin)
+
+1. Edit `app/src/brand.config.js` — name, hex/rgb, logoFile, titleSuffix.
+2. Copy `app/src/theme-polishpoint.css` → `app/src/theme-<client>.css`; swap the brand-primary scale + any client-specific recipe tweaks. Keep the token names; only values change.
+3. Update `app/src/index.css` line 3 import to the new theme file.
+4. Drop the client logo PNG into `app/public/<logoFile>`.
+5. `node scripts/gen-pwa-icons.mjs` to regenerate favicons + PWA icons.
+6. `npm run dev` — the manifest prebuild + index.html templating run automatically.
+
+That's the full re-skin surface. Everything else (component CSS, JSX) reads from CSS variables and inherits the swap automatically.
+
+---
+
 ## Transition state (Phase 0)
 
 - The Swatchboard currently has 16 grayscale color tokens seeded (Phase 0). All other categories below are defined in this doc but are not yet rows in Supabase.

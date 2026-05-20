@@ -108,7 +108,7 @@ function HelpPanel({ providerKey, smtpPresetKey }) {
           <>
             <p><strong>Yahoo Mail — generate an app password</strong></p>
             <ul>
-              <li>Yahoo no longer accepts your normal password for third-party apps. Generate one at <strong>Account Info → Account Security → Generate app password</strong>. Name it "Rainier App" so you know what it's for.</li>
+              <li>Yahoo no longer accepts your normal password for third-party apps. Generate one at <strong>Account Info → Account Security → Generate app password</strong>. Name it "PolishPoint App" so you know what it's for.</li>
               <li>Hosts auto-filled: SMTP <code>smtp.mail.yahoo.com:465 (SSL)</code> · IMAP <code>imap.mail.yahoo.com:993 (SSL)</code>.</li>
               <li>Paste the 16-character app password (no spaces) — not your regular Yahoo password.</li>
             </ul>
@@ -118,7 +118,7 @@ function HelpPanel({ providerKey, smtpPresetKey }) {
           <>
             <p><strong>iCloud Mail — generate an app-specific password</strong></p>
             <ul>
-              <li>Sign in to <strong>appleid.apple.com → Sign-In and Security → App-Specific Passwords → Generate</strong>. Label it "Rainier App."</li>
+              <li>Sign in to <strong>appleid.apple.com → Sign-In and Security → App-Specific Passwords → Generate</strong>. Label it "PolishPoint App."</li>
               <li>Hosts auto-filled: SMTP <code>smtp.mail.me.com:587 (STARTTLS)</code> · IMAP <code>imap.mail.me.com:993 (SSL)</code>.</li>
               <li>Username is your full Apple ID. Both <code>@icloud.com</code> and <code>@me.com</code> / <code>@mac.com</code> aliases work.</li>
             </ul>
@@ -128,7 +128,7 @@ function HelpPanel({ providerKey, smtpPresetKey }) {
           <>
             <p><strong>Fastmail — create an app password</strong></p>
             <ul>
-              <li><strong>Settings → Privacy &amp; Security → App Passwords → New App Password</strong>. Label "Rainier App," scope <em>Mail</em>.</li>
+              <li><strong>Settings → Privacy &amp; Security → App Passwords → New App Password</strong>. Label "PolishPoint App," scope <em>Mail</em>.</li>
               <li>Hosts auto-filled: SMTP <code>smtp.fastmail.com:465 (SSL)</code> · IMAP <code>imap.fastmail.com:993 (SSL)</code>.</li>
             </ul>
           </>

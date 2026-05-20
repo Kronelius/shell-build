@@ -17,6 +17,8 @@
 // matching private key never leaves the backend.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { BRAND } from '../brand.config.js';
+
 const BACKEND = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PUSH_BACKEND_URL) || null;
 const VAPID_PUBLIC_KEY =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY) || null;
@@ -234,7 +236,7 @@ export async function sendTestPush({ userId } = {}) {
   if (!BACKEND) {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification('Rainier — test push', {
+        new Notification(`${BRAND.name} — test push`, {
           body: 'If you can read this, mobile push is wired correctly on this device.',
           icon: '/icon-192.png',
         });

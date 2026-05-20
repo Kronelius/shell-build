@@ -1,18 +1,17 @@
 /* ============================================================
-   THEME: Rainier Facility Solutions
+   THEME: PolishPoint Blue
    ------------------------------------------------------------
-   Deep navy primary anchored on #212269 (the brand wordmark color)
-   with the logo's green as a secondary brand accent. Slate neutrals
-   for cool cast. Same neumorphic / gradient / glass-pill recipe
-   vocabulary as the shell's PolishPoint Blue baseline — only the
-   token VALUES change. Recipes inherit automatically.
+   Slate neutrals + blue primary (#1E8FE8 anchor), neumorphic
+   depth, gradient primaries, glass switchers, ambient radial
+   background. Brand secondary aliases to teal so the wider token
+   contract (referenced by index.css) resolves cleanly.
 
    Overrides canonical tokens from app/src/theme.css, then adds
    a RECIPES section for theme-specific compositions. To apply,
    import this file AFTER theme.css:
 
      @import './theme.css';
-     @import './theme-rainier.css';
+     @import './theme-polishpoint.css';
 
    See app/src/STYLING.md for vocabulary rules.
    ============================================================ */
@@ -35,34 +34,32 @@
   --color-neutral-900:    #0f172a;
   --color-neutral-rgb:    15, 23, 42;
 
-  /* ── Color — brand primary (Rainier navy, anchored on #212269) ── */
-  /* HSL ≈ 239°, 53%, 27%. Scale built around the wordmark color so
-     the 500 step is the canonical brand. 400 is a usable medium-tone
-     for hover states and gradient origins; 600/700 are pressed/dark. */
-  --color-brand-primary-50:      #EFEFFA;
-  --color-brand-primary-100:     #D2D3EE;
-  --color-brand-primary-400:     #5859AB;
-  --color-brand-primary-500:     #212269;
-  --color-brand-primary-600:     #1A1B54;
-  --color-brand-primary-700:     #131340;
-  --color-brand-primary-rgb:     33, 34, 105;
-  --color-brand-primary-400-rgb: 88, 89, 171;
-  --color-brand-primary-600-rgb: 26, 27, 84;
+  /* ── Color — brand primary (PolishPoint blue, anchored on #1E8FE8) ── */
+  --color-brand-primary-50:      #EBF5FE;
+  --color-brand-primary-100:     #D6ECFB;
+  --color-brand-primary-400:     #47A5ED;
+  --color-brand-primary-500:     #1E8FE8;
+  --color-brand-primary-600:     #1878C8;
+  --color-brand-primary-700:     #125FA0;
+  --color-brand-primary-rgb:     30, 143, 232;
+  --color-brand-primary-400-rgb: 71, 165, 237;
+  --color-brand-primary-600-rgb: 24, 120, 200;
 
-  /* ── Color — brand secondary (Rainier wordmark green) ── */
-  /* The "FACILITY SOLUTIONS" green from the logo. Used as a
-     complementary accent — secondary buttons, success-tinted UI
-     where we want the brand voice instead of generic emerald. */
-  --color-brand-secondary-50:    #ECF7EF;
-  --color-brand-secondary-100:   #CCE9D5;
-  --color-brand-secondary-400:   #7BC793;
-  --color-brand-secondary-500:   #5DB87F;
-  --color-brand-secondary-600:   #4A9E69;
-  --color-brand-secondary-700:   #3A8053;
-  --color-brand-secondary-rgb:   93, 184, 127;
+  /* ── Color — brand secondary (stubbed to accent-teal scale) ── */
+  /* PolishPoint Blue intentionally doesn't ship a second brand color.
+     Index.css references --color-brand-secondary-600 without a fallback,
+     so we alias the slot to teal — visually complementary to blue and
+     already present in the accent palette. Per-client themes can override. */
+  --color-brand-secondary-50:    var(--color-accent-teal-50);
+  --color-brand-secondary-100:   var(--color-accent-teal-200);
+  --color-brand-secondary-400:   var(--color-accent-teal-400);
+  --color-brand-secondary-500:   var(--color-accent-teal-500);
+  --color-brand-secondary-600:   var(--color-accent-teal-600);
+  --color-brand-secondary-700:   var(--color-accent-teal-600);
+  --color-brand-secondary-rgb:   20, 184, 166;            /* teal-500 rgb */
 
   /* ── Color — surface ── */
-  --color-surface-base:      #ffffff;
+  --color-surface-base:      #f8fafc;
   --color-surface-raised:    #ffffff;
   --color-surface-sunken:    #f8fafc;
   --color-surface-overlay:   #ffffff;
@@ -116,15 +113,13 @@
   --color-accent-teal-500:        #14b8a6;
   --color-accent-teal-600:        #0d9488;
 
-  /* ── Radius (Rainier theme uses softer, rounder corners) ── */
+  /* ── Radius (blue theme uses softer, rounder corners) ── */
   --radius-md:       10px;     /* buttons, inputs */
   --radius-lg:       20px;     /* cards */
 
-  /* ── Alias overrides — avatar accents for Rainier theme ── */
-  /* Avatar 1 = navy (Kyle/owners), 2 = brand green (Steve), 3 = purple
-     (Heather), 4 = orange (Lauren), 5 = teal (crew rotation). */
+  /* ── Alias overrides — avatar accents for blue theme ── */
   --color-avatar-1:  var(--color-brand-primary-500);
-  --color-avatar-2:  var(--color-brand-secondary-500);
+  --color-avatar-2:  var(--color-semantic-success-500);
   --color-avatar-3:  var(--color-accent-purple-400);
   --color-avatar-4:  var(--color-accent-orange-500);
   --color-avatar-5:  var(--color-accent-teal-600);
@@ -153,8 +148,8 @@
   --sidebar-edge:
     linear-gradient(
       90deg,
-      rgba(var(--color-neutral-rgb), 0.055) 0%,
-      rgba(var(--color-brand-primary-600-rgb), 0.012) 60%,
+      rgba(var(--color-neutral-rgb), 0.22) 0%,
+      rgba(var(--color-brand-primary-600-rgb), 0.05) 60%,
       transparent 100%
     );
   --sidebar-blend:
@@ -198,13 +193,13 @@
   --btn-primary-grad-hover:
     linear-gradient(135deg, var(--color-brand-primary-500) 0%, var(--color-brand-primary-700) 100%);
   --btn-primary-glow:
-    inset 0 1px 0 rgba(var(--color-white-rgb), 0.125),
-    0 0 22px rgba(var(--color-brand-primary-rgb), 0.175),
-    0 4px 14px rgba(var(--color-brand-primary-600-rgb), 0.14);
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.25),
+    0 0 22px rgba(var(--color-brand-primary-rgb), 0.35),
+    0 4px 14px rgba(var(--color-brand-primary-600-rgb), 0.28);
   --btn-primary-glow-hover:
-    inset 0 1px 0 rgba(var(--color-white-rgb), 0.15),
-    0 0 28px rgba(var(--color-brand-primary-rgb), 0.225),
-    0 6px 18px rgba(var(--color-brand-primary-600-rgb), 0.175);
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.3),
+    0 0 28px rgba(var(--color-brand-primary-rgb), 0.45),
+    0 6px 18px rgba(var(--color-brand-primary-600-rgb), 0.35);
   --btn-secondary-shadow:
     2px 2px 6px rgba(var(--color-neutral-rgb), 0.04),
     -1px -1px 4px rgba(var(--color-white-rgb), 0.8);
@@ -218,16 +213,23 @@
     );
   --nav-active-bg:
     linear-gradient(180deg, var(--color-brand-primary-400) 0%, var(--color-brand-primary-600) 100%);
-  --nav-active-shadow: none;
-  --nav-active-filter: none;
+  --nav-active-shadow:
+    inset 0 1px 0 rgba(var(--color-white-rgb), 0.35),
+    inset 1px 0 0 rgba(var(--color-white-rgb), 0.15);
+  --nav-active-filter:
+    drop-shadow(0 0 10px rgba(var(--color-brand-primary-400-rgb), 0.5))
+    drop-shadow(0 3px 10px rgba(var(--color-brand-primary-600-rgb), 0.35));
 
-  /* ── Page background ── */
-  /* Pure white — the navy primary is dark enough that radial blooms muddy the
-     contrast. Body uses --page-bg-layers as the canonical background hook;
-     keeping the token but resolving it to flat white preserves the contract
-     while killing the lavender wash. */
-  --page-bg-layers:    var(--color-surface-base);
-  --page-aurora:       none;
+  /* ── Page aurora background ── */
+  --page-bg-layers:
+    radial-gradient(ellipse at 15% 10%, rgba(var(--color-brand-primary-400-rgb), 0.05) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 25%, rgba(var(--color-brand-primary-400-rgb), 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(var(--color-neutral-rgb), 0.05) 0%, transparent 55%),
+    var(--color-surface-base);
+  --page-aurora:
+    radial-gradient(ellipse 60% 40% at 18% 30%, rgba(var(--color-brand-primary-400-rgb), 0.25) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 78% 22%, rgba(var(--color-brand-primary-400-rgb), 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 45% at 50% 85%, rgba(var(--color-brand-primary-400-rgb), 0.2) 0%, transparent 55%);
 
   /* ── Dashboard hero ── */
   --dash-hero-bg:
@@ -300,7 +302,6 @@
   /* ── Messaging ── */
   --msg-item-hover:      rgba(var(--color-brand-primary-rgb), 0.12);
   --msg-active-border:   var(--color-brand-primary-500);
-  --bubble-incoming-bg:  #f4eee2;
 
   /* ── Metric strip (three colored cells) ── */
   --metric-cell-1-bg:
@@ -352,17 +353,7 @@
 
   /* ── Mobile header ── */
   --mobile-header-bg:        var(--color-neutral-900);
-  --mobile-header-grad:
-    linear-gradient(
-      120deg,
-      var(--color-brand-primary-700) 0%,
-      var(--color-brand-primary-500) 35%,
-      var(--color-brand-primary-400) 100%
-    );
-  --mobile-header-border:    var(--color-brand-primary-700);
-  --mobile-header-shadow:
-    0 1px 0 rgba(var(--color-white-rgb, 255, 255, 255), 0.08) inset,
-    0 4px 14px rgba(var(--color-brand-primary-600-rgb), 0.32);
+  --mobile-header-border:    var(--color-neutral-800);
   --mobile-sub-color:        var(--color-neutral-400);
   --hamburger-color:         var(--color-neutral-300);
   --overlay-bg:              rgba(var(--color-neutral-rgb), 0.5);

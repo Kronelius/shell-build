@@ -1,4 +1,4 @@
-// Rainier service worker.
+// PolishPoint service worker.
 //
 // Scope: '/' — registered from main.jsx with `{ scope: '/' }`. The only
 // behaviors here are push handling and notification click-through. There is
@@ -23,9 +23,9 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: 'Rainier', body: event.data?.text?.() || '' };
+    data = { title: 'PolishPoint', body: event.data?.text?.() || '' };
   }
-  const title = data.title || 'Rainier';
+  const title = data.title || 'PolishPoint';
   const options = {
     body: data.body || '',
     icon: data.icon || ICON,

@@ -339,7 +339,7 @@ The minimum token vocabulary for the rules above:
 **Where it applies.** Every CSS file in `app/src/` outside `theme.css` and `theme-{name}.css`. Inline `style={{...}}` in JSX is held to the same standard — search the codebase for `style={{` containing `#` or `rgba(` and migrate.
 
 **Where literals ARE allowed:**
-- Theme files only (`theme.css`, `theme-rainier.css`, future `theme-{name}.css`) — this is where token VALUES live by design.
+- Theme files only (`theme.css`, `theme-polishpoint.css`, future `theme-{client}.css`) — this is where token VALUES live by design.
 - Recipes inside theme files — alpha values, blur radii, gradient angles, and the `*-rgb` triplet on the `--color-{name}-rgb` aliases are defined as numeric literals there.
 
 **Known gaps (genuine missing tokens — promote via Swatchboard Material Change Protocol):**

@@ -1,6 +1,6 @@
 # Shell Mobile Responsive — Audit & Carryover Spec
 
-**Status:** Living doc. Use this to retrofit the shell baseline (`Kronelius/shell-build`) so every future client deployment ships mobile-clean from day one. Originated from the Rainier Facility Solutions build (this repo).
+**Status:** Living doc. Use this to keep the shell baseline (`Kronelius/shell-build`) mobile-clean so every client deployment ships sane from day one. Originated from the master shell build's mobile-responsiveness audit.
 
 **Mandate:** **Zero horizontal scroll on any viewport, anywhere in the app.** Including data tables, modals, settings, messaging — no exceptions. If a layout cannot fit at 375px, it must be re-shaped (cards, drawers, stacked forms), not allowed to scroll sideways.
 
@@ -522,8 +522,8 @@ These aren't broken right now but could regress, or have subtle behavior worth f
 - Land §4 page-by-page conversions in dependency order: components first (`MobileCardList`, `ContactCardRow`, etc.), then page swaps.
 - Bump `INITIAL_STATE.version` + `STORAGE_KEY` only if state shape changes. None of these fixes change state — version stays at v7.
 - This doc is a snapshot. Re-grep line numbers when porting; they'll drift.
-- Per-client themes (`theme-rainier.css`, future `theme-*.css`) **do not need any of these rules**. The fixes are theme-agnostic — they live in `index.css` and use token references.
+- Per-client themes (`theme-polishpoint.css`, future `theme-{client}.css`) **do not need any of these rules**. The fixes are theme-agnostic — they live in `index.css` and use token references.
 
 ---
 
-*Generated 2026-05-03 from the Rainier client build. Canonical home: shell repo (`Kronelius/shell-build`). Backport this doc when merging mobile fixes upstream.*
+*Generated 2026-05-03. Canonical home: shell repo (`Kronelius/shell-build`). Update whenever new mobile-shape patterns land in the shell.*

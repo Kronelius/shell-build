@@ -1,8 +1,9 @@
-// Rainier Facility Solutions — seed data.
-// Per-client clone of the shell. Demo clients/contacts/jobs/invoices/messages
-// are kept rich (rebranded to PNW janitorial) so the app looks alive at handoff.
-// Replace via CSV import ($200 migration add-on) once Rainier's GHL contacts
-// land. Source of truth for what's seeded vs. add-on: ../../RAINIER_SCOPE.md.
+// Shell baseline — PolishPoint seed data.
+// Generic janitorial-services demo: a fictional "PolishPoint" company with
+// 8 placeholder team members, 7 PNW-fictional clients, a service catalog,
+// and rich demo conversations/invoices/jobs/snippets so the app looks alive
+// on first boot. Per-client clones overwrite the company entity + team via
+// onboarding; clients/contacts can be CSV-imported.
 
 import { seedId } from '../lib/ids';
 import { seedPermissions } from '../lib/roles';
@@ -44,14 +45,14 @@ const inHours = (n) => {
 // ---------- core ----------
 const company = {
   id: seedId('co', 'main'),
-  name: 'Rainier Facility Solutions',
-  owner: 'Kyle Boyden',
-  logoInitials: 'RFS',
-  logoUrl: '/rainier-facilities-logo.png',
-  invoicePrefix: 'RFS',
-  address: '4200 Cascade Ave S, Seattle WA 98108',
-  phone: '(253) 555-0100',
-  email: 'office@rainierfacilitysolutions.com',
+  name: 'PolishPoint',
+  owner: 'Alex Morgan',
+  logoInitials: 'PP',
+  logoUrl: '/polishpoint-logo.png',
+  invoicePrefix: 'PP',
+  address: '123 Main St, Anytown USA',
+  phone: '(555) 555-0100',
+  email: 'hello@polishpoint.app',
   businessHours: 'Mon–Fri 7:00 AM – 6:00 PM',
   taxRate: 0,
   integrations: {
@@ -78,14 +79,14 @@ const company = {
     },
     // System transactional email provider (Resend). Powers invitations,
     // reminder emails, and billing. One provider per deployment, sender locked
-    // to a verified subdomain (e.g. mail.rainierfacilitysolutions.com). Per-user emails
+    // to a verified subdomain (e.g. mail.example.com). Per-user emails
     // inside Messaging come from `connectedInboxes` instead — different layer.
     email: {
       connected: false,
       provider: null,             // 'resend' (room for future swaps)
       apiKeyLast4: null,
-      verifiedDomain: null,       // e.g. 'mail.rainierfacilitysolutions.com'
-      defaultFrom: null,          // 'Rainier Facility Solutions <hello@mail.rainierfacilitysolutions.com>'
+      verifiedDomain: null,       // e.g. 'mail.example.com'
+      defaultFrom: null,          // 'Your Company <hello@mail.example.com>'
       defaultReplyTo: null,
       connectedAt: null,
       lastVerifiedAt: null,
@@ -122,23 +123,22 @@ export const DEFAULT_NOTIFICATION_PREFS = {
   mobilePushEnabled: true,
 };
 
-// Per Q24 & questionnaire: Kyle + Steve own the business (Super Admin);
-// Heather runs hiring/onboarding/accounting; Lauren runs scheduling.
-// Cleaner roster names are placeholders — Rainier's actual roster lands
-// post-clone via Settings → Team → Add Member.
+// Two owners (Super Admin), two admins (one runs hiring/onboarding/accounting,
+// one runs scheduling), four crew. Names are fictional placeholders — per-client
+// onboarding replaces them via Settings → Team → Add Member.
 const users = [
-  { id: seedId('u', 'kyler'),   name: 'Kyle Boyden',     email: 'kyle@rainierfacilitysolutions.com',     phone: '(253) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'KB', createdAt: daysAgo(720) },
-  { id: seedId('u', 'steve'),   name: 'Steve Whitfield', email: 'steve@rainierfacilitysolutions.com',    phone: '(253) 555-0102', role: 'owner', status: 'active', avatar: 2, initials: 'SW', createdAt: daysAgo(720) },
-  { id: seedId('u', 'heather'), name: 'Heather Warren',  email: 'heather@rainierfacilitysolutions.com',  phone: '(253) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'HW', createdAt: daysAgo(540) },
-  { id: seedId('u', 'lauren'),  name: 'Lauren Park',     email: 'lauren@rainierfacilitysolutions.com',   phone: '(253) 555-0104', role: 'admin', status: 'active', avatar: 4, initials: 'LP', createdAt: daysAgo(420) },
-  { id: seedId('u', 'crew1'),   name: 'Marcus Greene',   email: 'marcus@rainierfacilitysolutions.com',   phone: '(253) 555-0121', role: 'crew',  status: 'active', avatar: 5, initials: 'MG', createdAt: daysAgo(300) },
-  { id: seedId('u', 'crew2'),   name: 'Riley Diaz',      email: 'riley@rainierfacilitysolutions.com',    phone: '(253) 555-0122', role: 'crew',  status: 'active', avatar: 1, initials: 'RD', createdAt: daysAgo(220) },
-  { id: seedId('u', 'crew3'),   name: 'Jamie Sato',      email: 'jamie@rainierfacilitysolutions.com',    phone: '(253) 555-0123', role: 'crew',  status: 'active', avatar: 2, initials: 'JS', createdAt: daysAgo(180) },
-  { id: seedId('u', 'crew4'),   name: 'Casey Vega',      email: 'casey@rainierfacilitysolutions.com',    phone: '(253) 555-0124', role: 'crew',  status: 'active', avatar: 3, initials: 'CV', createdAt: daysAgo(120) },
+  { id: seedId('u', 'owner1'), name: 'Alex Morgan',     email: 'alex@polishpoint.app',    phone: '(555) 555-0101', role: 'owner', status: 'active', avatar: 1, initials: 'AM', createdAt: daysAgo(720) },
+  { id: seedId('u', 'owner2'), name: 'Jordan Reyes',    email: 'jordan@polishpoint.app',  phone: '(555) 555-0102', role: 'owner', status: 'active', avatar: 2, initials: 'JR', createdAt: daysAgo(720) },
+  { id: seedId('u', 'admin1'), name: 'Sam Patel',       email: 'sam@polishpoint.app',     phone: '(555) 555-0103', role: 'admin', status: 'active', avatar: 3, initials: 'SP', createdAt: daysAgo(540) },
+  { id: seedId('u', 'admin2'), name: 'Taylor Kim',      email: 'taylor@polishpoint.app',  phone: '(555) 555-0104', role: 'admin', status: 'active', avatar: 4, initials: 'TK', createdAt: daysAgo(420) },
+  { id: seedId('u', 'crew1'),  name: 'Devon Carter',    email: 'devon@polishpoint.app',   phone: '(555) 555-0121', role: 'crew',  status: 'active', avatar: 5, initials: 'DC', createdAt: daysAgo(300) },
+  { id: seedId('u', 'crew2'),  name: 'Charlie Adams',   email: 'charlie@polishpoint.app', phone: '(555) 555-0122', role: 'crew',  status: 'active', avatar: 1, initials: 'CA', createdAt: daysAgo(220) },
+  { id: seedId('u', 'crew3'),  name: 'Avery Stone',     email: 'avery@polishpoint.app',   phone: '(555) 555-0123', role: 'crew',  status: 'active', avatar: 2, initials: 'AS', createdAt: daysAgo(180) },
+  { id: seedId('u', 'crew4'),  name: 'Rowan Hill',      email: 'rowan@polishpoint.app',   phone: '(555) 555-0124', role: 'crew',  status: 'active', avatar: 3, initials: 'RH', createdAt: daysAgo(120) },
 ].map((u) => ({ ...u, notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS } }));
 
 // ---------- Services ----------
-// Per Q23 — Rainier offers residential, commercial, and specialized lines.
+// Janitorial services across residential, commercial, and specialized lines.
 const services = [
   // Commercial
   { id: seedId('svc', 'jan'),   name: 'Commercial Janitorial',     defaultDurationMins:  90 },
@@ -187,7 +187,7 @@ const tags = [
 const tagId = (key) => seedId('tg', key);
 
 // ---------- Pipelines ----------
-// Generic starter pipelines mirroring Rainier's GoHighLevel set
+// Generic starter pipelines mirroring the GoHighLevel default set
 // (1.1 Leads / 1.2 Sales / 1.3 Clients). Reducer key 'won' on the Sales
 // pipeline carries lifecycle-promotion semantics (contact → client).
 const pipelines = [
@@ -254,7 +254,7 @@ const pipelines = [
 ];
 
 // ---------- Clients ----------
-// Demo clients — PNW commercial + residential mix. Rainier's real book of
+// Demo clients — PNW commercial + residential mix. The real book of
 // business lands via CSV import ($200 add-on); this populates the UI for
 // training/handoff and exercises every entity surface.
 // primaryContactId is wired below after contacts are defined.
@@ -358,14 +358,14 @@ const li = (desc, qty, unit) => ({
 });
 
 const invoices = [
-  { id: 'RFS-1001', clientId: clients[0].id, billingContactId: contacts[0].id, siteId: siteFor('evgrn-main').id, jobIds: [], issueDate: daysAgo(3),  dueDate: atTime(27, 12, 0), lineItems: [li('Weekly janitorial — Main Hospital', 4, 350)], taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p1'), date: daysAgo(1), amount: 1400, method: 'ACH',   note: '' }],         attachment: null, notes: '', createdAt: daysAgo(3) },
-  { id: 'RFS-1002', clientId: clients[1].id, billingContactId: contacts[1].id, siteId: siteFor('lake-main').id,  jobIds: [], issueDate: daysAgo(4),  dueDate: atTime(26, 12, 0), lineItems: [li('Monthly floor care', 1, 650)],                  taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p2'), date: daysAgo(2), amount: 650,  method: 'Card',  note: '' }],         attachment: null, notes: '', createdAt: daysAgo(4) },
-  { id: 'RFS-1003', clientId: clients[4].id, billingContactId: contacts[4].id, siteId: siteFor('pac-tower').id,  jobIds: [], issueDate: daysAgo(6),  dueDate: atTime(24, 12, 0), lineItems: [li('Bi-weekly janitorial — Tower A', 2, 475)],      taxRate: 0, status: 'pending', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(6) },
-  { id: 'RFS-1004', clientId: clients[5].id, billingContactId: contacts[5].id, siteId: siteFor('oly-main').id,   jobIds: [], issueDate: daysAgo(8),  dueDate: atTime(22, 12, 0), lineItems: [li('Weekly restroom sanitation', 4, 195)],          taxRate: 0, status: 'pending', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(8) },
-  { id: 'RFS-1005', clientId: clients[3].id, billingContactId: contacts[3].id, siteId: siteFor('mtb-clbhs').id,  jobIds: [], issueDate: daysAgo(10), dueDate: atTime(20, 12, 0), lineItems: [li('Monthly window cleaning — Clubhouse', 1, 285)], taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p3'), date: daysAgo(5), amount: 285,  method: 'Check', note: '#1042' }],   attachment: null, notes: '', createdAt: daysAgo(10) },
-  { id: 'RFS-1006', clientId: clients[2].id, billingContactId: contacts[2].id, siteId: siteFor('csc-main').id,   jobIds: [], issueDate: daysAgo(20), dueDate: daysAgo(5),        lineItems: [li('Quarterly pressure washing', 1, 1500)],         taxRate: 0, status: 'overdue', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(20) },
-  { id: 'RFS-1007', clientId: clients[6].id, billingContactId: contacts[6].id, siteId: siteFor('sal-main').id,   jobIds: [], issueDate: daysAgo(30), dueDate: daysAgo(15),       lineItems: [li('Post-construction cleanup', 1, 950)],           taxRate: 0, status: 'overdue', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(30) },
-  { id: 'RFS-1008', clientId: clients[0].id, billingContactId: contacts[0].id, siteId: siteFor('evgrn-clnc').id, jobIds: [], issueDate: daysAgo(14), dueDate: atTime(16, 12, 0), lineItems: [li('Weekly janitorial — Annex Clinic', 4, 320)],   taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p4'), date: daysAgo(7), amount: 1280, method: 'ACH',   note: '' }],         attachment: null, notes: '', createdAt: daysAgo(14) },
+  { id: 'PP-1001', clientId: clients[0].id, billingContactId: contacts[0].id, siteId: siteFor('evgrn-main').id, jobIds: [], issueDate: daysAgo(3),  dueDate: atTime(27, 12, 0), lineItems: [li('Weekly janitorial — Main Hospital', 4, 350)], taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p1'), date: daysAgo(1), amount: 1400, method: 'ACH',   note: '' }],         attachment: null, notes: '', createdAt: daysAgo(3) },
+  { id: 'PP-1002', clientId: clients[1].id, billingContactId: contacts[1].id, siteId: siteFor('lake-main').id,  jobIds: [], issueDate: daysAgo(4),  dueDate: atTime(26, 12, 0), lineItems: [li('Monthly floor care', 1, 650)],                  taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p2'), date: daysAgo(2), amount: 650,  method: 'Card',  note: '' }],         attachment: null, notes: '', createdAt: daysAgo(4) },
+  { id: 'PP-1003', clientId: clients[4].id, billingContactId: contacts[4].id, siteId: siteFor('pac-tower').id,  jobIds: [], issueDate: daysAgo(6),  dueDate: atTime(24, 12, 0), lineItems: [li('Bi-weekly janitorial — Tower A', 2, 475)],      taxRate: 0, status: 'pending', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(6) },
+  { id: 'PP-1004', clientId: clients[5].id, billingContactId: contacts[5].id, siteId: siteFor('oly-main').id,   jobIds: [], issueDate: daysAgo(8),  dueDate: atTime(22, 12, 0), lineItems: [li('Weekly restroom sanitation', 4, 195)],          taxRate: 0, status: 'pending', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(8) },
+  { id: 'PP-1005', clientId: clients[3].id, billingContactId: contacts[3].id, siteId: siteFor('mtb-clbhs').id,  jobIds: [], issueDate: daysAgo(10), dueDate: atTime(20, 12, 0), lineItems: [li('Monthly window cleaning — Clubhouse', 1, 285)], taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p3'), date: daysAgo(5), amount: 285,  method: 'Check', note: '#1042' }],   attachment: null, notes: '', createdAt: daysAgo(10) },
+  { id: 'PP-1006', clientId: clients[2].id, billingContactId: contacts[2].id, siteId: siteFor('csc-main').id,   jobIds: [], issueDate: daysAgo(20), dueDate: daysAgo(5),        lineItems: [li('Quarterly pressure washing', 1, 1500)],         taxRate: 0, status: 'overdue', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(20) },
+  { id: 'PP-1007', clientId: clients[6].id, billingContactId: contacts[6].id, siteId: siteFor('sal-main').id,   jobIds: [], issueDate: daysAgo(30), dueDate: daysAgo(15),       lineItems: [li('Post-construction cleanup', 1, 950)],           taxRate: 0, status: 'overdue', payments: [],                                                                                            attachment: null, notes: '', createdAt: daysAgo(30) },
+  { id: 'PP-1008', clientId: clients[0].id, billingContactId: contacts[0].id, siteId: siteFor('evgrn-clnc').id, jobIds: [], issueDate: daysAgo(14), dueDate: atTime(16, 12, 0), lineItems: [li('Weekly janitorial — Annex Clinic', 4, 320)],   taxRate: 0, status: 'paid',    payments: [{ id: seedId('pay', 'p4'), date: daysAgo(7), amount: 1280, method: 'ACH',   note: '' }],         attachment: null, notes: '', createdAt: daysAgo(14) },
 ];
 
 // ---------- Snippet folders & snippets ----------
@@ -376,8 +376,8 @@ const snippetFolders = [
 ];
 
 const snippets = [
-  { id: seedId('sn', 'welcome'),       folderId: snippetFolders[0].id, label: 'Welcome reply',         channel: 'all',   body: 'Hi there — thanks for reaching out to Rainier Facility Solutions! Someone from our team will follow up shortly.' },
-  { id: seedId('sn', 'intro-crew'),    folderId: snippetFolders[0].id, label: 'Intro from crew',       channel: 'sms',   body: 'Hi, this is Rainier Facility Solutions — your crew is prepping for the visit. Let us know if anything changes.' },
+  { id: seedId('sn', 'welcome'),       folderId: snippetFolders[0].id, label: 'Welcome reply',         channel: 'all',   body: 'Hi there — thanks for reaching out to PolishPoint! Someone from our team will follow up shortly.' },
+  { id: seedId('sn', 'intro-crew'),    folderId: snippetFolders[0].id, label: 'Intro from crew',       channel: 'sms',   body: 'Hi, this is PolishPoint — your crew is prepping for the visit. Let us know if anything changes.' },
   { id: seedId('sn', 'arrival-eta'),   folderId: snippetFolders[1].id, label: 'Arrival ETA',           channel: 'sms',   body: 'Your crew is on the way — ETA ~15 minutes.' },
   { id: seedId('sn', 'reschedule'),    folderId: snippetFolders[1].id, label: 'Reschedule offer',      channel: 'all',   body: 'Happy to reschedule — could you share a couple of windows that work this week?' },
   { id: seedId('sn', 'booking-conf'),  folderId: snippetFolders[1].id, label: 'Booking confirmed',     channel: 'all',   body: "All set — we've confirmed the visit. You'll get a reminder the day before." },
@@ -394,8 +394,8 @@ const snippets = [
 // allActiveStaffIds is the default member set for seeded internal threads — visible to
 // every active staff user in the seed data, so the inbox isn't empty for newcomers.
 const allActiveStaffIds = users.filter((u) => u.status === 'active').map((u) => u.id);
-// Default-current-user pin set — assigning previously-starred threads to Kyle
-// (the seeded current user) so his pinned section keeps its content. Switching
+// Default-current-user pin set — assigning previously-starred threads to Alex
+// (the seeded current user) so their pinned section keeps its content. Switching
 // to another user starts them with an empty pinned section, which is correct
 // per-user behavior for the demo.
 const defaultPinSet = [users[0].id];
@@ -420,7 +420,7 @@ const conversations = [
   { id: seedId('cv', 'evgrn-coord'),  clientId: null, contactId: null, channel: 'internal', title: 'Evergreen access coordination', createdAt: daysAgo(3), lastMessageAt: hoursAgo(22), createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starredByUserIds: [], mutedByUserIds: [] },
   { id: seedId('cv', 'pac-badge'),    clientId: null, contactId: null, channel: 'internal', title: 'Pacific badge handoff',         createdAt: daysAgo(4), lastMessageAt: daysAgo(3),   createdByUserId: users[3].id, participantUserIds: allActiveStaffIds, status: 'open', snoozedUntil: null, starredByUserIds: [], mutedByUserIds: [] },
 
-  // DM — 1:1 between Heather (admin) and Lauren (admin). Privacy is gated to participants;
+  // DM — 1:1 between Sam (admin) and Taylor (admin). Privacy is gated to participants;
   // owners/other admins/crew not in participantUserIds will not see this thread.
   { id: seedId('cv', 'dm-heather-lauren'), clientId: null, contactId: null, channel: 'dm', title: null, createdAt: daysAgo(2), lastMessageAt: hoursAgo(6), createdByUserId: users[2].id, status: 'open', snoozedUntil: null, starredByUserIds: [], mutedByUserIds: [], participantUserIds: [users[2].id, users[3].id].sort() },
 ];
@@ -436,7 +436,7 @@ const dmHLParticipants = [users[2].id, users[3].id];
 const messages = [
   // c1 Evergreen Medical (SMS)
   { id: seedId('m', 'c1-m1'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Hey, confirming the 8am cleaning tomorrow.',                                     sentAt: daysAgo(1),   readByUserIds: allActiveStaffIds },
-  { id: seedId('m', 'c1-m2'), conversationId: conversations[0].id, direction: 'out',      authorUserId: users[3].id, snippetId: null, text: 'Confirmed! Heather has Marcus arriving by 7:55 AM.',                              sentAt: daysAgo(1),   readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c1-m2'), conversationId: conversations[0].id, direction: 'out',      authorUserId: users[3].id, snippetId: null, text: 'Confirmed! Sam has Devon arriving by 7:55 AM.',                              sentAt: daysAgo(1),   readByUserIds: allActiveStaffIds },
   { id: seedId('m', 'c1-m3'), conversationId: conversations[0].id, direction: 'in',       authorUserId: null,        snippetId: null, text: 'Perfect, thanks.',                                                               sentAt: daysAgo(1),   readByUserIds: [] },
 
   // c2 Lakeside (Email)
@@ -458,15 +458,15 @@ const messages = [
   { id: seedId('m', 'c5-m3'), conversationId: conversations[4].id, direction: 'out', authorUserId: users[3].id, snippetId: seedId('sn', 'booking-conf'),     text: "All set — we've confirmed the visit. You'll get a reminder the day before.",     sentAt: daysAgo(4), readByUserIds: allActiveStaffIds },
 
   // c6 Olympic Senior Living (Email)
-  { id: seedId('m', 'c6-m1'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Net-30 on RFS-1004 — can we push the due date to May 15?', sentAt: daysAgo(6), readByUserIds: allActiveStaffIds },
-  { id: seedId('m', 'c6-m2'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: 'Let me check with Heather and confirm.',                    sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
-  { id: seedId('m', 'c6-m3'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: "Approved — I've updated RFS-1004 with a May 15 due date.", sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c6-m1'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Net-30 on PP-1004 — can we push the due date to May 15?', sentAt: daysAgo(6), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c6-m2'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: 'Let me check with Sam and confirm.',                    sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c6-m3'), conversationId: conversations[5].id, direction: 'out', authorUserId: users[2].id, snippetId: null, text: "Approved — I've updated PP-1004 with a May 15 due date.", sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
   { id: seedId('m', 'c6-m4'), conversationId: conversations[5].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Thank you!',                                                sentAt: daysAgo(5), readByUserIds: [] },
 
   // c7 Jamie Park (lead, SMS)
-  { id: seedId('m', 'c7-m1'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: seedId('sn', 'welcome'), text: 'Hi Jamie — thanks for reaching out to Rainier Facility Solutions! Someone from our team will follow up shortly.', sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c7-m1'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: seedId('sn', 'welcome'), text: 'Hi Jamie — thanks for reaching out to PolishPoint! Someone from our team will follow up shortly.', sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
   { id: seedId('m', 'c7-m2'), conversationId: conversations[6].id, direction: 'in',       authorUserId: null,        snippetId: null,                    text: 'Thursday afternoon works for a walkthrough.',                                                                       sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
-  { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Kyle will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'c7-m3'), conversationId: conversations[6].id, direction: 'out',      authorUserId: users[3].id, snippetId: null,                    text: "Thursday 2 PM — Alex will be there for the walkthrough. We'll send a confirmation by EOD.",                          sentAt: daysAgo(2), readByUserIds: allActiveStaffIds },
 
   // c8 Robin Vega (lead, Email)
   { id: seedId('m', 'c8-m1'), conversationId: conversations[7].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Need common-area cleaning for an 84-unit complex. Can you send a proposal?',                                                  sentAt: daysAgo(5), readByUserIds: allActiveStaffIds },
@@ -478,15 +478,15 @@ const messages = [
   { id: seedId('m', 'c9-m2'), conversationId: conversations[8].id, direction: 'in',  authorUserId: null,        snippetId: null, text: 'Reviewing with ownership tomorrow. Will circle back.',                  sentAt: hoursAgo(20), readByUserIds: [] },
 
   // c9 Morgan Hayes (lead, Email reply in same thread)
-  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Kyle,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readByUserIds: [], emailSubject: 'Re: Rainier Facility Solutions - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'kyle@rainierfacilitysolutions.com', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
+  { id: seedId('m', 'c9-m3'), conversationId: conversations[8].id, direction: 'in', authorUserId: null, snippetId: null, text: "Hi Alex,\n\nOwnership reviewed the quote and we are good to move forward with all three locations. A few things before we sign off:\n\n1. Can we start with the Northgate shop first? That one needs it the worst.\n2. Is there any flexibility on the bi-weekly rate if we commit to a 12-month contract?\n3. We would need after-hours service (ideally 6-9 PM) -- is that doable?\n\nLet me know and we can get the paperwork rolling.\n\nBest,\nMorgan Hayes\nOperations Manager\nNorthside Auto Group\n(206) 555-0305", sentAt: hoursAgo(2), readByUserIds: [], emailSubject: 'Re: PolishPoint - Cleaning Quote for Northside Auto Group', fromEmail: 'morgan.hayes@nsauto.com', toInboxEmail: 'alex@polishpoint.app', emailHeaders: { messageId: '<seed-c10-m1@nsauto.com>', inReplyTo: null, references: null } },
 
   // Time Off Requests (internal, pinned)
   { id: seedId('m', 'to-m1'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[5].id, snippetId: null, text: 'Requesting next Friday off — got a family thing. Can someone cover the Lakeside floor care?', sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
-  { id: seedId('m', 'to-m2'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Approved. Heather will swap in.',                                                       sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'to-m2'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Approved. Sam will swap in.',                                                       sentAt: daysAgo(2),  readByUserIds: allActiveStaffIds },
   { id: seedId('m', 'to-m3'), conversationId: conversations[9].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: 'Out the 24th for a doctor appointment — back the 25th.',                                  sentAt: hoursAgo(8), readByUserIds: [] },
 
   // Accounting Handoffs (internal, pinned)
-  { id: seedId('m', 'ah-m1'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'New client just signed: Northside Auto Group, 3 locations. Setting up billing — Heather, FYI.', sentAt: daysAgo(1),  readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'ah-m1'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'New client just signed: Northside Auto Group, 3 locations. Setting up billing — Sam, FYI.', sentAt: daysAgo(1),  readByUserIds: allActiveStaffIds },
   { id: seedId('m', 'ah-m2'), conversationId: conversations[10].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Got it. Will send onboarding paperwork today.',                                                  sentAt: daysAgo(1),  readByUserIds: allActiveStaffIds },
 
   // Evergreen access coordination (internal, transactional)
@@ -497,14 +497,14 @@ const messages = [
   // Pacific badge handoff (internal, transactional)
   { id: seedId('m', 'pb-m1'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Kim needs a badge for the new crew member. Who can pick it up from the front desk?', sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
   { id: seedId('m', 'pb-m2'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[7].id, snippetId: null, text: "I'm at Tower A tomorrow — can grab it.",                                              sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
-  { id: seedId('m', 'pb-m3'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Perfect, thanks Casey.',                                                              sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
+  { id: seedId('m', 'pb-m3'), conversationId: conversations[12].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Perfect, thanks Rowan.',                                                              sentAt: daysAgo(3), readByUserIds: allActiveStaffIds },
 
-  // DM Heather ↔ Lauren — 1:1 staff direct message. direction='internal' (DMs aren't external);
-  // authorUserId distinguishes the sender. The last Lauren message has empty readByUserIds so
-  // Heather sees a demo unread badge when the user switches to her seat.
-  { id: seedId('m', 'dm-hl-m1'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Hey — quick Q on the Lakeside swap. Was the substitute supposed to be Marcus or Riley?', sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
-  { id: seedId('m', 'dm-hl-m2'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Riley — Marcus is on the Cascade route Friday.',                                            sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
-  { id: seedId('m', 'dm-hl-m3'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Also, can you confirm the new badge for Casey is here? I'll grab it on my way in.",       sentAt: hoursAgo(6), readByUserIds: [] },
+  // DM Sam ↔ Taylor — 1:1 staff direct message. direction='internal' (DMs aren't external);
+  // authorUserId distinguishes the sender. The last Taylor message has empty readByUserIds so
+  // Sam sees a demo unread badge when the user switches to that seat.
+  { id: seedId('m', 'dm-hl-m1'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[2].id, snippetId: null, text: 'Hey — quick Q on the Lakeside swap. Was the substitute supposed to be Devon or Charlie?', sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
+  { id: seedId('m', 'dm-hl-m2'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: 'Charlie — Devon is on the Cascade route Friday.',                                            sentAt: daysAgo(2),  readByUserIds: dmHLParticipants },
+  { id: seedId('m', 'dm-hl-m3'), conversationId: conversations[13].id, direction: 'internal', authorUserId: users[3].id, snippetId: null, text: "Also, can you confirm the new badge for Rowan is here? I'll grab it on my way in.",       sentAt: hoursAgo(6), readByUserIds: [] },
 ];
 
 // ---------- Reminder templates ----------
@@ -512,11 +512,11 @@ const messages = [
 // recap auto-sent on first job completion. The auto-fire scheduler in
 // lib/reminderScheduler.js consumes these `key` values.
 const reminderTemplates = [
-  { id: seedId('rt', 'we'),  key: 'welcome_email',         channel: 'email', subject: "Welcome to Rainier Facility Solutions",   body: "Hi {client_contact},\n\nWelcome aboard — we're glad to have {company} as a Rainier Facility Solutions client. You'll receive a confirmation the day before each cleaning, and we'll check in after your first visit.\n\nQuestions? Reply to this email or call us at (253) 555-0100.\n\n— The Rainier team", enabled: true  },
+  { id: seedId('rt', 'we'),  key: 'welcome_email',         channel: 'email', subject: "Welcome to PolishPoint",                   body: "Hi {client_contact},\n\nWelcome aboard — we're glad to have {company} as a PolishPoint client. You'll receive a confirmation the day before each cleaning, and we'll check in after your first visit.\n\nQuestions? Reply to this email or call us at (555) 555-0100.\n\n— The PolishPoint team", enabled: true  },
   { id: seedId('rt', 'bc'),  key: 'booking_confirmation',  channel: 'email', subject: 'Your cleaning is booked',                  body: "Hi {client_contact}, your {service} at {site_name} is booked for {date} at {time}. — {company}",                                                                                                                                                                                                                                                  enabled: true  },
   { id: seedId('rt', 'r24'), key: 'reminder_24h',          channel: 'sms',   subject: '',                                         body: "Reminder: {company} will be at {site_name} tomorrow at {time} for {service}.",                                                                                                                                                                                                                                                                  enabled: true  },
   { id: seedId('rt', 'doe'), key: 'day_of_eta',            channel: 'sms',   subject: '',                                         body: "Your crew is on the way to {site_name}, ETA ~15 minutes. — {company}",                                                                                                                                                                                                                                                                            enabled: true  },
-  { id: seedId('rt', 'fcr'), key: 'post_service',          channel: 'email', subject: 'How did your first clean go?',             body: "Hi {client_contact},\n\nThanks for letting {company} handle {site_name} today — we hope it went well! We always like to check in after a first visit. Reply with anything we should adjust for the next time, and we'll make sure your crew sees it.\n\n— The Rainier team",                                                                       enabled: true  },
+  { id: seedId('rt', 'fcr'), key: 'post_service',          channel: 'email', subject: 'How did your first clean go?',             body: "Hi {client_contact},\n\nThanks for letting {company} handle {site_name} today — we hope it went well! We always like to check in after a first visit. Reply with anything we should adjust for the next time, and we'll make sure your crew sees it.\n\n— The PolishPoint team",                                                                       enabled: true  },
 ];
 
 // Past reminder events for triage realism.
@@ -545,11 +545,11 @@ const userPermissionOverrides = [];
 // at NOTIFICATION_LIMIT in the reducer so we don't grow unbounded over time.
 const notifications = [];
 
-// Default current user is Kyle (super admin). Switcher in UI changes this.
+// Default current user is Alex (super admin). Switcher in UI changes this.
 const currentUserId = users[0].id;
 
 export const INITIAL_STATE = {
-  version: 36,
+  version: 37,
   company,
   currentUserId,
   users,

@@ -43,8 +43,8 @@ export const PERMISSIONS = {
   'pipeline.view':           { label: 'View sales pipeline',              defaultRoles: ['owner', 'admin'] },
   'pipeline.edit':           { label: 'Move deals in pipeline',           defaultRoles: ['owner', 'admin'] },
   // ---------- Invoices / Reminders / Messaging ----------
-  // Per Rainier Q24: Admin should not see financials. Owner-only by default;
-  // Heather/Lauren get specific grants via per-user overrides if/when needed.
+  // Default policy: Admin should not see financials. Owner-only by default;
+  // per-user grants are issued via overrides if/when a non-owner needs access.
   'invoices.view':           { label: 'View Invoices',            defaultRoles: ['owner'] },
   'invoices.edit':           { label: 'Create / edit invoices',   defaultRoles: ['owner'] },
   'invoices.recordPayment':  { label: 'Record payments',          defaultRoles: ['owner'] },

@@ -1,6 +1,6 @@
 # Supabase Readiness — Audit & Migration Plan
 
-**Status:** Living doc. Read alongside [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md). Originated from the Rainier proving build, intended to backport into the shell.
+**Status:** Living doc. Read alongside [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md). Originated during the shell's localStorage-to-Supabase migration audit.
 
 **Goal:** Replace the current `localStorage`-backed reducer cache with Supabase (Postgres + Auth + Realtime + RLS) without breaking any existing UI surface. The current store remains as a hot client-side cache; mutations become optimistic + remote-confirmed.
 
@@ -106,7 +106,7 @@ Every entity in `state` should map 1:1 to a Supabase table. Embedded subdocument
 - Keep the seed.js human-readable IDs only for DEV; flag a warning that they must not be referenced in production.
 
 **Specific IDs to audit:**
-- `invoice.id` is currently `'RFS-1001'` style (human-friendly invoice number). This is **not** a Postgres PK — it's an `invoice_number` column. Add a separate `id uuid PRIMARY KEY DEFAULT gen_random_uuid()` and keep `invoice_number` as a unique secondary key.
+- `invoice.id` is currently `'PP-1001'` style (human-friendly invoice number, prefixed via `company.invoicePrefix`). This is **not** a Postgres PK — it's an `invoice_number` column. Add a separate `id uuid PRIMARY KEY DEFAULT gen_random_uuid()` and keep `invoice_number` as a unique secondary key.
 - Similar for any other "human-friendly" ID.
 
 ---
@@ -430,9 +430,9 @@ Things to land in the shell **before** Phase 2. None of these block app function
 
 - Land Phase 0 + 1 work into the shell baseline. Phases 2–7 are per-client.
 - Per-client Supabase projects mean **each client carries their own data**; backups, billing, and compliance all scoped per project.
-- The Rainier project is the proving ground for Phase 2–4 once Phase 1 is done in shell.
+- The first per-client deployment will be the proving ground for Phase 2–4 once Phase 1 is done in shell.
 - This doc, [`SHELL_MOBILE_RESPONSIVE.md`](SHELL_MOBILE_RESPONSIVE.md), and `CLAUDE.md` should always travel together when copying the shell forward.
 
 ---
 
-*Generated 2026-05-03 from the Rainier client build. Canonical home: shell repo (`Kronelius/shell-build`). Backport when migrating shell forward.*
+*Generated 2026-05-03. Canonical home: shell repo (`Kronelius/shell-build`). Backport when migrating shell forward.*

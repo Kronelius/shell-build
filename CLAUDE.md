@@ -63,11 +63,9 @@ If a commit is exempt, note it briefly in the commit message ("logic-only — mo
 
 ## Project status
 
-This is the **master shell build** — a reusable foundation we deploy to every client. Rainier Facility Solutions is the proving ground; the framework is generic. The primary product lives in `app/` — a React + Vite SPA with a real data model, router, state store, and permission system. Client data in seed files is representative ("Acme Cleaning Co.") on purpose — every name/value is genericized so the shell clones cleanly.
+This is the **master shell build** — a reusable foundation we deploy to every client. The primary product lives in `app/` — a React + Vite SPA with a real data model, router, state store, and permission system. Seed data is genericized ("PolishPoint" company + 8 placeholder team members) so the shell clones cleanly; per-client onboarding overwrites the company entity, team roster, and brand via `app/src/brand.config.js` + `theme-<client>.css`.
 
-**Rainier purchased Core only ($1,000).** All build effort goes to finishing Core for Rainier delivery. Add-on packages (IPR, QuickBooks, Inventory Management, EMS, Field Ops) are listed in `SHELL_ROADMAP.md` for shell continuity but are **not built unless sold**.
-
-**Out of scope here:** the 3-page branded website is built and live in a separate repo.
+Add-on packages (IPR, QuickBooks, Inventory Management, EMS, Field Ops) are listed in `SHELL_ROADMAP.md` for shell continuity but are **not built unless sold per client**.
 
 ### Active roadmap
 
@@ -77,7 +75,7 @@ Current focus: the **CORE** section of the roadmap. Everything below the CORE se
 
 ### Build depth expectation
 
-When implementing a roadmap item that's IN scope (Core for Rainier), build it **production-shaped, not placeholder-shaped**. A module is not done until every surface in its Definition of Done is built, wired, and verified. Default to extensive — entity + reducer + selectors + every UI surface + permissions + activity logging + edge cases + storage-key bump — in one pass.
+When implementing a roadmap item that's IN scope (Core), build it **production-shaped, not placeholder-shaped**. A module is not done until every surface in its Definition of Done is built, wired, and verified. Default to extensive — entity + reducer + selectors + every UI surface + permissions + activity logging + edge cases + storage-key bump — in one pass.
 
 **Do NOT speculatively build unsold add-on items.** If an unsold module gets requested, push back: confirm it's been sold before starting.
 
@@ -85,7 +83,7 @@ When implementing a roadmap item that's IN scope (Core for Rainier), build it **
 
 Once shell Core is complete:
 1. Commit finished shell to `Kronelius/shell-build` as the canonical baseline.
-2. For each new client: create a repo under the **client's GitHub credentials** (e.g. `RainierFacilitySolutions/app`), push shell as initial commit, add **Kronelius as collaborator** with admin/write access for ongoing maintenance.
+2. For each new client: create a repo under the **client's GitHub credentials** (e.g. `<ClientOrg>/app`), push shell as initial commit, add **Kronelius as collaborator** with admin/write access for ongoing maintenance.
 3. Per-client work is config + data only (theme, services, users, content, migrations) — never code forks. Bug fixes and feature backports flow shell → client repos as PRs from Kronelius.
 
 ## Primary files
@@ -94,7 +92,7 @@ Once shell Core is complete:
 |---|---|
 | `app/` | React + Vite SPA — the real product. `npm --prefix app run dev` serves it on port 5173. |
 | `app/src/App.jsx` | Router. All routes are guarded by `<RequirePerm>`. |
-| `app/src/store/` | Context + reducer store. `reducer.js` is the complete action surface; `selectors.js` is the read-only surface; `persist.js` handles localStorage with version-gated reseeds (currently `pp.store.v7`). |
+| `app/src/store/` | Context + reducer store. `reducer.js` is the complete action surface; `selectors.js` is the read-only surface; `persist.js` handles localStorage with version-gated reseeds (currently `pp.store.v37`). |
 | `app/src/data/seed.js` | INITIAL_STATE — company, users, services, clients, contacts, tags, invoices, jobs, etc. Bumps `version` when schema changes to force a fresh reseed. |
 | `app/src/lib/roles.js` | Role labels, permission keys, `can(user, permKey, permissions, overrides)` checker. |
 | `app/src/hooks/usePermission.js` | Hooks that wire `can()` to current user + overrides. |
@@ -108,8 +106,9 @@ Once shell Core is complete:
 | `app/src/STYLING.md` | The styling contract. Respect the three-bucket rule. |
 | `app/UI_RULES.md` | Cosmetic + interaction rules (layout, selection bars, click targets, toasts, etc). Update this file when establishing a new UI pattern. |
 | `shell.html` | Original static HTML wireframe. Kept for reference only — **the live product is `app/`**, not this file. |
-| `theme-polishpoint-blue.css` | PolishPoint Blue theme — can be linked into `shell.html` or adapted for the app. |
-| `rainier-facility-solutions.html` | Legacy — original Rainier hardcoded mockup. Reference only. |
+| `app/src/theme-polishpoint.css` | PolishPoint Blue theme — the active shell baseline. Swap for `theme-<client>.css` per per-client deployment. |
+| `app/src/brand.config.js` | Single source of truth for non-CSS brand surfaces (name, primary hex, logo filename). Consumed by `vite-plugin-brand.js` (index.html), `scripts/build-manifest.mjs` (manifest.json), `scripts/gen-pwa-icons.mjs` (PWA icons), and `lib/documentTitle.js`. |
+| `theme-polishpoint-blue.css` | Repo-root canonical PolishPoint Blue palette reference. |
 
 ## Running the app
 

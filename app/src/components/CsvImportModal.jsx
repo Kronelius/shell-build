@@ -77,7 +77,7 @@ export default function CsvImportModal({ open, onClose }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'rainier-contacts-sample.csv';
+    a.download = 'sample-contacts.csv';
     a.click();
     URL.revokeObjectURL(url);
   };

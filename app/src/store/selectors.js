@@ -581,7 +581,7 @@ export const selectUnreadReminderCount = (s) =>
 export const selectFailedReminderCount = (s) =>
   (s.reminderEvents || []).filter((e) => e.status === 'failed').length;
 
-// ─── Rainier KPIs (per questionnaire Q17 + Q18) ─────────────────────────────
+// ─── Operations KPIs — missed cleans, labor hours, outstanding quotes ──────
 // All windowed selectors use a rolling N-day lookback from "now" so the
 // dashboard auto-updates without bookkeeping. `complaint` activities are
 // `contactActivities` rows with `kind === 'complaint'`. Missed cleans are
@@ -626,7 +626,7 @@ export function selectLaborHoursThisWeek(s) {
 }
 
 // Q18: "outstanding quotes" — sum of dealValue + count for contacts at the
-// 'quote' stage (Quote Sent in the Rainier pipeline). Walkthroughs in the
+// 'quote' stage (Quote Sent in the sales pipeline). Walkthroughs in the
 // pre-quote stages are tracked separately.
 export function selectOutstandingQuotes(s) {
   const inQuote = (s.contacts || []).filter((c) => c.stage === 'quote');

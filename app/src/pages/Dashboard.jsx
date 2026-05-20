@@ -52,7 +52,7 @@ export default function Dashboard() {
 
   const stats = selectDashboardStats(state);
 
-  // Rainier KPIs (Q17 + Q18)
+  // Operations KPIs
   const missed = selectMissedCleansThisMonth(state);
   const laborHrs = selectLaborHoursThisWeek(state);
   const outstandingQuotes = selectOutstandingQuotes(state);

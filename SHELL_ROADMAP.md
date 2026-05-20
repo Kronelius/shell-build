@@ -2,11 +2,9 @@
 
 ## Context
 
-This repo (`Kronelius/shell-build`) is the **master shell** — a reusable foundation we deploy to every client. Rainier Facility Solutions is the proving ground.
+This repo (`Kronelius/shell-build`) is the **master shell** — a reusable foundation we deploy to every client. Core is shipped in the shell baseline; add-on modules below are listed for shell continuity and built per-client when sold.
 
-**Rainier purchased Core only ($1,000).** The entire focus right now is shipping Core for Rainier. Add-on modules below are listed for future builds; do not build them until sold.
-
-**Out of scope here:** the 3-page branded website is built and live in a separate repo.
+**Out of scope here:** per-client branded websites are built and live in separate repos.
 
 ## Deployment model
 
@@ -26,9 +24,9 @@ Build production-shaped, not placeholder-shaped. Every module ships with full en
 
 ---
 
-# CORE — what we owe Rainier ($1,000)
+# CORE — shell baseline
 
-This is **the only build target right now.** Ship every item here for Rainier.
+Every item here ships in the shell baseline (`Kronelius/shell-build` main). Per-client clones inherit Core for free; add-ons are sold and built à la carte.
 
 ## `[x]` Operations Dashboard `[Core]`
 
@@ -40,7 +38,7 @@ Built as `Dashboard.jsx`. Audit + finish:
 - Overdue invoice list — **[x]**
 - Follow-ups card (stale leads + unanswered threads) — **[x]**
 - Mobile-friendly layout audit — **[x]** (`minmax(0, 1fr)` grid fixes; verified at 375/768/desktop)
-- Rainier-specific dashboard cards — **deferred to Rainier repo** (their content, not shell)
+- Client-specific dashboard cards — **per-client repo** (not shell)
 
 ## `[x]` Scheduling & Calendar `[Core]`
 
@@ -89,12 +87,12 @@ Replaced the previous "Reminders" settings page with per-user, role-aware notifi
 
 **Account → Notifications:** Account page now has a grouped toggle list (`pref-row` styling) plus a Mobile Push card. The mobile push card detects iOS-not-installed-as-PWA and shows install instructions; surfaces stub-mode notice when no backend is wired; lists per-device subscriptions with Remove buttons; includes a "Send test push" button.
 
-**In-app delivery (`components/NotificationListener.jsx` + `lib/documentTitle.js`):** root-mounted listener diffs state for new messages / job changes / invoice status changes. Fires `toast.info()` and updates `document.title` to `(N) Rainier CRM`. First-mount guard seeds the "seen" set so existing items don't trigger a flood. Mute respected.
+**In-app delivery (`components/NotificationListener.jsx` + `lib/documentTitle.js`):** root-mounted listener diffs state for new messages / job changes / invoice status changes. Fires `toast.info()` and updates `document.title` to `(N) <BRAND.titleSuffix>` (e.g. `(N) PolishPoint CRM` in the shell baseline). First-mount guard seeds the "seen" set so existing items don't trigger a flood. Mute respected.
 
 **PWA install:**
-- `app/public/manifest.json` (name + short_name + icons + standalone display + brand `#212269` theme).
-- Brand icons generated from `rainier-facilities-logo.png` via `scripts/gen-pwa-icons.mjs` (one-shot Node + sharp): `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`. Re-run the script when the logo or brand color changes.
-- `index.html` head: manifest link, theme-color, apple-touch-icon, iOS PWA meta tags.
+- `app/manifest.template.json` (templated via `scripts/build-manifest.mjs` from `app/src/brand.config.js`; emitted to `public/manifest.json` on every dev/build). Includes name + short_name + icons + standalone display + brand theme color.
+- Brand icons generated from `<BRAND.logoFile>` (e.g. `polishpoint-logo.png`) via `scripts/gen-pwa-icons.mjs` (one-shot Node + sharp): `favicon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`. Re-run the script when the logo or brand color changes.
+- `index.html` head: manifest link, theme-color, apple-touch-icon, iOS PWA meta tags. Brand placeholders (`%BRAND_TITLE%`, `%BRAND_PRIMARY%`, `%BRAND_SHORT_NAME%`) are substituted by `vite-plugin-brand.js`.
 
 **Service worker (`app/public/sw.js`) + registration in `main.jsx`:** hand-rolled, no Workbox. Two handlers — `push` (showNotification with title/body/icon/tag/data.url) and `notificationclick` (focus existing client + navigate, or open new). No offline caching.
 
@@ -147,17 +145,11 @@ Storage bumped v7 → v8 (`pp.store.v8`).
 
 ## `[x]` Logging invoices `[Core]`
 
-Built as `Invoices.jsx` + `InvoiceDetail.jsx`. **Note: only logging in Core** — full invoice/payment customization is the IPR add-on (not sold to Rainier). Audit Core scope:
+Built as `Invoices.jsx` + `InvoiceDetail.jsx`. **Note: only logging in Core** — full invoice/payment customization is the IPR add-on (per-client purchase). Audit Core scope:
 - Manual invoice creation — **[x]**
 - Status tracking (draft / sent / paid / overdue) — **[x]**
 - Payment recording (manual entry only in Core) — **[x]**
 - Billing-contact picker — **[x]**
-
-## `[Rainier]` Permission default audit `[Per-client]`
-
-Per-client config tweak — belongs in the Rainier repo, not shell.
-- Admin role: hide financials by default (Rainier Q24) — apply during clone
-- Document final default matrix in `roles.js` comments
 
 ## `[x]` Role label naming `[Core]`
 
@@ -214,20 +206,21 @@ Per-user override system at `/settings/team/[user]` was confirmed already produc
 
 ---
 
-# Rainier-specific work (after Core shell ships)
+# Per-client clone checklist (run after every shell clone for a new client)
 
-Post-clone, in Rainier's repo:
+For each new deployment:
 
-- Theme tokens (PolishPoint Blue or custom)
-- Users seeded: Heather (admin), Lauren (admin), Kyle (super admin), Steve (super admin), cleaner roster
-- Service catalog (residential / commercial / specialized)
-- Existing contact migration from GHL ($200 migration add-on)
-- Phone line porting from GHL (or staged: employee line first, customer line later)
-- Admin permission default tweak: hide financials (per Q24)
+1. Update `app/src/brand.config.js` (name, primaryHex, primaryRgb, logoFile, titleSuffix)
+2. Replace `app/src/theme-polishpoint.css` with `theme-<client>.css` and update the `@import` in `app/src/index.css`
+3. Drop the client logo PNG into `app/public/<logoFile>`; run `node scripts/gen-pwa-icons.mjs`
+4. Update `app/src/data/seed.js` company entity + team users; bump `INITIAL_STATE.version` + `STORAGE_KEY`
+5. Optional: tune role permission defaults in `roles.js` for the client's policy preferences
+6. Optional: CSV-import existing contacts ($200 migration add-on)
+7. Optional: phone line porting (Twilio number provision via Settings → Integrations)
 
 ---
 
-# Future add-on modules (NOT sold to Rainier — don't build until sold)
+# Future add-on modules (per-client purchases — don't build until sold)
 
 Listed here for shell-roadmap continuity only. When a client buys one of these, expand it into full DoDs at that time.
 
@@ -241,10 +234,10 @@ Listed here for shell-roadmap continuity only. When a client buys one of these, 
 
 # Stretch / unsold (not in any package)
 
-These came up in the Rainier questionnaire but weren't in the scope email. Not promised, not sold. Don't build.
+These come up in client questionnaires but typically aren't in initial-package scope. Not promised, not sold. Don't build unless a client explicitly purchases.
 
 - 7-day sales sequence automation (would be a future "Sales Automation" add-on)
-- Quotes / Estimates module (Rainier said quoting is "gut-call")
+- Quotes / Estimates module (most cleaning shops still gut-call quotes)
 - Generic client-onboarding workflow with department handoffs
 - Lifecycle email engine (welcome / first-clean recap)
-- Operational KPI cards (missed cleans / labor / complaints) — *unless rolled into Core dashboard for Rainier*
+- Operational KPI cards (missed cleans / labor / complaints) — *unless rolled into Core dashboard for a specific client*
