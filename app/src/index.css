@@ -836,11 +836,12 @@ select.input {
 }
 .sidebar-brand-img {
   display: block;
-  max-width: 100%;
+  /* The trimmed wordmark is ~3.4:1 aspect ratio — at the sidebar width
+     this image is width-constrained, not height-constrained. max-width
+     drives the rendered size; max-height is a safety cap. */
+  max-width: 75%;
   height: auto;
-  /* Wordmark logo height. The image is trimmed to tight bounds; this cap
-     determines how much vertical real estate the brand area consumes. */
-  max-height: 120px;
+  max-height: 90px;
   object-fit: contain;
 }
 .sidebar-logo {
