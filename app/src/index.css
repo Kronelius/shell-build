@@ -835,7 +835,7 @@ select.input {
   display: block;
   max-width: 100%;
   height: auto;
-  max-height: 104px;
+  max-height: 208px;
   object-fit: contain;
 }
 .sidebar-logo {
