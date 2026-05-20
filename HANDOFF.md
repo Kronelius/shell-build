@@ -1,51 +1,49 @@
 # Shell Build — Handoff
 
-**Last session end (2026-05-19):** Shell rebranded from Rainier Facility Solutions to **PolishPoint baseline**. Pushed to `Kronelius/shell-build` as the canonical reusable foundation. Old shell-build main preserved at tag `pre-2026-05-rebrand`.
+**Last session end (2026-05-20):** Mobile-header re-themed to PolishPoint primary blue. Built the `swatchboard-to-theme.mjs` converter + four generated themes (Blue, Forge, Midnight, Pink) as a theme library. SOP for per-client re-skinning documented in `app/src/STYLING.md`.
 
 ## What this repo is
 
 `Kronelius/shell-build` is the master shell — a complete, generic operations CRM for cleaning / facility-services businesses. Built as a React + Vite SPA in `app/`. Branded as PolishPoint. Per-client deployments clone this repo as their starting point, then swap brand config + theme + seed.
 
-## What just shipped
+## What just shipped (2026-05-20)
 
-### Phase 0 — Tokenized non-CSS brand surfaces
-- `app/src/brand.config.js` — single source of truth for brand name, primary hex, primary RGB, logo filename, title suffix
-- `app/vite-plugin-brand.js` — substitutes `%BRAND_*%` placeholders in `index.html` at dev/build time
-- `app/scripts/build-manifest.mjs` — pre-step that renders `manifest.template.json` → `public/manifest.json` from `BRAND` constants (runs before every `npm run dev` / `npm run build`)
-- `app/scripts/gen-pwa-icons.mjs` — now imports `BRAND.logoFile` + `BRAND.primaryRgb`; one source of truth for icon generation
-- `app/src/lib/documentTitle.js` — imports `BRAND.titleSuffix`
-- `public/manifest.json` is now gitignored (generated artifact)
+### Mobile-header color fix
+- `app/src/theme-polishpoint.css` and `theme-polishpoint-blue.css` (repo root): mobile-header tokens (`--mobile-header-bg`, `--mobile-header-border`, `--mobile-sub-color`, `--hamburger-color`) now resolve to brand-primary / on-primary tokens instead of the leftover dark-navy neutrals from the previous app. The mobile header now renders in PolishPoint blue (#1E8FE8) with a primary-600 edge and white hamburger.
 
-Result: re-skinning the shell for a new client = edit `brand.config.js` (5 fields) + swap `theme-<client>.css` + drop in new logo PNG + run gen-pwa-icons.
+### Swatchboard → theme converter
+- `app/scripts/swatchboard-to-theme.mjs` — CLI that ingests a legacy swatchboard HTML file and emits a shell-ready `theme-<slug>.css` matching `STYLING.md`'s canonical vocabulary. OKLCH math derives missing scale steps from the swatchboard's anchor aliases; light/dark mode auto-detected from `--page-bg` brightness; correct recipe template chosen per mode; WCAG-based `--color-text-on-primary` selection.
+- `app/scripts/templates/recipes-light.css` — light-theme recipe block (factored out of the existing `theme-polishpoint.css`).
+- `app/scripts/templates/recipes-dark.css` — new dark-theme recipe block: white inset highlights dropped to near-zero, drop shadows deepened toward black, sidebar gradient endpoints flipped to neutral-900.
 
-### Phase D — Theme swap to PolishPoint Blue
-- `app/src/theme-rainier.css` deleted
-- `app/src/theme-polishpoint.css` created from the canonical PolishPoint Blue palette (anchored on `#1E8FE8`)
-- `app/src/index.css` import updated
-- Brand-secondary token stubbed to teal so the one no-fallback consumer in `index.css` (line 2800) resolves cleanly
+### Theme library (four generated variants)
+- `app/src/theme-polishpoint-blue.css` — light, `#1E8FE8` anchor. Validated end-to-end via @import swap + live-preview diff; renders identically to the hand-tuned `theme-polishpoint.css`.
+- `app/src/theme-polishpoint-forge.css` — dark, `#F97316` (orange) anchor.
+- `app/src/theme-polishpoint-midnight.css` — dark, `#C9A84C` (gold) anchor; picks dark text on primary because white-on-gold fails WCAG.
+- `app/src/theme-polishpoint-pink.css` — light, `#EC4899` anchor.
 
-### Phase E — Seed genericization
-- Company entity rebranded: `PolishPoint` / `Alex Morgan` (owner) / `(555) 555-0100` / `hello@polishpoint.app` / `123 Main St, Anytown USA` / `PP` initials + invoice prefix
-- 8 team users renamed (Alex Morgan, Jordan Reyes, Sam Patel, Taylor Kim, Devon Carter, Charlie Adams, Avery Stone, Rowan Hill); all emails on `@polishpoint.app`
-- Invoice IDs rebranded: `RFS-100x` → `PP-100x` (8 invoices)
-- Snippets, response templates, and demo chat messages updated to reference PolishPoint and new team names
-- Service catalog (10 services), client list (7 PNW-fictional businesses), contacts, sites, jobs, conversations — all kept as-is (already generic per the v33 seed)
-- `INITIAL_STATE.version`: 36 → 37; `STORAGE_KEY`: `pp.store.v36` → `pp.store.v37`. No migration function needed — key bump orphans pre-rebrand localStorage and triggers fresh reseed.
+### Docs
+- `app/src/STYLING.md` — added "Re-skinning the shell — SOP" section with theme library table, converter usage, Scenario A (client has swatchboard) + Scenario B (client has only a hex) workflows, deploy model, and expected lift (~10 min per re-skin once Scenario B's `--primary-hex` flag exists).
 
-### Phase G — Doc cleanup
-- Deleted: `RAINIER_SCOPE.md`, `rainier-facility-solutions.html`, `mockups/messaging-mixed/*`
-- Scrubbed Rainier mentions from: `CLAUDE.md`, `SHELL_ROADMAP.md`, `SUPABASE_READINESS.md`, `SHELL_MOBILE_RESPONSIVE.md`, `E2E_SECURITY_CHECK.md`, `UI_RULES.md`, `app/.env.example`, `app/src/lib/roles.js`, `app/src/lib/push.js`, `app/src/store/selectors.js`, `app/src/components/CsvImportModal.jsx`, `app/src/components/ConnectInboxModal.jsx`, `app/src/pages/Dashboard.jsx`, `app/src/pages/settings/Company.jsx`, `app/public/sw.js`
-- HANDOFF.md (this file): reset to shell-baseline summary
+### Swatchboard sources
+- `swatchboard/swatchboards.zip` + `swatchboard/unzipped/theme_polishpoint_{blue,forge,midnight,pink}_swatchboard.html` — the four canonical swatchboards are checked in for reference + re-runs of the converter.
 
-## What's preserved as historical context (intentionally)
+## Open / suggested next pickup
 
-- `app/src/store/persist.js` — migration functions `migrateV33toV34`, `migrateV34toV35`, `migrateV35toV36` still reference `@rainierfs.com` and `@rainierfacilitysolutions.com` in their transformation logic. These ONLY operate on stored localStorage from the Rainier-era proving build. Fresh shell-build clones start at v37 and never trigger these. Per project conventions, past migration code stays verbatim.
+1. **Eyeball Forge or Midnight on the live preview.** The `recipes-dark.css` template is the only piece that's net-new design work (white insets → near-zero, drop shadows deepened). It compiled and the tokens resolve, but no human has visually validated dark surfaces in the live app yet. To check: swap `index.css` line 3 to `@import './theme-polishpoint-forge.css';`, eyeball the dashboard at mobile + desktop, then swap back. Risk: a recipe value looks off and needs a tweak — fix is in the template, not the converter.
 
-## Suggested next pickup
+2. **Build the `--primary-hex` converter flag** (~30 min). Makes Scenario B (client gives only a hex color) a one-command operation:
+   ```bash
+   node app/scripts/swatchboard-to-theme.mjs <baseline-swatchboard> \
+     --slug acme --primary-hex "#7C3AED" --name "Acme Corp"
+   ```
+   Currently Scenario B requires running the converter on a baseline swatchboard then hand-editing the brand-primary scale lines. Adopt this enhancement when re-skin volume justifies.
 
-1. **First per-client clone.** Use the new "Per-client clone checklist" in `SHELL_ROADMAP.md` to create the next client deployment (clone shell-build to a new repo under the client's GitHub org, swap brand + theme + seed).
-2. **Tokenization gap** — `app/src/index.css` still has raw px values for spacing/font-sizes (acknowledged in `STYLING.md` "Known gaps"). Color tokenization is solid; spacing/typography is a future cleanup pass. Not blocking any per-client work.
-3. **Supabase Phase 1** — per `SUPABASE_READINESS.md`, the next architectural milestone is replacing localStorage with Supabase (Postgres + Auth + Realtime + RLS). Phase 0 + 1 land in the shell baseline; Phases 2–7 are per-client.
+3. **Optional: drop swatchboard-compatibility aliases into `theme.css`** (~10 min). Adds `--sidebar-hover`, `--sidebar-active`, `--green/amber/red/blue/purple/slate-bg/text/border` trio aliases. Only worth it if you ever want to embed swatchboard preview HTML inside the shell (e.g., a Storybook-style page). Skipped this session because nothing breaks without it.
+
+4. **First per-client clone** — use the SOP in `STYLING.md` to create the next client deployment. Pick the closest theme family, run the converter (or hand-edit per Scenario B), push to a new client repo under their GitHub org.
+
+5. **Continue CORE roadmap** in `SHELL_ROADMAP.md` — this theme-tooling work is supporting infrastructure, not a roadmap item. Pick up the next `[ ]` in CORE for the next session.
 
 ## Running the app
 
@@ -57,22 +55,15 @@ npm run dev              # http://localhost:5173 (or first free port)
 
 `npm run dev` automatically runs the manifest prebuild step. `npm run build` does the same for production.
 
-## Re-skin recipe (per-client clone)
+## Re-skin SOP (summary)
 
-1. Edit `app/src/brand.config.js`:
-   ```js
-   BRAND = {
-     name: 'Acme Cleaning',
-     primaryHex: '#XXXXXX',
-     primaryRgb: { r: 0x.., g: 0x.., b: 0x.., alpha: 1 },
-     logoFile: 'acme-logo.png',
-     titleSuffix: 'Acme Cleaning CRM',
-     ...
-   }
-   ```
-2. Drop logo at `app/public/acme-logo.png`
-3. Create `app/src/theme-acme.css` (copy `theme-polishpoint.css`, swap hex values)
-4. Update `app/src/index.css` import: `@import './theme-polishpoint.css'` → `@import './theme-acme.css'`
-5. Update `app/src/data/seed.js` company entity + team users; bump `INITIAL_STATE.version` + `STORAGE_KEY` in lockstep
-6. `node scripts/gen-pwa-icons.mjs`
-7. `npm run dev` to verify, mobile-responsive screenshot pass per CLAUDE.md, commit, push to client repo
+The full procedure lives in `app/src/STYLING.md` § "Re-skinning the shell — SOP". One-line summary:
+
+```bash
+node app/scripts/swatchboard-to-theme.mjs <swatchboard.html> --slug <client> --name "<Name>"
+# paste BRAND, swap @import, drop logo, regen icons → ~10 min total
+```
+
+## Historical context (preserved)
+
+- `app/src/store/persist.js` migration functions still reference `@rainierfs.com` and `@rainierfacilitysolutions.com` — only operate on Rainier-era localStorage, never triggered in fresh shell-build clones (start at v37). Past migration code stays verbatim per project conventions.

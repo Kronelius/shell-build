@@ -365,7 +365,113 @@ export const BRAND = {
 | `app/src/lib/documentTitle.js` | Direct ESM import of `BRAND` | Document title fallback |
 | `app/src/lib/push.js` | Direct ESM import of `BRAND` | Web Push test-notification title |
 
-### Adding a new theme (per-client re-skin)
+---
+
+## Re-skinning the shell — SOP
+
+The shell is engineered for **one-line theme swaps**. Every visual surface reads from CSS variables, so changing the active theme = changing one `@import` in `index.css`. Per-client deployment is config + assets, never a code fork.
+
+### Theme library (pre-built variants)
+
+Four canonical themes ship in `app/src/`:
+
+| File | Mode | Anchor | Style family |
+|---|---|---|---|
+| `theme-polishpoint.css` | light | `#1E8FE8` | Original hand-tuned (currently active baseline) |
+| `theme-polishpoint-blue.css` | light | `#1E8FE8` | Generated equivalent of the above |
+| `theme-polishpoint-forge.css` | dark | `#F97316` | Dark + saturated orange |
+| `theme-polishpoint-midnight.css` | dark | `#C9A84C` | Dark + luxe gold |
+| `theme-polishpoint-pink.css` | light | `#EC4899` | Light + playful pink |
+
+Only ONE is loaded at any time (the one `index.css` imports). The rest are dormant on disk. Clients pick the style family that matches their brand voice; a per-client converter run then overrides the primary scale + logo + brand config to their actual brand.
+
+### Where the live preview shows what
+
+```
+app/src/index.css  line 3   ← single source of truth for "which theme is active"
+@import './theme-polishpoint.css';   ← change this one line to swap themes
+```
+
+HMR re-renders within ~1 second of saving the edit. There is no in-app theme picker by design — runtime swapping isn't needed because each client deployment bakes in one theme.
+
+### The converter
+
+**Script:** `app/scripts/swatchboard-to-theme.mjs`
+**Templates:** `app/scripts/templates/recipes-{light,dark}.css`
+
+The converter ingests a legacy swatchboard HTML file (`<style>` block with `:root { --primary: #xxx; --page-bg: #yyy; ... }`), derives the full canonical token set via OKLCH math, picks the light or dark recipe template based on the swatchboard's `--page-bg` brightness, and writes a complete `theme-<slug>.css` to `app/src/`. The output adheres to the Three-Bucket Rule above — every value is a token, alias, or recipe input.
+
+What the converter handles automatically:
+- Brand-primary scale (50/100/400/500/600/700) + RGB triplets — derives missing steps via OKLCH lightness math anchored on the swatchboard's `--primary`, reduces chroma for surface-tint steps so rgba-authored swatchboard inputs render correctly
+- Neutral scale (50–900) — snaps to swatchboard's `--page-bg`, `--border-light/mid`, `--text-faint/muted/body/primary` anchors when they're solid hex; interpolates the gaps in OKLCH
+- Semantic scales (success/warning/error) — derives from the swatchboard's `--{green,amber,red}-{bg,text,border}` trios; honors solid-hex inputs, derives missing steps with low chroma for tint surfaces
+- Surface, text, border roles — direct pass-through from swatchboard aliases
+- `--color-text-on-primary` — picks white vs dark via WCAG luminance check (threshold `Y > 0.38` → dark; validated against blue / orange / pink / gold)
+- `--color-brand-secondary-*` — aliased to `--color-accent-teal-*` (required because `index.css` references `--color-brand-secondary-600` without a fallback)
+- Recipe section — concatenated from the appropriate template (light or dark), all references are token-relative so they adapt to the theme's color values automatically
+- Mobile header tokens — always brand-primary backed (works light or dark)
+
+### Re-skin SOP (per client)
+
+**Scenario A — Client has a swatchboard.** (We authored one for them, or they want a custom design family.)
+
+```bash
+# 1. Run the converter
+node app/scripts/swatchboard-to-theme.mjs \
+  <path-to-swatchboard.html> \
+  --slug <client-slug> --name "<Display Name>"
+
+# 2. Paste the printed BRAND block into app/src/brand.config.js
+
+# 3. Edit app/src/index.css line 3:
+#    @import './theme-<client-slug>.css';
+
+# 4. Drop client logo into app/public/<client-slug>-logo.png
+
+# 5. Regenerate PWA icons (uses BRAND.primaryRgb + BRAND.logoFile)
+node app/scripts/gen-pwa-icons.mjs
+
+# 6. npm --prefix app run dev → eyeball the result at mobile + desktop
+```
+
+**Scenario B — Client gave us a hex color + a logo only** (most common). Two paths:
+
+- **Pragmatic today**: Pick the closest existing swatchboard as a "style family" (Blue if they want light/clean, Forge if they want dark/saturated, Midnight if they want dark/luxe, Pink if they want light/playful). Run the converter on that swatchboard, then hand-edit the 6 `--color-brand-primary-*` lines in the generated `theme-<client>.css` to the client's color scale. Paste BRAND with the client's hex. Same import / logo / icons steps. ~15 min.
+
+- **Cleaner option (one-time enhancement)**: Add a `--primary-hex <#xxxxxx>` flag to the converter that overrides the swatchboard's anchor. Then Scenario B becomes a single command:
+  ```bash
+  node app/scripts/swatchboard-to-theme.mjs <baseline-swatchboard> \
+    --slug acme --primary-hex "#7C3AED" --name "Acme Corp"
+  ```
+  Style family + client brand color, fully automated. Estimated build effort: 30 minutes. Not yet implemented — adopt when re-skin volume justifies it.
+
+### Shipping a re-skin (per-client deploy)
+
+Per `CLAUDE.md` § "Deployment model":
+
+1. Create a fresh repo under the **client's** GitHub org (not Kronelius), e.g. `AcmeCorp/app`.
+2. Push a clean copy of `shell-build` (with the new theme + BRAND + logo + seed already swapped) as the initial commit.
+3. Add Kronelius as a collaborator with admin/write for ongoing maintenance.
+4. Per-client work going forward is config + data only — never a code fork. Bug fixes flow shell → client repos as PRs from Kronelius.
+
+The "push" step for a new client is publishing to *their* repo, not to `Kronelius/shell-build`. `Kronelius/shell-build` only receives shell improvements (new components, bug fixes, theme-converter enhancements) — never client-specific data.
+
+### Expected lift per re-skin
+
+| Step | Time |
+|---|---|
+| Run converter | 5 sec |
+| Paste BRAND, swap @import | 30 sec |
+| Drop logo PNG + regenerate icons | 1 min |
+| Push to new client repo + invite Kronelius | 3 min |
+| Visual eyeball + spot-fix anything off | 5 min |
+| **Total per re-skin** | **~10 min** |
+
+Scenario B without the `--primary-hex` flag adds ~5 min for hand-editing the brand-primary scale. Still well under 15 min per client.
+
+### Original per-client recipe (manual, no converter)
+
+Kept as a fallback for situations where the converter doesn't apply (e.g., a client wants a fundamentally different layout, not just a theme swap):
 
 1. Edit `app/src/brand.config.js` — name, hex/rgb, logoFile, titleSuffix.
 2. Copy `app/src/theme-polishpoint.css` → `app/src/theme-<client>.css`; swap the brand-primary scale + any client-specific recipe tweaks. Keep the token names; only values change.
