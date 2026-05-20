@@ -337,9 +337,11 @@
   --scrollbar-thumb-hover:   var(--color-neutral-400);
 
   /* ── Mobile header ── */
-  --mobile-header-bg:        var(--color-neutral-900);
-  --mobile-header-border:    var(--color-neutral-800);
-  --mobile-sub-color:        var(--color-neutral-400);
-  --hamburger-color:         var(--color-neutral-300);
+  /* PolishPoint blue bar — primary-500 anchor, primary-600 edge below for definition.
+     Hamburger + sub-text resolve to on-primary white surfaces. */
+  --mobile-header-bg:        var(--color-brand-primary-500);
+  --mobile-header-border:    var(--color-brand-primary-600);
+  --mobile-sub-color:        rgba(var(--color-white-rgb), 0.75);
+  --hamburger-color:         var(--color-text-on-primary);
   --overlay-bg:              rgba(var(--color-neutral-rgb), 0.5);
 }
