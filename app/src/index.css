@@ -828,14 +828,19 @@ select.input {
 /* When the company has a wordmark logo, the image carries the company name —
    so we drop the icon-box + text pair and render just the centered image. */
 .sidebar-brand-image {
-  padding: 20px 16px;
+  /* Tight top/bottom buffer — the PNG itself is now trimmed to tight bounds,
+     so this padding is the *only* margin between logo edge and the brand-area
+     border. Match the visual breathing room of the reference (Rainier) build. */
+  padding: 14px 16px;
   justify-content: center;
 }
 .sidebar-brand-img {
   display: block;
   max-width: 100%;
   height: auto;
-  max-height: 208px;
+  /* Wordmark logo height. The image is trimmed to tight bounds; this cap
+     determines how much vertical real estate the brand area consumes. */
+  max-height: 120px;
   object-fit: contain;
 }
 .sidebar-logo {
