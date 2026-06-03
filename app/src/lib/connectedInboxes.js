@@ -174,7 +174,7 @@ export async function disconnectInbox(inboxId) {
 // The Connected Inboxes settings page exposes a "Test send" button that
 // dispatches a real test email through the user's connected mailbox so they
 // can confirm From/Reply-To routing without leaving the page.
-export async function testInboxSend(inboxId, { to, subject, body }) {
+export async function testInboxSend(inboxId, { to, subject, body, fromName }) {
   if (!to || !subject || !body) {
     throw new Error('Missing required test fields.');
   }
@@ -182,7 +182,7 @@ export async function testInboxSend(inboxId, { to, subject, body }) {
     const res = await fetch(`${BACKEND}/inbox/${encodeURIComponent(inboxId)}/test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, body }),
+      body: JSON.stringify({ to, subject, body, fromName }),
     });
     if (!res.ok) {
       const err = await res.text();
@@ -203,17 +203,18 @@ export async function testInboxSend(inboxId, { to, subject, body }) {
 // Used by lib/messagingEmail.js (Phase 4b). Routes to the user's connected
 // inbox so the email originates from their real address. The backend picks
 // the right transport (Gmail API / Graph / SMTP) based on the inbox row.
-export async function sendViaInbox(inboxId, { to, from, subject, body, replyTo, cc, bcc, headers, tags }) {
+export async function sendViaInbox(inboxId, { to, from, fromName, subject, body, replyTo, cc, bcc, headers, tags, attachments }) {
   if (!inboxId) throw new Error('Connected inbox id is required.');
   if (!to) throw new Error('Recipient email is required.');
   if (!subject) throw new Error('Subject is required.');
   if (!body || !body.trim()) throw new Error('Body is empty.');
   if (BACKEND) {
-    const payload = { to, from, subject, body, replyTo };
+    const payload = { to, from, fromName, subject, body, replyTo };
     if (cc) payload.cc = cc;
     if (bcc) payload.bcc = bcc;
     if (headers && typeof headers === 'object') payload.headers = headers;
     if (Array.isArray(tags) && tags.length) payload.tags = tags;
+    if (Array.isArray(attachments) && attachments.length) payload.attachments = attachments;
     const res = await fetch(`${BACKEND}/inbox/${encodeURIComponent(inboxId)}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -231,6 +232,20 @@ export async function sendViaInbox(inboxId, { to, from, subject, body, replyTo, 
     id: `em_${Math.random().toString(36).slice(2, 14)}`,
     status: 'sent',
   };
+}
+
+// ---------- Inbound poll (marketing reply detection) ----------
+//
+// MarketingInboundListener calls this on an interval. The backend self-
+// throttles its own Gmail polling; this just returns reply rows past the
+// caller's cursor. Stub mode (no backend) resolves to an empty result.
+export async function pollInbound(since = 0) {
+  if (!BACKEND) return { ok: true, cursor: since, emails: [] };
+  const res = await fetch(`${BACKEND}/inbox/inbound?since=${encodeURIComponent(since)}`);
+  if (!res.ok) {
+    throw new Error(`Inbound poll failed (${res.status})`);
+  }
+  return res.json();
 }
 
 // ---------- Internal: OAuth popup helper ----------
