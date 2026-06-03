@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 const __modalStack = [];
 
@@ -23,7 +24,10 @@ export default function Modal({ open, onClose, title, children, size }) {
   }, [open]);
 
   if (!open) return null;
-  return (
+  // Portal to <body> so the fixed overlay escapes any page-level stacking
+  // context (e.g. <main> carries z-index:1 and would otherwise trap the
+  // modal beneath the sidebar at narrow desktop widths).
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className={`modal-card ${size ? `modal-card-${size}` : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -32,6 +36,7 @@ export default function Modal({ open, onClose, title, children, size }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -26,4 +26,17 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Backend serverless functions — Node runtime, not the browser. Dormant
+    // when there's no api/ directory; ready for future Vercel routes.
+    files: ['api/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.node, fetch: 'readonly' },
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
