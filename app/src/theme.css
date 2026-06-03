@@ -202,6 +202,15 @@
   --border-light:    var(--color-border-subtle);
   --border-mid:      var(--color-border-default);
 
+  /* Compatibility aliases for backported components that reference the
+     --color-* surface namespace directly (e.g. the Marketing module's inline
+     banners + the Gmail-connect instructions). They complete the existing
+     --color-* family so those surfaces resolve to the active theme instead of
+     falling back to the hardcoded generic hex baked into the inline styles. */
+  --color-border:    var(--color-border-default);
+  --color-info-bg:   var(--color-brand-primary-50);
+  --color-warning-bg: var(--color-semantic-warning-50);
+
   --text-primary:    var(--color-text-primary);
   --text-body:       var(--color-text-body);
   --text-muted:      var(--color-text-muted);
