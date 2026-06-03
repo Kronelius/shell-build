@@ -11,6 +11,7 @@ const PERM_GROUPS = [
   { id: 'contacts',     label: 'Contacts & Pipeline',  keys: ['contacts.view', 'contacts.edit', 'contacts.delete', 'tags.manage', 'pipeline.view', 'pipeline.edit'] },
   { id: 'invoices',     label: 'Invoices & Reminders', keys: ['invoices.view', 'invoices.edit', 'invoices.recordPayment', 'reminders.view', 'reminders.edit'] },
   { id: 'messaging',    label: 'Messaging',            keys: ['messaging.use', 'messaging.startConversation', 'messaging.startInternalThread', 'messaging.internalComment', 'messaging.manageSnippets', 'messaging.bulkActions'] },
+  { id: 'marketing',    label: 'Marketing',            keys: ['marketing.view', 'marketing.manage', 'marketing.connectInbox'] },
   { id: 'settings',     label: 'Settings',             keys: ['settings.company', 'settings.services', 'settings.team.view', 'settings.team.edit', 'settings.roles.edit', 'settings.account'] },
   { id: 'integrations', label: 'Integrations',         keys: ['integrations.view', 'integrations.manage'] },
   { id: 'super',        label: 'Super Admin Only',     keys: ['staff.assignRoles', 'staff.editOverrides'] },

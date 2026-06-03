@@ -56,6 +56,13 @@ export const PERMISSIONS = {
   'messaging.internalComment':      { label: 'Post internal comments',        defaultRoles: ['owner', 'admin', 'crew'] },
   'messaging.manageSnippets':       { label: 'Manage message snippets',       defaultRoles: ['owner', 'admin'] },
   'messaging.bulkActions':          { label: 'Run bulk conversation actions', defaultRoles: ['owner', 'admin', 'crew'] },
+  // ---------- Marketing (cold-email sequences — v38) ----------
+  // App-owned email sequences with company-shared rotation inboxes. Sends are
+  // app-owned (not user-owned like Messaging), so Crew is off by default;
+  // specific users get access via per-user overrides if needed.
+  'marketing.view':          { label: 'View Marketing',              defaultRoles: ['owner', 'admin'] },
+  'marketing.manage':        { label: 'Manage marketing sequences',  defaultRoles: ['owner', 'admin'] },
+  'marketing.connectInbox':  { label: 'Connect marketing inboxes',   defaultRoles: ['owner', 'admin'] },
   // ---------- Settings ----------
   'settings.company':        { label: 'Edit company settings',    defaultRoles: ['owner', 'admin'] },
   'settings.services':       { label: 'Edit services / frequencies', defaultRoles: ['owner'] },
