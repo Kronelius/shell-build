@@ -2208,7 +2208,7 @@ export function reducer(state, action) {
       if (action.id && replies.some((r) => r.id === action.id)) return state;
 
       // Resolve the enrollment: explicit id first (the marketing send stamps
-      // X-Rainier-Marketing-Enrollment-Id), then a from-email contact match.
+      // X-PP-Marketing-Enrollment-Id), then a from-email contact match.
       let enrollment = action.enrollmentId
         ? enrollments.find((e) => e.id === action.enrollmentId) || null
         : null;
