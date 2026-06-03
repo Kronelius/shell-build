@@ -27,7 +27,7 @@ Before responding to any request in this folder:
 
 ## Session End / As Work Lands
 - **Tick off DoD items** in `SHELL_ROADMAP.md` (`[ ]` → `[x]`) the moment a piece ships — don't batch.
-- **Bump seed version + storage key in lockstep** when state shape changes: `INITIAL_STATE.version` in `seed.js` AND `STORAGE_KEY` in `persist.js`. Currently on **v7** / `'pp.store.v7'`.
+- **Bump seed version + storage key in lockstep** when state shape changes: `INITIAL_STATE.version` in `seed.js` AND `STORAGE_KEY` in `persist.js`. Currently on **v38** / `'pp.store.v38'`.
 - **At session end, refresh `HANDOFF.md`** with:
   - What shipped this session (entities, files touched, biggest diffs)
   - Open issues / partial work / blockers
@@ -92,12 +92,13 @@ Once shell Core is complete:
 |---|---|
 | `app/` | React + Vite SPA — the real product. `npm --prefix app run dev` serves it on port 5173. |
 | `app/src/App.jsx` | Router. All routes are guarded by `<RequirePerm>`. |
-| `app/src/store/` | Context + reducer store. `reducer.js` is the complete action surface; `selectors.js` is the read-only surface; `persist.js` handles localStorage with version-gated reseeds (currently `pp.store.v37`). |
-| `app/src/data/seed.js` | INITIAL_STATE — company, users, services, clients, contacts, tags, invoices, jobs, etc. Bumps `version` when schema changes to force a fresh reseed. |
-| `app/src/lib/roles.js` | Role labels, permission keys, `can(user, permKey, permissions, overrides)` checker. |
+| `app/src/store/` | Context + reducer store. `reducer.js` is the complete action surface; `selectors.js` is the read-only surface; `persist.js` handles localStorage with version-gated reseeds (currently `pp.store.v38`). |
+| `app/src/data/seed.js` | INITIAL_STATE — company, users, services, clients, contacts, tags, invoices, jobs, connectedInboxes, marketing (inboxes/sequences/enrollments/sends/replies/settings), etc. Bumps `version` when schema changes to force a fresh reseed. |
+| `app/src/lib/roles.js` | Role labels, permission keys, `can(user, permKey, permissions, overrides)` checker. `can()` falls back to `PERMISSIONS[key].defaultRoles` when a key isn't in the live matrix. |
 | `app/src/hooks/usePermission.js` | Hooks that wire `can()` to current user + overrides. |
 | `app/src/pages/Clients.jsx` | CRM hub (mounted at `/contacts`). 2 sub-tabs: Contacts (default), Accounts. |
 | `app/src/pages/Pipeline.jsx` | Standalone Kanban board at `/pipeline`. Wraps `components/PipelineBoard`. |
+| `app/src/pages/Marketing.jsx` | Cold-email module at `/marketing`. 4 tabs: Sequences / Inboxes / Replies / Settings. Tab bodies in `pages/marketing/*`. Powered by `lib/marketingScheduler.js` + `lib/connectedInboxes.js` (stub-capable). |
 | `app/src/pages/ContactDetail.jsx` | Full contact profile. Tabs: Overview / Activity / Related / Notes. |
 | `app/src/pages/ClientDetail.jsx` | Account profile. Tabs: Overview / Contacts / Sites / Service History / Invoices / Notes. |
 | `app/src/pages/settings/` | Account, Company, Services, Team, TeamDetail (with per-user permission overrides card), Roles (permission matrix), Notifications. |

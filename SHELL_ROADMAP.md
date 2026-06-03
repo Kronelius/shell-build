@@ -123,6 +123,33 @@ Built. Audit:
 - Mobile-friendly behavior — **[x]** Single-pane mobile pattern: inbox by default, tap thread → message panel with back button, tap back → inbox. No auto-select on mobile.
 - User-to-user DMs — **[x]** Third inbox bucket alongside Inbox + Internal Chat. Channel `dm` + `participantUserIds: [a, b]` on `conversations`; privacy gated to participants in `selectConversationsForInbox` (owners/admins do NOT see DMs they aren't party to). `NewDmModal` reuses the AssignMenu-style picker. Storage bumped v19 → v20.
 
+## `[x]` Marketing (cold-email sequences) `[Core]`
+
+Backported from the Rainier proving build (2026-06). Multi-step email drip
+sequences with company-shared rotation inboxes, AI-routed inbound replies, and
+per-contact enrollments. Distinct from Messaging (which is per-user, 1:1). Runs
+**fully in stub mode on the shell** — no backend required; the `api/inbox/*`
+Vercel routes + Supabase migrations are the deferred backend workstream.
+
+**Architecture:** the send path routes through `lib/connectedInboxes.sendViaInbox()`
+(simulates locally when `VITE_EMAIL_BACKEND_URL` is unset). `lib/marketingScheduler.js`
+is pure-compute (due-step selection, send-window + daily-cap + inbox-rotation
+rules). `components/MarketingScheduler.jsx` ticks + dispatches sends;
+`components/MarketingInboundListener.jsx` polls for replies (no-op offline).
+The "Simulate a reply" affordance in the Replies tab exercises the inbound
+path in the demo.
+
+**Surfaces (`/marketing`, gated on `marketing.view`):**
+- `[x]` Sequences tab — list + create + multi-step drip editor with "On reply" routing + flow graphic
+- `[x]` Inboxes tab — connected rotation mailboxes + per-inbox sender name / signature
+- `[x]` Replies tab — inbound reply inbox + inline composer + simulate-reply
+- `[x]` Settings tab — reply-routing target (pipeline stage) + send window + plain-text default
+- `[x]` Gmail connect flow (`ConnectMarketingInboxModal` + de-Rainier-ified `GmailConnectInstructions`)
+- `[x]` Permissions: `marketing.view` / `marketing.manage` / `marketing.connectInbox` (owner+admin)
+- `[x]` State: marketingInboxes / marketingSequences / marketingEnrollments / marketingSends / marketingReplies / marketingSettings. Storage v37 → v38.
+
+**Deferred (backend workstream):** real Gmail OAuth + send via `api/inbox/*`, inbound webhook delivery, multi-tenant inbox auth. The correlation headers are emitted as `X-PP-Marketing-*` (renamed from Rainier's `X-Rainier-*`); a future backend's inbound webhook must echo these.
+
 ## `[x]` SMS via Twilio + A2P setup `[Core]`
 
 Definition of done — all shipped:
