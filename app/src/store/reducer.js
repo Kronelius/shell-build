@@ -180,6 +180,45 @@ export const ACTIONS = {
   // header lookup; falls back to recipient-email matching, then unlinked.
   RECEIVE_EMAIL: 'RECEIVE_EMAIL',
   SET_MESSAGE_DELIVERY: 'SET_MESSAGE_DELIVERY',
+
+  // ---------- Marketing (cold-email sequences — v38) ----------
+  // Marketing inboxes are app-owned rotation mailboxes (distinct from the
+  // per-user Messaging mailboxes in connectedInboxes). Tokens stay backend-
+  // side; the frontend only sees metadata.
+  ADD_MARKETING_INBOX: 'ADD_MARKETING_INBOX',
+  UPDATE_MARKETING_INBOX: 'UPDATE_MARKETING_INBOX',
+  REMOVE_MARKETING_INBOX: 'REMOVE_MARKETING_INBOX',
+  REORDER_MARKETING_INBOXES: 'REORDER_MARKETING_INBOXES',
+  // Sequences with embedded steps. status: 'draft' | 'active' | 'paused' | 'archived'.
+  // audienceMode: 'auto' | 'manual'. onStageExit: 'continue' | 'unenroll'.
+  ADD_MARKETING_SEQUENCE: 'ADD_MARKETING_SEQUENCE',
+  UPDATE_MARKETING_SEQUENCE: 'UPDATE_MARKETING_SEQUENCE',
+  DELETE_MARKETING_SEQUENCE: 'DELETE_MARKETING_SEQUENCE',
+  ADD_MARKETING_STEP: 'ADD_MARKETING_STEP',
+  UPDATE_MARKETING_STEP: 'UPDATE_MARKETING_STEP',
+  DELETE_MARKETING_STEP: 'DELETE_MARKETING_STEP',
+  REORDER_MARKETING_STEPS: 'REORDER_MARKETING_STEPS',
+  // Round-robin counter — dispatched by the scheduler on every successful enqueue.
+  ADVANCE_SEQUENCE_INBOX_INDEX: 'ADVANCE_SEQUENCE_INBOX_INDEX',
+  // Enrollment lifecycle. ENROLL_CONTACTS is dedup-safe (skips contacts
+  // already enrolled). ADVANCE_ENROLLMENT_STEP bumps currentStepIndex AND
+  // stamps lastSentAt — single seam, called once per successful send.
+  ENROLL_CONTACTS: 'ENROLL_CONTACTS',
+  UNENROLL_CONTACT: 'UNENROLL_CONTACT',
+  ADVANCE_ENROLLMENT_STEP: 'ADVANCE_ENROLLMENT_STEP',
+  // Send events log — mirrors reminderEvents.
+  RECORD_MARKETING_SEND: 'RECORD_MARKETING_SEND',
+  UPDATE_MARKETING_SEND: 'UPDATE_MARKETING_SEND',
+  // Reply handling. RECEIVE_MARKETING_REPLY records an inbound reply, halts
+  // the enrollment when the sequence opts in (haltOnReply), and routes the
+  // contact per the sequence's replyRouting config — all in one transition.
+  // UPDATE_MARKETING_REPLY patches a reply row (e.g. mark handled).
+  // RESUME_ENROLLMENT clears a reply-halt so the drip continues.
+  RECEIVE_MARKETING_REPLY: 'RECEIVE_MARKETING_REPLY',
+  UPDATE_MARKETING_REPLY: 'UPDATE_MARKETING_REPLY',
+  RESUME_ENROLLMENT: 'RESUME_ENROLLMENT',
+  // Global Marketing settings — shallow-merged into state.marketingSettings.
+  UPDATE_MARKETING_SETTINGS: 'UPDATE_MARKETING_SETTINGS',
 };
 
 function replaceById(list, id, patch) {
@@ -1852,6 +1891,494 @@ export function reducer(state, action) {
         conversations,
         messages: [...state.messages, message],
       };
+    }
+
+    case ACTIONS.ADD_MARKETING_INBOX: {
+      const inboxes = Array.isArray(state.marketingInboxes) ? state.marketingInboxes : [];
+      const provider = action.provider;
+      if (!provider) return state;
+      const id = action.id || newId('mi');
+      const maxOrder = inboxes.reduce((acc, i) => Math.max(acc, i.rotationOrder ?? 0), -1);
+      const next = {
+        id,
+        provider,
+        email: action.email || null,
+        displayName: action.displayName || null,
+        status: action.status || 'active',
+        connectedAt: nowIso(),
+        connectedByUserId: action.connectedByUserId || state.currentUserId || null,
+        lastSyncAt: null,
+        lastError: null,
+        enabled: action.enabled !== false,            // default true
+        rotationOrder: typeof action.rotationOrder === 'number' ? action.rotationOrder : maxOrder + 1,
+        // Max emails this inbox sends per calendar day — a deliverability
+        // guardrail the scheduler enforces. Default 10; user-adjustable.
+        dailySendLimit: typeof action.dailySendLimit === 'number' ? action.dailySendLimit : 10,
+        // Email signature block — inserted into step bodies via the
+        // {signature} variable. Plain text / HTML; may contain {variables}.
+        signature: typeof action.signature === 'string' ? action.signature : '',
+        inboundCapability: action.inboundCapability || (provider === 'google' ? 'pubsub' : null),
+        inboundEnabled: false,
+      };
+      return { ...state, marketingInboxes: [...inboxes, next] };
+    }
+    case ACTIONS.UPDATE_MARKETING_INBOX: {
+      const inboxes = Array.isArray(state.marketingInboxes) ? state.marketingInboxes : [];
+      if (!action.id) return state;
+      return {
+        ...state,
+        marketingInboxes: inboxes.map((i) => (i.id === action.id ? { ...i, ...action.patch } : i)),
+      };
+    }
+    case ACTIONS.REMOVE_MARKETING_INBOX: {
+      const inboxes = Array.isArray(state.marketingInboxes) ? state.marketingInboxes : [];
+      if (!action.id) return state;
+      const remaining = inboxes.filter((i) => i.id !== action.id);
+      // Renumber rotationOrder so positions stay contiguous (0..n-1) after
+      // removal. Keeps the modulo math predictable when sequences advance.
+      const sorted = [...remaining].sort((a, b) => (a.rotationOrder ?? 0) - (b.rotationOrder ?? 0));
+      const renumbered = sorted.map((i, idx) => ({ ...i, rotationOrder: idx }));
+      return { ...state, marketingInboxes: renumbered };
+    }
+    case ACTIONS.REORDER_MARKETING_INBOXES: {
+      const inboxes = Array.isArray(state.marketingInboxes) ? state.marketingInboxes : [];
+      const ids = Array.isArray(action.ids) ? action.ids : [];
+      if (ids.length === 0) return state;
+      const byId = new Map(inboxes.map((i) => [i.id, i]));
+      const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+      const leftover = inboxes.filter((i) => !ids.includes(i.id));
+      const final = [...ordered, ...leftover].map((i, idx) => ({ ...i, rotationOrder: idx }));
+      return { ...state, marketingInboxes: final };
+    }
+
+    case ACTIONS.ADD_MARKETING_SEQUENCE: {
+      const incoming = action.sequence || {};
+      const name = (incoming.name || '').trim();
+      if (!name) return state;
+      const now = nowIso();
+      const base = {
+        id: incoming.id || newId('mseq'),
+        name,
+        status: incoming.status || 'draft',
+        plainText: incoming.plainText === true,
+        nextInboxIndex: 0,
+        audienceMode: incoming.audienceMode === 'manual' ? 'manual' : 'auto',
+        enrollmentSources: Array.isArray(incoming.enrollmentSources) ? incoming.enrollmentSources : [],
+        onStageExit: incoming.onStageExit === 'unenroll' ? 'unenroll' : 'continue',
+        // Drip stops for a contact who replies — default on; toggled per sequence.
+        haltOnReply: incoming.haltOnReply !== false,
+        // Where a reply moves the contact. Seeded from the global default in
+        // marketingSettings; overridable per sequence in the editor.
+        replyRouting:
+          incoming.replyRouting && typeof incoming.replyRouting === 'object'
+            ? incoming.replyRouting
+            : { ...(state.marketingSettings?.replyRouting || { enabled: false, pipelineId: null, stageKey: null }) },
+        // Tags applied to a contact when they reply. Per sequence; empty = none.
+        replyTags: Array.isArray(incoming.replyTags) ? incoming.replyTags : [],
+        // Per-sequence "Notify on reply" — operator explicitly picks a team
+        // user to ping when a contact replies to this sequence. null = no
+        // notification. inApp toggle gates whether the picked user gets a
+        // notification row + bell badge. Email arm intentionally not wired
+        // yet (Resend transactional path + DNS records still pending; see
+        // HANDOFF backlog item).
+        notifyOnReplyUserId:
+          typeof incoming.notifyOnReplyUserId === 'string' && incoming.notifyOnReplyUserId
+            ? incoming.notifyOnReplyUserId
+            : null,
+        notifyOnReplyChannels: {
+          inApp: incoming.notifyOnReplyChannels?.inApp === true,
+        },
+        createdAt: now,
+        createdByUserId: incoming.createdByUserId || state.currentUserId || null,
+        updatedAt: now,
+        steps: Array.isArray(incoming.steps) ? incoming.steps : [],
+      };
+      return { ...state, marketingSequences: [...(state.marketingSequences || []), base] };
+    }
+    case ACTIONS.UPDATE_MARKETING_SEQUENCE: {
+      const seqs = state.marketingSequences || [];
+      if (!action.id) return state;
+      return {
+        ...state,
+        marketingSequences: seqs.map((s) => (s.id === action.id ? { ...s, ...action.patch, updatedAt: nowIso() } : s)),
+      };
+    }
+    case ACTIONS.DELETE_MARKETING_SEQUENCE: {
+      const id = action.id;
+      if (!id) return state;
+      return {
+        ...state,
+        marketingSequences: (state.marketingSequences || []).filter((s) => s.id !== id),
+        marketingEnrollments: (state.marketingEnrollments || []).filter((e) => e.sequenceId !== id),
+        marketingSends: (state.marketingSends || []).filter((sd) => sd.sequenceId !== id),
+        marketingReplies: (state.marketingReplies || []).filter((r) => r.sequenceId !== id),
+      };
+    }
+
+    case ACTIONS.ADD_MARKETING_STEP: {
+      const { sequenceId } = action;
+      if (!sequenceId) return state;
+      const seqs = state.marketingSequences || [];
+      return {
+        ...state,
+        marketingSequences: seqs.map((s) => {
+          if (s.id !== sequenceId) return s;
+          const existing = Array.isArray(s.steps) ? s.steps : [];
+          const incoming = action.step || {};
+          const order = typeof incoming.order === 'number' ? incoming.order : existing.length;
+          const sw = state.marketingSettings?.defaultSendWindow || { start: 9, end: 17 };
+          const step = {
+            id: incoming.id || newId('mstep'),
+            order,
+            daysAfterPrevious: typeof incoming.daysAfterPrevious === 'number' ? incoming.daysAfterPrevious : (order === 0 ? 0 : 3),
+            sendHourStart: typeof incoming.sendHourStart === 'number' ? incoming.sendHourStart : sw.start,
+            sendHourEnd: typeof incoming.sendHourEnd === 'number' ? incoming.sendHourEnd : sw.end,
+            subject: incoming.subject || '',
+            body: incoming.body || '',
+            attachments: Array.isArray(incoming.attachments) ? incoming.attachments : [],
+          };
+          return { ...s, steps: [...existing, step], updatedAt: nowIso() };
+        }),
+      };
+    }
+    case ACTIONS.UPDATE_MARKETING_STEP: {
+      const { sequenceId, stepId, patch } = action;
+      if (!sequenceId || !stepId) return state;
+      const seqs = state.marketingSequences || [];
+      return {
+        ...state,
+        marketingSequences: seqs.map((s) => {
+          if (s.id !== sequenceId) return s;
+          const steps = (s.steps || []).map((st) => (st.id === stepId ? { ...st, ...patch } : st));
+          return { ...s, steps, updatedAt: nowIso() };
+        }),
+      };
+    }
+    case ACTIONS.DELETE_MARKETING_STEP: {
+      const { sequenceId, stepId } = action;
+      if (!sequenceId || !stepId) return state;
+      const seqs = state.marketingSequences || [];
+      return {
+        ...state,
+        marketingSequences: seqs.map((s) => {
+          if (s.id !== sequenceId) return s;
+          const filtered = (s.steps || []).filter((st) => st.id !== stepId);
+          // Renumber `order` on survivors so the embedded array index === order.
+          const renumbered = filtered.map((st, idx) => ({ ...st, order: idx }));
+          return { ...s, steps: renumbered, updatedAt: nowIso() };
+        }),
+      };
+    }
+    case ACTIONS.REORDER_MARKETING_STEPS: {
+      const { sequenceId } = action;
+      const ids = Array.isArray(action.ids) ? action.ids : [];
+      if (!sequenceId || ids.length === 0) return state;
+      const seqs = state.marketingSequences || [];
+      return {
+        ...state,
+        marketingSequences: seqs.map((s) => {
+          if (s.id !== sequenceId) return s;
+          const byId = new Map((s.steps || []).map((st) => [st.id, st]));
+          const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+          const leftover = (s.steps || []).filter((st) => !ids.includes(st.id));
+          const final = [...ordered, ...leftover].map((st, idx) => ({ ...st, order: idx }));
+          return { ...s, steps: final, updatedAt: nowIso() };
+        }),
+      };
+    }
+
+    case ACTIONS.ADVANCE_SEQUENCE_INBOX_INDEX: {
+      const { sequenceId } = action;
+      if (!sequenceId) return state;
+      const seqs = state.marketingSequences || [];
+      return {
+        ...state,
+        marketingSequences: seqs.map((s) =>
+          s.id === sequenceId ? { ...s, nextInboxIndex: (s.nextInboxIndex || 0) + 1 } : s
+        ),
+      };
+    }
+
+    case ACTIONS.ENROLL_CONTACTS: {
+      const { sequenceId } = action;
+      const contactIds = Array.isArray(action.contactIds) ? action.contactIds : [];
+      if (!sequenceId || contactIds.length === 0) return state;
+      const enrollments = state.marketingEnrollments || [];
+      // Dedup-safe: skip contacts that already have a non-terminal enrollment
+      // (active / replied / completed) on this sequence.
+      const blockedStatuses = new Set(['active', 'replied', 'completed']);
+      const existingActiveIds = new Set(
+        enrollments
+          .filter((e) => e.sequenceId === sequenceId && blockedStatuses.has(e.status))
+          .map((e) => e.contactId)
+      );
+      const now = nowIso();
+      // source: 'manual' (the human added them) or 'auto' (the marketing
+      // scheduler pulled them in from a configured pipeline stage). Defaults
+      // to 'manual' since every UI surface that dispatches ENROLL_CONTACTS
+      // is the operator manually adding; auto-pull passes source: 'auto'
+      // explicitly. Used downstream to keep manual adds sticky against
+      // onStageExit: 'unenroll' (see getStaleEnrollments).
+      const source = action.source === 'auto' ? 'auto' : 'manual';
+      const fresh = contactIds
+        .filter((cid) => cid && !existingActiveIds.has(cid))
+        .map((cid) => ({
+          id: newId('menr'),
+          sequenceId,
+          contactId: cid,
+          enrolledAt: now,
+          enrolledByUserId: action.authorUserId || state.currentUserId || null,
+          source,
+          currentStepIndex: 0,
+          status: 'active',
+          lastSentAt: null,
+          repliedAt: null,
+        }));
+      if (fresh.length === 0) return state;
+      return { ...state, marketingEnrollments: [...enrollments, ...fresh] };
+    }
+    case ACTIONS.UNENROLL_CONTACT: {
+      const { enrollmentId } = action;
+      if (!enrollmentId) return state;
+      return {
+        ...state,
+        marketingEnrollments: (state.marketingEnrollments || []).map((e) =>
+          e.id === enrollmentId
+            ? { ...e, status: 'unenrolled' }
+            : e
+        ),
+      };
+    }
+    case ACTIONS.ADVANCE_ENROLLMENT_STEP: {
+      const { enrollmentId, sentAt } = action;
+      if (!enrollmentId) return state;
+      const seqs = state.marketingSequences || [];
+      return {
+        ...state,
+        marketingEnrollments: (state.marketingEnrollments || []).map((e) => {
+          if (e.id !== enrollmentId) return e;
+          const seq = seqs.find((s) => s.id === e.sequenceId);
+          const stepCount = seq ? (seq.steps || []).length : 0;
+          const nextIndex = (e.currentStepIndex || 0) + 1;
+          const completed = stepCount > 0 && nextIndex >= stepCount;
+          return {
+            ...e,
+            currentStepIndex: nextIndex,
+            lastSentAt: sentAt || nowIso(),
+            status: completed ? 'completed' : e.status,
+          };
+        }),
+      };
+    }
+
+    case ACTIONS.RECORD_MARKETING_SEND: {
+      const incoming = action.send || {};
+      if (!incoming.enrollmentId || !incoming.stepId) return state;
+      const base = {
+        id: incoming.id || newId('msnd'),
+        status: 'pending',
+        attemptedAt: nowIso(),
+        sentAt: null,
+        providerMessageId: null,
+        failureReason: null,
+      };
+      return {
+        ...state,
+        marketingSends: [...(state.marketingSends || []), { ...base, ...incoming }],
+      };
+    }
+    case ACTIONS.UPDATE_MARKETING_SEND: {
+      if (!action.id) return state;
+      return {
+        ...state,
+        marketingSends: (state.marketingSends || []).map((sd) =>
+          sd.id === action.id ? { ...sd, ...action.patch } : sd
+        ),
+      };
+    }
+    case ACTIONS.RECEIVE_MARKETING_REPLY: {
+      const now = nowIso();
+      const fromEmail = (action.fromEmail || '').trim().toLowerCase();
+      const enrollments = state.marketingEnrollments || [];
+      const sequences = state.marketingSequences || [];
+      const contacts = state.contacts || [];
+      const replies = state.marketingReplies || [];
+
+      // Idempotency — don't double-record if a provider id replays.
+      if (action.id && replies.some((r) => r.id === action.id)) return state;
+
+      // Resolve the enrollment: explicit id first (the marketing send stamps
+      // X-Rainier-Marketing-Enrollment-Id), then a from-email contact match.
+      let enrollment = action.enrollmentId
+        ? enrollments.find((e) => e.id === action.enrollmentId) || null
+        : null;
+      if (!enrollment && fromEmail) {
+        const contact = contacts.find((c) => (c.email || '').toLowerCase() === fromEmail);
+        if (contact) {
+          const owned = enrollments.filter((e) => e.contactId === contact.id);
+          enrollment =
+            owned.find((e) => !e.repliedAt && (e.status === 'active' || e.status === 'completed')) ||
+            owned[0] ||
+            null;
+        }
+      }
+      const sequence = enrollment
+        ? sequences.find((s) => s.id === enrollment.sequenceId) || null
+        : null;
+      const contactId = enrollment ? enrollment.contactId : null;
+
+      // 1. Record the reply row.
+      const reply = {
+        id: action.id || newId('mrep'),
+        enrollmentId: enrollment ? enrollment.id : null,
+        sequenceId: sequence ? sequence.id : null,
+        contactId,
+        fromEmail: fromEmail || null,
+        subject: action.subject || '',
+        body: action.body || '',
+        receivedAt: action.receivedAt || now,
+        status: 'new',
+      };
+
+      // 2. Halt the enrollment when the sequence opts in (haltOnReply default on).
+      let nextEnrollments = enrollments;
+      if (enrollment && sequence && sequence.haltOnReply !== false) {
+        nextEnrollments = enrollments.map((e) =>
+          e.id === enrollment.id && !e.repliedAt
+            ? { ...e, repliedAt: now, status: 'replied' }
+            : e
+        );
+      }
+
+      // 3. Route the contact per the sequence's reply-routing config.
+      let nextContacts = contacts;
+      let nextActivities = state.contactActivities || [];
+      const rr = sequence ? (sequence.replyRouting || {}) : {};
+      if (contactId && rr.enabled && rr.pipelineId && rr.stageKey) {
+        const pipeline = (state.pipelines || []).find((p) => p.id === rr.pipelineId);
+        const stage = pipeline ? (pipeline.stages || []).find((st) => st.key === rr.stageKey) : null;
+        const contact = nextContacts.find((c) => c.id === contactId);
+        if (pipeline && stage && contact && contact.stage !== rr.stageKey) {
+          nextContacts = nextContacts.map((c) =>
+            c.id === contactId
+              ? {
+                  ...c,
+                  stage: rr.stageKey,
+                  pipelineId: rr.pipelineId,
+                  stageChangedAt: now,
+                  updatedAt: now,
+                  lifecycle: rr.stageKey === 'won' ? 'client' : c.lifecycle,
+                }
+              : c
+          );
+          nextActivities = [
+            ...nextActivities,
+            {
+              id: newId('act'),
+              contactId,
+              kind: 'stage_change',
+              authorUserId: null, // system action — automated reply routing
+              body: `Stage: ${contact.stage || '—'} → ${rr.stageKey}`,
+              occurredAt: now,
+            },
+          ];
+        }
+      }
+
+      // 4. Notify the assigned user (per-sequence "Notify on reply"). The
+      // operator explicitly picked this user for this sequence — write the
+      // bell-inbox row directly (no notification-prefs gate; the per-sequence
+      // pick IS the gate). Email arm intentionally not wired yet.
+      let nextNotifications = state.notifications || [];
+      const notifyUserId = sequence?.notifyOnReplyUserId || null;
+      const notifyInApp = sequence?.notifyOnReplyChannels?.inApp === true;
+      if (notifyUserId && notifyInApp && sequence) {
+        const targetUser = (state.users || []).find((u) => u.id === notifyUserId);
+        if (targetUser && targetUser.status !== 'invited') {
+          const contact = contactId ? nextContacts.find((c) => c.id === contactId) : null;
+          const contactName = contact
+            ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || contact.email || 'a contact'
+            : (fromEmail || 'a contact');
+          const NOTIFICATION_LIMIT_PER_USER = 200;
+          const row = {
+            id: newId('nt'),
+            createdAt: now,
+            readAt: null,
+            userId: targetUser.id,
+            eventKey: 'marketingReplyAssigned',
+            title: `${contactName} replied to "${sequence.name}"`,
+            body: (action.body || '').replace(/\s+/g, ' ').trim().slice(0, 90),
+            url: '/marketing?tab=replies',
+          };
+          const sameUser = nextNotifications.filter((n) => n.userId === targetUser.id);
+          const others = nextNotifications.filter((n) => n.userId !== targetUser.id);
+          nextNotifications = [...[row, ...sameUser].slice(0, NOTIFICATION_LIMIT_PER_USER), ...others];
+        }
+      }
+
+      // 5. Apply the sequence's reply tags to the contact.
+      const replyTags = sequence && Array.isArray(sequence.replyTags) ? sequence.replyTags : [];
+      if (contactId && replyTags.length > 0) {
+        nextContacts = nextContacts.map((c) => {
+          if (c.id !== contactId) return c;
+          const have = c.tagIds || [];
+          const merged = [...have];
+          for (const tid of replyTags) {
+            if (tid && !merged.includes(tid)) merged.push(tid);
+          }
+          return merged.length === have.length ? c : { ...c, tagIds: merged, updatedAt: now };
+        });
+      }
+
+      return {
+        ...state,
+        marketingReplies: [...replies, reply],
+        marketingEnrollments: nextEnrollments,
+        contacts: nextContacts,
+        contactActivities: nextActivities,
+        notifications: nextNotifications,
+      };
+    }
+    case ACTIONS.UPDATE_MARKETING_REPLY: {
+      if (!action.id) return state;
+      return {
+        ...state,
+        marketingReplies: (state.marketingReplies || []).map((r) =>
+          r.id === action.id ? { ...r, ...action.patch } : r
+        ),
+      };
+    }
+    case ACTIONS.RESUME_ENROLLMENT: {
+      const { enrollmentId } = action;
+      if (!enrollmentId) return state;
+      // Clears a reply-halt — only un-halts an enrollment that was halted by
+      // a reply (status 'replied'); completed/unenrolled rows are left alone.
+      return {
+        ...state,
+        marketingEnrollments: (state.marketingEnrollments || []).map((e) =>
+          e.id === enrollmentId && e.status === 'replied'
+            ? { ...e, repliedAt: null, status: 'active' }
+            : e
+        ),
+      };
+    }
+
+    case ACTIONS.UPDATE_MARKETING_SETTINGS: {
+      const prev = state.marketingSettings || {};
+      const patch = action.patch || {};
+      const next = {
+        ...prev,
+        ...patch,
+        replyRouting: {
+          ...(prev.replyRouting || {}),
+          ...(patch.replyRouting || {}),
+        },
+        defaultSendWindow: {
+          ...(prev.defaultSendWindow || {}),
+          ...(patch.defaultSendWindow || {}),
+        },
+      };
+      return { ...state, marketingSettings: next };
     }
 
     default:

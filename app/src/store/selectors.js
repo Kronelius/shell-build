@@ -772,3 +772,122 @@ export function selectUnreadCountForInbox(s, inbox, currentUser) {
   const convos = selectConversationsForInbox(s, inbox, currentUser);
   return convos.reduce((acc, c) => acc + selectUnreadForConversation(s, c.id), 0);
 }
+
+// ---------- Marketing (v37) ----------
+// Email marketing module — company-shared rotation inboxes + sequences with
+// embedded steps + per-contact enrollments + send-events log + global settings.
+// Distinct from per-user Messaging (which uses connectedInboxes).
+
+export const selectMarketingInboxes = (s) =>
+  Array.isArray(s.marketingInboxes) ? s.marketingInboxes : [];
+
+// Round-robin candidate set: enabled + status==='active', sorted by rotationOrder.
+// The scheduler picks marketingInboxes[seq.nextInboxIndex % activeInboxes.length].
+export const selectActiveMarketingInboxes = (s) =>
+  (s.marketingInboxes || [])
+    .filter((i) => i.enabled !== false && i.status === 'active')
+    .sort((a, b) => (a.rotationOrder ?? 0) - (b.rotationOrder ?? 0));
+
+export const selectMarketingInboxById = (s, id) =>
+  (s.marketingInboxes || []).find((i) => i.id === id) || null;
+
+export const selectMarketingSequences = (s) =>
+  Array.isArray(s.marketingSequences) ? s.marketingSequences : [];
+
+export const selectActiveMarketingSequences = (s) =>
+  (s.marketingSequences || []).filter((seq) => seq.status === 'active');
+
+export const selectMarketingSequenceById = (s, id) =>
+  (s.marketingSequences || []).find((seq) => seq.id === id) || null;
+
+// Steps are embedded on the sequence row; return them sorted by .order.
+export const selectStepsForSequence = (s, sequenceId) => {
+  const seq = (s.marketingSequences || []).find((x) => x.id === sequenceId);
+  if (!seq) return [];
+  return [...(seq.steps || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+};
+
+export const selectMarketingEnrollments = (s) =>
+  Array.isArray(s.marketingEnrollments) ? s.marketingEnrollments : [];
+
+export const selectEnrollmentsForSequence = (s, sequenceId) =>
+  (s.marketingEnrollments || []).filter((e) => e.sequenceId === sequenceId);
+
+export const selectActiveEnrollmentsForSequence = (s, sequenceId) =>
+  (s.marketingEnrollments || []).filter(
+    (e) => e.sequenceId === sequenceId && e.status === 'active'
+  );
+
+export const selectEnrollmentForContactAndSequence = (s, contactId, sequenceId) =>
+  (s.marketingEnrollments || []).find(
+    (e) => e.contactId === contactId && e.sequenceId === sequenceId
+  ) || null;
+
+export const selectMarketingSends = (s) =>
+  Array.isArray(s.marketingSends) ? s.marketingSends : [];
+
+export const selectSendsForEnrollment = (s, enrollmentId) =>
+  (s.marketingSends || []).filter((sd) => sd.enrollmentId === enrollmentId);
+
+export const selectSendsForSequence = (s, sequenceId) =>
+  (s.marketingSends || []).filter((sd) => sd.sequenceId === sequenceId);
+
+// Marketing replies — inbound replies correlated to a sequence/contact, newest
+// first so the Replies inbox reads top-down.
+export const selectMarketingReplies = (s) =>
+  [...(s.marketingReplies || [])].sort((a, b) => {
+    const at = a.receivedAt || '';
+    const bt = b.receivedAt || '';
+    return at < bt ? 1 : at > bt ? -1 : 0;
+  });
+
+// Global Marketing settings — falls back to a sane empty shape so consumers
+// can read replyRouting.pipelineId etc. without optional-chaining gymnastics.
+export const selectMarketingSettings = (s) =>
+  s.marketingSettings || {
+    replyRouting: { enabled: false, pipelineId: null, stageKey: null },
+    plainTextDefault: false,
+    defaultSendWindow: { start: 9, end: 17 },
+    sendTimezone: null,
+    sendIntervalMinutes: 5,
+  };
+
+// Resolves the reply-routing config into concrete pipeline + stage records.
+// Returns null when the user hasn't picked a target OR the picked pipeline /
+// stage no longer exists (defensive — pipelines can be edited / deleted).
+export const selectReplyRoutingTarget = (s) => {
+  const settings = selectMarketingSettings(s);
+  const rr = settings.replyRouting || {};
+  if (!rr.enabled) return null;
+  if (!rr.pipelineId || !rr.stageKey) return null;
+  const pipeline = (s.pipelines || []).find((p) => p.id === rr.pipelineId);
+  if (!pipeline) return null;
+  const stage = (pipeline.stages || []).find((st) => st.key === rr.stageKey);
+  if (!stage) return null;
+  return { pipeline, stage };
+};
+
+// Aggregate stats for the Overview tab. enrolledCount counts all enrollments
+// for the sequence regardless of status (matches "how many people did we put
+// in this sequence ever"). sent/replied/failed are derived from the sends log.
+export function selectSequenceStats(s, sequenceId) {
+  const enrollments = (s.marketingEnrollments || []).filter((e) => e.sequenceId === sequenceId);
+  const sends = (s.marketingSends || []).filter((sd) => sd.sequenceId === sequenceId);
+  const sentCount = sends.filter((sd) => sd.status === 'sent').length;
+  const failedCount = sends.filter((sd) => sd.status === 'failed').length;
+  const repliedCount = enrollments.filter((e) => e.status === 'replied').length;
+  const lastActivityAt = sends.reduce(
+    (acc, sd) => (sd.sentAt && (!acc || sd.sentAt > acc) ? sd.sentAt : acc),
+    null
+  );
+  return {
+    // Exclude unenrolled — they've been pulled out of the sequence; counting
+    // them inflates the "enrolled" stat past what the SequenceContactsModal
+    // actually shows in its Enrolled tab.
+    enrolledCount: enrollments.filter((e) => e.status !== 'unenrolled').length,
+    sentCount,
+    failedCount,
+    repliedCount,
+    lastActivityAt,
+  };
+}

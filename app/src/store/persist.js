@@ -101,7 +101,7 @@
 // Bump in lockstep with INITIAL_STATE.version.
 import { PERMISSIONS } from '../lib/roles';
 
-const STORAGE_KEY = 'pp.store.v37';
+const STORAGE_KEY = 'pp.store.v38';
 
 // Default per-user notification prefs — kept here so the migration can
 // backfill it on existing users without importing from seed.js.
@@ -535,38 +535,69 @@ function migrateV35toV36(state) {
   return { ...state, version: 36, users, company };
 }
 
-// Compose v29 → v33 → v34 → v35 → v36 hops on top of any earlier migration
-// chain. v29 is the last numbered shape change before v33 (intermediate
+// v38: Marketing module (cold-email sequences). Additive — five new top-level
+// entities + a settings object. v37 was a key-bump-only rebrand step (no shape
+// change), so this hop applies cleanly to any v36- or v37-shaped state. Fully
+// idempotent: every field guards with `|| <default>`.
+function migrateV37toV38(state) {
+  return {
+    ...state,
+    version: 38,
+    marketingInboxes: state.marketingInboxes || [],
+    marketingSequences: state.marketingSequences || [],
+    marketingEnrollments: state.marketingEnrollments || [],
+    marketingSends: state.marketingSends || [],
+    marketingReplies: state.marketingReplies || [],
+    marketingSettings: state.marketingSettings || {
+      replyRouting: { enabled: false, pipelineId: null, stageKey: null },
+      plainTextDefault: false,
+      defaultSendWindow: { start: 9, end: 17 },
+      sendTimezone: null,
+      sendIntervalMinutes: 5,
+    },
+  };
+}
+
+// Compose v29 → v33 → v34 → v35 → v36 → v38 hops on top of any earlier
+// migration chain. v29 is the last numbered shape change before v33 (intermediate
 // v30/v31/v32 storage keys existed but never bumped state.version); v34 is
 // the nomenclature consolidation; v35 is the Heather Warren rename; v36
-// rewrites the brand domain + force-corrects Heather by id. This single
-// composition covers all stored states from v17 through v35.
-const toLatest = (s) => migrateV35toV36(migrateV34toV35(migrateV33toV34(migrateV29toV33(migrateV28toV29(s)))));
+// rewrites the brand domain + force-corrects Heather by id; v37 was a key-only
+// rebrand bump (no shape change); v38 adds the Marketing module. This single
+// composition covers all stored states from v17 through v37.
+const toLatest = (s) => migrateV37toV38(migrateV35toV36(migrateV34toV35(migrateV33toV34(migrateV29toV33(migrateV28toV29(s))))));
 
 export function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && parsed.version === 36) return parsed;
+      if (parsed && typeof parsed === 'object' && parsed.version === 38) return parsed;
     }
-    // v35 direct accept: previous storage key. Run v35 → v36.
+    // v37 direct accept: previous storage key (key-only rebrand bump, version 37).
+    // Run v37 → v38 to add the Marketing entities.
+    const v37Raw = window.localStorage.getItem('pp.store.v37');
+    if (v37Raw) {
+      const parsed = JSON.parse(v37Raw);
+      if (parsed && typeof parsed === 'object') return migrateV37toV38(parsed);
+    }
+    // v35 direct accept: previous storage key. Run v35 → v36 → v38.
     const v35Raw = window.localStorage.getItem('pp.store.v35');
     if (v35Raw) {
       const parsed = JSON.parse(v35Raw);
-      if (parsed && typeof parsed === 'object') return migrateV35toV36(parsed);
+      if (parsed && typeof parsed === 'object') return migrateV37toV38(migrateV35toV36(parsed));
     }
-    // v34 direct accept: previous storage key. Run v34 → v35 → v36.
+    // v34 direct accept: previous storage key. Run v34 → v35 → v36 → v38.
     const v34Raw = window.localStorage.getItem('pp.store.v34');
     if (v34Raw) {
       const parsed = JSON.parse(v34Raw);
-      if (parsed && typeof parsed === 'object') return migrateV35toV36(migrateV34toV35(parsed));
+      if (parsed && typeof parsed === 'object') return migrateV37toV38(migrateV35toV36(migrateV34toV35(parsed)));
     }
-    // v33 direct accept: previous storage key. Run v33 → v34 → v35 → v36.
+    // v33 direct accept: previous storage key. Run v33 → v34 → v35 → v36 → v38.
     const v33Raw = window.localStorage.getItem('pp.store.v33');
     if (v33Raw) {
       const parsed = JSON.parse(v33Raw);
-      if (parsed && typeof parsed === 'object') return migrateV35toV36(migrateV34toV35(migrateV33toV34(parsed)));
+      if (parsed && typeof parsed === 'object') return migrateV37toV38(migrateV35toV36(migrateV34toV35(migrateV33toV34(parsed))));
     }
     // Stale-key direct accepts: prior storage keys (v28-v32) parked here as
     // version=29-shaped data. Run v29→v33→v34→v35→v36.

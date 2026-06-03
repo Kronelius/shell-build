@@ -548,8 +548,35 @@ const notifications = [];
 // Default current user is Alex (super admin). Switcher in UI changes this.
 const currentUserId = users[0].id;
 
+// ---------- Marketing (cold-email sequences — v38) ----------
+// Company-shared rotation inboxes + sequences (with embedded steps) +
+// per-contact enrollments + send-events log + global settings. Distinct from
+// the per-user Messaging mailboxes in connectedInboxes. Ships empty — the user
+// builds sequences and connects a (stub) Gmail inbox to light the module up.
+// marketingSettings is a single object (not an array): the reply-routing config
+// new sequences inherit. replyRouting.pipelineId/stageKey are null until picked.
+const marketingInboxes = [];
+const marketingSequences = [];
+const marketingEnrollments = [];
+const marketingSends = [];
+const marketingReplies = [];
+const marketingSettings = {
+  replyRouting: {
+    enabled: false,
+    pipelineId: null,
+    stageKey: null,
+  },
+  plainTextDefault: false,
+  defaultSendWindow: { start: 9, end: 17 },
+  // null = use the device's (the user's) timezone. An IANA string pins it.
+  sendTimezone: null,
+  // Minutes each rotation inbox waits between sends — a per-inbox throttle
+  // so sends trickle out instead of firing in a burst.
+  sendIntervalMinutes: 5,
+};
+
 export const INITIAL_STATE = {
-  version: 37,
+  version: 38,
   company,
   currentUserId,
   users,
@@ -582,4 +609,11 @@ export const INITIAL_STATE = {
   // Messaging is gated on having at least one active connection.
   connectedInboxes: [],
   notifications,
+  // Marketing (cold-email sequences) — v38
+  marketingInboxes,
+  marketingSequences,
+  marketingEnrollments,
+  marketingSends,
+  marketingReplies,
+  marketingSettings,
 };
