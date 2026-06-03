@@ -7,6 +7,8 @@ import NotFound from './components/NotFound';
 import TwilioInboundListener from './components/TwilioInboundListener';
 import ReminderScheduler from './components/ReminderScheduler';
 import NotificationListener from './components/NotificationListener';
+import MarketingScheduler from './components/MarketingScheduler';
+import MarketingInboundListener from './components/MarketingInboundListener';
 import { usePermission } from './hooks/usePermission';
 
 import Dashboard from './pages/Dashboard';
@@ -19,6 +21,7 @@ import Pipeline from './pages/Pipeline';
 import Invoices from './pages/Invoices';
 import InvoiceDetail from './pages/InvoiceDetail';
 import Messaging from './pages/Messaging';
+import Marketing from './pages/Marketing';
 
 import SettingsLayout from './pages/settings/SettingsLayout';
 import SettingsCompany from './pages/settings/Company';
@@ -44,6 +47,8 @@ export default function App() {
         <TwilioInboundListener />
         <ReminderScheduler />
         <NotificationListener />
+        <MarketingScheduler />
+        <MarketingInboundListener />
         <BrowserRouter>
           <Routes>
             <Route element={<AppLayout />}>
@@ -68,6 +73,8 @@ export default function App() {
 
               <Route path="messaging" element={<RequirePerm perm="messaging.use"><Messaging /></RequirePerm>} />
               <Route path="messaging/:conversationId" element={<RequirePerm perm="messaging.use"><Messaging /></RequirePerm>} />
+
+              <Route path="marketing" element={<RequirePerm perm="marketing.view"><Marketing /></RequirePerm>} />
 
               <Route path="settings" element={<SettingsLayout />}>
                 <Route index element={<Navigate to="account" replace />} />

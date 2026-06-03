@@ -112,6 +112,12 @@ export const selectUserByEmail = (s, email) => {
   return s.users.find((u) => (u.email || '').toLowerCase() === lower) || null;
 };
 export const selectPipelines = (s) => s.pipelines || [];
+// Pipelines excluding any "master/triage" board. The shell has no master-board
+// concept (that's a per-client Pipeline overhaul), so on the shell this returns
+// every pipeline — the filter is a no-op until/unless isMaster exists. Kept
+// API-compatible so the Marketing reply-routing picker works unchanged.
+export const selectNonMasterPipelines = (s) =>
+  (s.pipelines || []).filter((p) => !p.isMaster);
 export const selectActivePipeline = (s) =>
   (s.pipelines || []).find((p) => p.id === s.activePipelineId) || (s.pipelines || [])[0] || null;
 export const selectActivePipelineStages = (s) => {

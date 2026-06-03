@@ -9,6 +9,7 @@ const NAV = [
   { to: '/',          label: 'Dashboard',  icon: 'dashboard', perm: 'dashboard.view', end: true },
   { to: '/schedule',  label: 'Schedule',   icon: 'schedule',  perm: 'schedule.view'  },
   { to: '/messaging', label: 'Messaging',  icon: 'messaging', perm: 'messaging.use'  },
+  { to: '/marketing', label: 'Marketing',  icon: 'mail',      perm: 'marketing.view' },
   { to: '/contacts',  label: 'Contacts',   icon: 'clients',   perm: 'contacts.view'  },
   { to: '/clients',   label: 'Clients',    icon: 'clients',   perm: 'clients.view', hideWhen: 'contacts.view' },
   { to: '/pipeline',  label: 'Pipeline',   icon: 'chart',     perm: 'pipeline.view'  },
