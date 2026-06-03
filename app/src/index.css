@@ -4494,3 +4494,592 @@ tr.clickable:hover { background: var(--inset-bg); }
 @media (max-width: 640px) {
   .attachment-card-actions .btn { flex: 1 1 calc(50% - 4px); }
 }
+
+/* ───────────────────────── Marketing (v37) ───────────────────────── */
+.btn-icon-danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+
+.marketing-tab-intro,
+.marketing-editor-hint {
+  font-size: 12px; color: var(--text-muted);
+  margin-bottom: 14px; max-width: 640px; line-height: 1.5;
+}
+.marketing-editor-hint { margin-bottom: 10px; }
+
+/* Sequences list — collapsible accordion rows */
+.marketing-seq-list { display: flex; flex-direction: column; gap: 12px; }
+.marketing-seq-row { padding: 0; margin-bottom: 0; overflow: hidden; }
+
+/* Summary header — the always-visible disclosure trigger */
+.marketing-seq-summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  padding: 14px 16px;
+}
+.marketing-seq-summary[role="button"] { cursor: pointer; }
+.marketing-seq-summary[role="button"]:hover { background: var(--primary-bg); }
+.marketing-seq-summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.marketing-seq-row.is-expanded .marketing-seq-summary { background: var(--primary-bg); }
+.marketing-seq-chevron {
+  flex-shrink: 0; display: flex;
+  color: var(--text-muted); transition: transform 0.15s ease, color 0.15s ease;
+}
+.marketing-seq-row.is-expanded .marketing-seq-chevron {
+  transform: rotate(90deg); color: var(--primary);
+}
+.marketing-seq-row-main {
+  /* min-width forces the actions to wrap to their own line when the row is
+     too narrow (e.g. the Marketing page is ~277px wide at the 641px tier)
+     instead of squeezing this column to nothing. */
+  flex: 1 1 0; min-width: 200px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.marketing-seq-row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.marketing-seq-row-title h3 {
+  font-size: 15px; font-weight: 600; color: var(--text-primary);
+  min-width: 0; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.marketing-seq-row-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.marketing-seq-row-stats {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 12px; color: var(--text-muted);
+}
+.marketing-seq-row-stats strong { color: var(--text-primary); font-weight: 600; }
+.marketing-seq-row-stat-fail strong { color: var(--danger); }
+.marketing-seq-row-meta { color: var(--text-muted); }
+
+/* Expanded editor body — inline, in place of the old popout */
+.marketing-seq-body {
+  padding: 18px 16px 16px;
+  border-top: 1px solid var(--card-border);
+}
+.marketing-editor-foot { display: flex; justify-content: flex-end; margin-top: 20px; }
+
+/* Sequences pagination */
+.marketing-pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; flex-wrap: wrap; margin-top: 16px;
+}
+.marketing-pagination-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 34px; padding: 0 8px;
+  border: 1px solid var(--card-border); border-radius: var(--btn-radius);
+  background: var(--card-bg); color: var(--text-body);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.marketing-pagination-btn:hover:not(:disabled):not(.is-active) {
+  border-color: var(--primary); color: var(--primary);
+}
+.marketing-pagination-btn.is-active {
+  background: var(--btn-primary-grad); color: var(--color-text-on-primary);
+  border-color: transparent; cursor: default;
+}
+.marketing-pagination-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Inboxes list */
+.marketing-inbox-list { display: flex; flex-direction: column; gap: 10px; }
+.marketing-inbox-row {
+  padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.marketing-inbox-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 240px; }
+.marketing-inbox-icon {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px; background: var(--primary-bg); color: var(--primary);
+}
+.marketing-inbox-text { min-width: 0; }
+.marketing-inbox-email { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; }
+.marketing-inbox-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.marketing-inbox-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.marketing-inbox-enabled { display: flex; align-items: center; gap: 8px; }
+.marketing-inbox-enabled-label { font-size: 12px; color: var(--text-muted); }
+.marketing-inbox-reorder { display: flex; gap: 4px; }
+
+/* Per-inbox daily send limit */
+.marketing-inbox-limit { display: flex; align-items: center; gap: 8px; }
+.marketing-inbox-limit-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.marketing-inbox-limit-input {
+  width: 62px; padding: 5px 8px;
+  border: 1px solid var(--card-border); border-radius: var(--btn-radius);
+  background: var(--card-bg); color: var(--text-primary);
+  font-size: 13px; font-weight: 600; text-align: center;
+}
+.marketing-inbox-limit-input:focus { border-color: var(--primary); }
+
+/* Dashed "add new inbox" ghost line — closes the list, and stands alone
+   as the sole element when nothing is connected yet. */
+.marketing-inbox-ghost {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px 16px;
+  border: 1.5px dashed var(--card-border); border-radius: var(--card-radius);
+  background: transparent; cursor: pointer;
+  color: var(--text-muted); font-size: 13px; font-weight: 600;
+  transition: border-color 0.15s, color 0.15s;
+}
+.marketing-inbox-ghost:hover { border-color: var(--primary); color: var(--primary); }
+.marketing-inbox-ghost:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.marketing-inbox-ghost-icon { display: flex; }
+
+/* Connect modal */
+.marketing-connect-copy { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px; }
+.marketing-connect-provider {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 10px;
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+  background: var(--primary-bg);
+}
+.marketing-connect-error { margin-top: 10px; }
+
+/* Settings tab */
+.marketing-settings { display: flex; flex-direction: column; gap: 12px; }
+.marketing-settings-routing,
+.marketing-settings-window { margin-top: 12px; }
+/* Sending-pace blurb sits inside the Defaults card — extra gap above marks
+   the sub-topic shift from the send-window fields. */
+.marketing-settings-pace-intro { margin-top: 16px; }
+.marketing-settings-save { display: flex; justify-content: flex-end; }
+
+/* Sequence editor */
+.marketing-editor { display: flex; flex-direction: column; gap: 22px; }
+.marketing-editor-section { display: flex; flex-direction: column; }
+.marketing-editor-section .section-head { margin-bottom: 10px; }
+
+/* Leads — auto sources */
+.marketing-source-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.marketing-source-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 10px; border-radius: 999px;
+  background: var(--primary-bg); border: 1px solid var(--card-border);
+  font-size: 12px; color: var(--text-primary);
+}
+.marketing-source-chip button {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1; color: var(--text-muted);
+  background: transparent; border: none; cursor: pointer;
+}
+.marketing-source-chip button:hover { color: var(--danger); background: var(--card-border); }
+.marketing-source-add { align-items: flex-end; }
+.marketing-source-add-btn { display: flex; align-items: flex-end; }
+.marketing-source-add-btn .btn { white-space: nowrap; }
+
+/* Leads — manual enrollment entry point */
+.marketing-enroll-stack { display: flex; margin: 2px 0 14px; }
+.marketing-enroll-stack .avatar { margin-left: -8px; box-shadow: 0 0 0 2px var(--card-bg); }
+.marketing-enroll-stack .avatar:first-child { margin-left: 0; }
+.marketing-enroll-stack-more {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 28px; min-width: 28px; padding: 0 8px; margin-left: -8px;
+  border-radius: var(--badge-radius); box-shadow: 0 0 0 2px var(--card-bg);
+  background: var(--inset-bg); color: var(--text-muted);
+  font-size: 10px; font-weight: 700;
+}
+.marketing-enroll-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Bulk contact enrollment modal */
+/* Fixed height so toggling Add/Enrolled (which have different toolbars +
+   pagination) never resizes the modal — the table area flexes to absorb it.
+   On short viewports the modal-card's own max-height/overflow takes over. */
+.enroll-modal { display: flex; flex-direction: column; gap: 14px; height: 540px; flex-shrink: 0; }
+.enroll-tabs { align-self: center; }
+.enroll-toolbar { display: flex; flex-direction: column; gap: 9px; }
+.enroll-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.enroll-filters .select { flex: 1 1 120px; }
+
+.enroll-table {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden;
+}
+.enroll-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.enroll-row {
+  display: grid; grid-template-columns: 42px minmax(0, 1fr) 166px 128px;
+  align-items: center; gap: 10px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border-light);
+}
+.enroll-scroll .enroll-row:last-child { border-bottom: none; }
+.enroll-row-head {
+  background: var(--inset-bg);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+label.enroll-row { cursor: pointer; }
+label.enroll-row:hover { background: var(--primary-bg); }
+.enroll-row.is-locked { background: var(--inset-bg); }
+.enroll-row.is-locked .enroll-contact-name { color: var(--text-muted); }
+
+.enroll-cell-check { display: flex; align-items: center; justify-content: center; }
+.enroll-cell-contact { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.enroll-contact-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.enroll-contact-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.enroll-contact-name {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.enroll-contact-mail {
+  font-size: 12px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.enroll-contact-mail.is-warn { color: var(--danger); }
+.enroll-cell-tags { display: flex; gap: 4px; align-items: center; overflow: hidden; }
+.enroll-tag-more { font-size: 11px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
+.enroll-cell-stage { min-width: 0; }
+.enroll-stage {
+  display: inline-block; max-width: 100%;
+  font-size: 11px; font-weight: 600; color: var(--text-body);
+  background: var(--inset-bg); border: 1px solid var(--card-border);
+  padding: 2px 8px; border-radius: var(--radius-full);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.enroll-dash { color: var(--text-muted); }
+
+.enroll-banner {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 14px; background: var(--primary-bg);
+  border-bottom: 1px solid var(--card-border);
+  font-size: 13px; color: var(--text-body);
+}
+.enroll-banner strong { color: var(--text-primary); }
+.enroll-banner-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 700; color: var(--primary); text-decoration: underline;
+}
+.enroll-empty { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
+
+.enroll-pager { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.enroll-pager-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+.enroll-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding-top: 14px; border-top: 1px solid var(--card-border);
+}
+.enroll-foot-count { font-size: 13px; color: var(--text-muted); }
+.enroll-foot-count strong { color: var(--text-primary); font-size: 15px; }
+.enroll-foot-btns { display: flex; gap: 8px; }
+
+/* Enrolled tab reuses the row grid, two columns only (checkbox + contact). */
+.enroll-table.is-2col .enroll-row { grid-template-columns: 42px minmax(0, 1fr); }
+
+/* Below 768px the modal is too narrow for the 4-column table — drop the
+   secondary columns so the contact column stays comfortable. */
+@media (max-width: 768px) {
+  .enroll-tabs .tab-btn { padding-left: 10px; padding-right: 10px; }
+  .enroll-row { grid-template-columns: 38px minmax(0, 1fr); }
+  .enroll-cell-tags, .enroll-cell-stage { display: none; }
+}
+
+/* Step flow board — visual email sequence (boxes + wait connectors + arrows) */
+.marketing-flow {
+  display: flex; align-items: stretch; gap: 0;
+  overflow-x: auto; padding: 6px 2px 16px;
+}
+.marketing-flow-card {
+  flex: 0 0 196px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--card-border); border-radius: 12px;
+  background: var(--card-bg);
+  cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.marketing-flow-card:hover { border-color: var(--primary); box-shadow: var(--card-shadow); }
+.marketing-flow-card.is-empty { border-style: dashed; }
+.marketing-flow-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.marketing-flow-card-num {
+  font-size: 11px; font-weight: 700; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.marketing-flow-card-tools { display: flex; gap: 2px; }
+.marketing-flow-card-tools .btn-icon { width: 24px; height: 24px; }
+.marketing-flow-card-subject {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  line-height: 1.35; min-height: 35px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.marketing-flow-card.is-empty .marketing-flow-card-subject {
+  font-weight: 500; font-style: italic; color: var(--text-muted);
+}
+.marketing-flow-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  margin-top: auto; font-size: 11px; color: var(--text-muted);
+}
+.marketing-flow-card-when {
+  font-weight: 600; color: var(--primary);
+  background: var(--primary-bg); padding: 1px 7px; border-radius: 999px;
+}
+.marketing-flow-card-foot-meta { display: flex; align-items: center; gap: 6px; }
+.marketing-flow-card-attach {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--text-muted); font-weight: 600;
+}
+/* Wait connector between two email boxes — line + arrowhead + clickable chip */
+.marketing-flow-wait {
+  flex: 0 0 96px; align-self: center; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer;
+  padding: 0; min-height: 52px;
+}
+.marketing-flow-wait::before {
+  content: ''; position: absolute; top: 50%; left: 4px; right: 13px;
+  height: 2px; background: var(--card-border); transform: translateY(-50%);
+}
+.marketing-flow-wait::after {
+  content: ''; position: absolute; top: 50%; right: 4px;
+  width: 0; height: 0; transform: translateY(-50%);
+  border-left: 7px solid var(--card-border);
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+}
+.marketing-flow-wait-chip {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 999px;
+  background: var(--primary-bg); border: 1px solid var(--card-border);
+  font-size: 11px; font-weight: 600; color: var(--primary); white-space: nowrap;
+}
+.marketing-flow-wait:hover .marketing-flow-wait-chip { border-color: var(--primary); }
+/* Short connector from the last box into the add-email box */
+.marketing-flow-join {
+  flex: 0 0 38px; align-self: center; position: relative; min-height: 52px;
+}
+.marketing-flow-join::before {
+  content: ''; position: absolute; top: 50%; left: 2px; right: 13px;
+  height: 2px; background: var(--card-border); transform: translateY(-50%);
+}
+.marketing-flow-join::after {
+  content: ''; position: absolute; top: 50%; right: 2px;
+  width: 0; height: 0; transform: translateY(-50%);
+  border-left: 7px solid var(--card-border);
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+}
+/* Dashed "add email" box — the blank email space */
+.marketing-flow-add {
+  flex: 0 0 150px; align-self: stretch;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 12px; min-height: 96px;
+  border: 1.5px dashed var(--card-border); border-radius: 12px;
+  background: transparent; cursor: pointer;
+  color: var(--text-muted); font-size: 12px; font-weight: 600;
+  transition: border-color 0.15s, color 0.15s;
+}
+.marketing-flow-add:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Step editor — attachments */
+.marketing-step-attach { margin-bottom: 14px; }
+.marketing-step-attach-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
+}
+.marketing-step-attach-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.marketing-step-attach-add { padding: 5px 12px; font-size: 12px; }
+.marketing-step-attach-input { display: none; }
+.marketing-step-attach-list {
+  list-style: none; margin: 0 0 8px; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.marketing-step-attach-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--card-border); border-radius: 8px;
+  font-size: 12px;
+}
+.marketing-step-attach-name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-primary); font-weight: 500;
+}
+.marketing-step-attach-size { flex-shrink: 0; color: var(--text-muted); }
+.marketing-step-attach-remove {
+  flex-shrink: 0; width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--text-muted); font-size: 17px; line-height: 1; border-radius: 5px;
+}
+.marketing-step-attach-remove:hover { color: var(--danger); }
+.marketing-step-attach-hint {
+  font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.5;
+}
+
+/* Reply handling — flow graphic (Leads in → Sequence → Reply destination).
+   Sits at the top of the Reply handling section so the operator can read
+   ingestion → drip → reply routing at a glance. Card-tinted background so
+   it reads as a status surface, not an input. */
+.marketing-reply-flow {
+  display: flex; align-items: stretch; gap: 8px;
+  padding: 12px 14px; margin-bottom: 18px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--primary-bg);
+}
+.marketing-reply-flow-node {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 10px;
+}
+.marketing-reply-flow-node-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; margin-bottom: 4px;
+  border-radius: 50%; background: var(--card-bg);
+  color: var(--primary); border: 1px solid var(--card-border);
+}
+.marketing-reply-flow-node-label {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.marketing-reply-flow-node-value {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.marketing-reply-flow-node-empty {
+  font-style: italic; font-weight: 500; color: var(--text-muted);
+}
+.marketing-reply-flow-node-more {
+  font-weight: 500; color: var(--text-muted); font-size: 12px;
+}
+.marketing-reply-flow-arrow {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); flex: 0 0 auto;
+}
+
+/* On-reply settings — each pref-row's expanded detail (pipeline picker,
+   tag picker, notify picker) sits indented below its row so the visual
+   hierarchy reads as "toggle controls this body." */
+.marketing-onreply-detail {
+  padding: 8px 0 14px 22px;
+  border-left: 2px solid var(--card-border);
+  margin: -4px 0 6px 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.marketing-onreply-detail .form-row { margin: 0; }
+.marketing-onreply-subrow { padding-top: 4px; padding-bottom: 4px; }
+
+@media (max-width: 640px) {
+  .marketing-seq-row-actions { width: 100%; justify-content: center; }
+  .marketing-seq-body { padding: 14px 12px; }
+  .marketing-inbox-row { flex-direction: column; align-items: stretch; }
+  .marketing-inbox-controls { justify-content: space-between; }
+  .marketing-source-add { flex-direction: column; align-items: stretch; }
+  .marketing-source-add-btn .btn { width: 100%; }
+  .marketing-flow-card { flex-basis: 170px; }
+  .marketing-flow-add { flex-basis: 132px; }
+  /* Reply flow stacks vertically on mobile so the long pipeline/stage strings
+     don't get squeezed. Arrows rotate to point down. */
+  .marketing-reply-flow { flex-direction: column; gap: 4px; }
+  .marketing-reply-flow-arrow { transform: rotate(90deg); justify-content: flex-start; padding-left: 14px; }
+  .marketing-reply-flow-node-value { white-space: normal; }
+}
+
+/* Step editor — variable picker */
+.marketing-var-picker {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+.marketing-var-picker .select-shell { flex: 0 1 260px; max-width: 100%; }
+.marketing-var-picker-target {
+  font-size: 12px; color: var(--text-muted); white-space: nowrap;
+}
+
+/* ── Marketing replies inbox ── */
+.marketing-stat-strip {
+  display: flex; flex-direction: row; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 14px 16px; margin-bottom: 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--primary-bg);
+}
+.marketing-stat { display: flex; flex-direction: column; line-height: 1.2; }
+.marketing-stat-num { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.marketing-stat-label {
+  font-size: 11px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.marketing-stat-action { margin-left: auto; }
+
+.marketing-reply-list { display: flex; flex-direction: column; gap: 10px; }
+.marketing-reply-row {
+  appearance: none; width: 100%; display: block;
+  text-align: left; cursor: pointer; font: inherit; color: inherit;
+  padding: 14px 16px;
+}
+.marketing-reply-row:hover { border-color: var(--primary); }
+.marketing-reply-row.is-new { border-left: 3px solid var(--primary); }
+.marketing-reply-row-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 3px;
+}
+.marketing-reply-row-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.marketing-reply-row-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.marketing-reply-row-snippet {
+  font-size: 13px; color: var(--text-muted); line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.marketing-reply-detail { display: flex; flex-direction: column; gap: 14px; }
+.marketing-reply-context {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 13px; color: var(--text-primary);
+}
+.marketing-reply-context span { display: inline-block; width: 116px; color: var(--text-muted); }
+.marketing-reply-subject { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.marketing-reply-body {
+  font-size: 13px; color: var(--text-primary); line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 240px; overflow-y: auto;
+  padding: 12px; border-radius: var(--btn-radius);
+  border: 1px solid var(--border-light); background: var(--inset-bg);
+}
+.marketing-reply-move { margin-top: 2px; }
+.marketing-reply-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.marketing-reply-footer { justify-content: space-between; }
+
+/* History block — past responses the operator already sent on this thread.
+   Each entry renders as a stacked card so the back-and-forth reads top-to-
+   bottom: inbound → response 1 → response 2 → composer. */
+.marketing-reply-history {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 4px;
+}
+.marketing-reply-history-item {
+  padding: 12px; border-radius: var(--btn-radius);
+  border: 1px solid var(--card-border); background: var(--primary-bg);
+}
+.marketing-reply-history-meta {
+  font-size: 11px; color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.marketing-reply-history-subject {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.marketing-reply-history-body {
+  font-size: 13px; color: var(--text-primary); line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* Inline reply composer — sits below the inbound + history, above the
+   pipeline routing + handled-toggle footer. Visually separated by a soft
+   top border so it reads as a distinct compose surface, not just more
+   metadata. */
+.marketing-reply-compose {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-top: 14px; margin-top: 4px;
+  border-top: 1px solid var(--card-border);
+}
+.marketing-reply-compose-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+}
+.marketing-reply-compose-head-label {
+  font-size: 13px; font-weight: 700; color: var(--text-primary);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.marketing-reply-compose-head-from {
+  font-size: 12px; color: var(--text-muted);
+}
+.marketing-reply-compose-actions {
+  display: flex; justify-content: flex-end;
+}
